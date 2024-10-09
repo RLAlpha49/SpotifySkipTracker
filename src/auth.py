@@ -8,7 +8,6 @@ such as client ID, client secret, and tokens.
 
 import os
 import logging
-import time
 import requests
 from dotenv import load_dotenv, set_key
 from flask import request, redirect
