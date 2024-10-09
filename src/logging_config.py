@@ -1,3 +1,9 @@
+"""
+This module provides a function to set up a logger with both file and stream handlers.
+The logger is configured to write logs to a specified file and to the console, with
+support for rotating log files and UTF-8 encoding to handle a wide range of characters.
+"""
+
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -18,7 +24,7 @@ def setup_logger(
 
     # File handler for logging to a file
     file_handler = RotatingFileHandler(
-        log_file, maxBytes=10 * 1024 * 1024, backupCount=10
+        log_file, maxBytes=10 * 1024 * 1024, backupCount=10, encoding="utf-8"
     )
     file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     file_handler.setFormatter(file_formatter)
@@ -29,6 +35,7 @@ def setup_logger(
     stream_formatter = logging.Formatter("%(levelname)s - %(message)s")
     stream_handler.setFormatter(stream_formatter)
     stream_handler.setLevel(logging.INFO)
+    stream_handler.setStream(open(1, "w", encoding="utf-8", closefd=False))
 
     # Add handlers to the logger
     logger.addHandler(file_handler)
