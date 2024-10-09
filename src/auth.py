@@ -8,6 +8,7 @@ such as client ID, client secret, and tokens.
 
 import os
 import logging
+import time
 import requests
 from dotenv import load_dotenv, set_key
 from flask import request, redirect
@@ -27,6 +28,11 @@ logger = logging.getLogger("SpotifySkipTracker")
 ACCESS_TOKEN = None
 REFRESH_TOKEN = None
 
+def reload_env():
+    """
+    Reload environment variables from the .env file.
+    """
+    load_dotenv(override=True)
 
 def save_access_token(token):
     """
@@ -36,6 +42,7 @@ def save_access_token(token):
         token (str): The access token to be saved.
     """
     set_key(".env", "SPOTIFY_ACCESS_TOKEN", token)
+    reload_env()
 
 
 def save_refresh_token(token):
@@ -46,6 +53,7 @@ def save_refresh_token(token):
         token (str): The refresh token to be saved.
     """
     set_key(".env", "SPOTIFY_REFRESH_TOKEN", token)
+    reload_env()
 
 
 def refresh_access_token():
@@ -63,7 +71,6 @@ def refresh_access_token():
         "client_secret": CLIENT_SECRET,
     }
     response = requests.post(TOKEN_URL, data=token_data, timeout=10)
-    logger.debug(response.json())
     if response.status_code == 200:
         ACCESS_TOKEN = response.json()["access_token"]
         save_access_token(ACCESS_TOKEN)
