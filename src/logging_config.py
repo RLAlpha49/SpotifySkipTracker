@@ -23,28 +23,32 @@ def setup_logger(
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
-    # Create logs directory if it doesn't exist
-    log_dir = os.path.dirname(log_file)
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    if not logger.handlers:
+        # Create logs directory if it doesn't exist
+        log_dir = os.path.dirname(log_file)
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
 
-    # File handler for logging to a file
-    file_handler = RotatingFileHandler(
-        log_file, maxBytes=10 * 1024 * 1024, backupCount=10, encoding="utf-8"
-    )
-    file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    file_handler.setFormatter(file_formatter)
-    file_handler.setLevel(level)
+        # File handler for logging to a file
+        file_handler = RotatingFileHandler(
+            log_file, maxBytes=10 * 1024 * 1024, backupCount=10, encoding="utf-8"
+        )
+        file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        file_handler.setFormatter(file_formatter)
+        file_handler.setLevel(level)
 
-    # Stream handler for logging to the terminal
-    stream_handler = logging.StreamHandler()
-    stream_formatter = logging.Formatter("%(levelname)s - %(message)s")
-    stream_handler.setFormatter(stream_formatter)
-    stream_handler.setLevel(logging.INFO)
-    stream_handler.setStream(open(1, "w", encoding="utf-8", closefd=False))
+        # Stream handler for logging to the terminal
+        stream_handler = logging.StreamHandler()
+        stream_formatter = logging.Formatter("%(levelname)s - %(message)s")
+        stream_handler.setFormatter(stream_formatter)
+        stream_handler.setLevel(logging.INFO)
+        stream_handler.setStream(open(1, "w", encoding="utf-8", closefd=False))
 
-    # Add handlers to the logger
-    logger.addHandler(file_handler)
-    logger.addHandler(stream_handler)
+        # Add handlers to the logger
+        logger.addHandler(file_handler)
+        logger.addHandler(stream_handler)
+
+    # Prevent log messages from being propagated to the root logger
+    logger.propagate = False
 
     return logger
