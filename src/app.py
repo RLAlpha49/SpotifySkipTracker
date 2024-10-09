@@ -74,6 +74,7 @@ if __name__ == "__main__":
             else:
                 webbrowser.open("http://localhost:5000/login")
                 threading.Thread(target=run_flask_app).start()
+                threading.Thread(target=main).start()
             ATTEMPTS += 1
 
         if is_token_valid():
@@ -85,6 +86,7 @@ if __name__ == "__main__":
             )
             webbrowser.open("http://localhost:5000/login")
             threading.Thread(target=run_flask_app).start()
+            threading.Thread(target=main).start()
 
         # Keep the main thread alive to listen for the stop flag
         while not stop_flag.is_set():
