@@ -1,14 +1,5 @@
 # Spotify Skip Tracker
 
-Spotify Skip Tracker is a application designed to monitor and track Spotify playback. It includes features such as logging, signal handling, and keybind listening for a seamless user experience.
-
-## Features
-
-- **Spotify Authentication**: Securely authenticate with Spotify to access playback data.
-- **Playback Monitoring**: Track and log playback events.
-- **Logging**: Comprehensive logging to both file and console.
-- **Cross-Platform Support**: Runs on both Windows and Unix-like systems.
-
 ## Installation
 
 ### Prerequisites
