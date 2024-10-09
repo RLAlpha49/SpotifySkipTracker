@@ -6,6 +6,7 @@ support for rotating log files and UTF-8 encoding to handle a wide range of char
 
 import logging
 from logging.handlers import RotatingFileHandler
+import os
 
 
 def setup_logger(
@@ -21,6 +22,11 @@ def setup_logger(
     """
     logger = logging.getLogger(name)
     logger.setLevel(level)
+
+    # Create logs directory if it doesn't exist
+    log_dir = os.path.dirname(log_file)
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
 
     # File handler for logging to a file
     file_handler = RotatingFileHandler(
