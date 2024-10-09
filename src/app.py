@@ -73,7 +73,7 @@ if __name__ == "__main__":
                 refresh_access_token()
             else:
                 webbrowser.open("http://localhost:5000/login")
-                run_flask_app()
+                threading.Thread(target=run_flask_app).start()
             ATTEMPTS += 1
 
         if is_token_valid():
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         else:
             logger.error("Failed to authenticate after 10 attempts. Forcing re-authentication...")
             webbrowser.open("http://localhost:5000/login")
-            run_flask_app()
+            threading.Thread(target=run_flask_app).start()
 
         # Keep the main thread alive to listen for the stop flag
         while not stop_flag.is_set():
