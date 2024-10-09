@@ -14,6 +14,7 @@ from flask import Flask
 from auth import login, callback, is_token_valid, refresh_access_token
 from playback import main as playback_main
 from logging_config import setup_logger
+from urllib.parse import urlparse
 
 app = Flask(__name__)
 
@@ -56,12 +57,15 @@ def run_flask_app():
     """
     Run the Flask application using the appropriate server based on the platform.
     """
+    redirect_uri = os.getenv("SPOTIFY_REDIRECT_URI", "http://localhost:5000/callback")
+    port = urlparse(redirect_uri).port or 5000
+
     if platform.system() == "Windows":
         from waitress import serve  # pylint: disable=import-outside-toplevel
 
-        serve(app, host="0.0.0.0", port=5000)
+        serve(app, host="0.0.0.0", port=port)
     else:
-        os.system("gunicorn -w 4 -b 0.0.0.0:5000 app:app")
+        os.system(f"gunicorn -w 4 -b 0.0.0.0:{port} app:app")
 
 
 if __name__ == "__main__":
