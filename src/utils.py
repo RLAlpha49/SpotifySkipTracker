@@ -37,7 +37,9 @@ def get_user_id(retries=3):
                 time.sleep(5)
                 refresh_access_token()
             else:
-                logger.error("Failed to fetch user ID, attempt %d/%d", attempt + 1, retries)
+                logger.error(
+                    "Failed to fetch user ID, attempt %d/%d", attempt + 1, retries
+                )
                 time.sleep(2)
     except requests.exceptions.RequestException as e:
         logger.error("Failed to fetch user ID: %s", str(e))
@@ -125,7 +127,9 @@ def get_recently_played_tracks(limit=10, after=None, before=None, retries=3):
                 error_message = (
                     response.json().get("error", {}).get("message", "Unknown error")
                 )
-                logger.error("Failed to fetch recently played tracks: %s", error_message)
+                logger.error(
+                    "Failed to fetch recently played tracks: %s", error_message
+                )
                 return {}
             logger.error(
                 "Failed to fetch recently played tracks, attempt %d/%d",

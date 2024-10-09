@@ -27,11 +27,13 @@ logger = logging.getLogger("SpotifySkipTracker")
 ACCESS_TOKEN = None
 REFRESH_TOKEN = None
 
+
 def reload_env():
     """
     Reload environment variables from the .env file.
     """
     load_dotenv(override=True)
+
 
 def save_access_token(token):
     """
