@@ -99,7 +99,7 @@ def main(stop_flag):
                                 )
 
                                 # Unlike if skipped 5 times
-                                if skip_count[last_track_id] >= 10:
+                                if skip_count[last_track_id] >= 5:
                                     logger.info(
                                         "Unliking song: %s by %s (%s)",
                                         last_track_name,
