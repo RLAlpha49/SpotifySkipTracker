@@ -128,6 +128,8 @@ def check_if_skipped_early(progress_ms, duration_ms):
     Returns:
         bool: True if the song was skipped early, False otherwise.
     """
+    if duration_ms <= 2 * 60 * 1000:
+        return progress_ms < duration_ms / 2
     return progress_ms < duration_ms / 3
 
 
