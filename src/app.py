@@ -119,6 +119,8 @@ if __name__ == "__main__":
                     MAIN_THREAD.start()
                     break
             else:
+                MAIN_THREAD = threading.Thread(target=main)
+                MAIN_THREAD.start()
                 break
             time.sleep(1)
 
