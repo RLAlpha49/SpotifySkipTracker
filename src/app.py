@@ -80,7 +80,9 @@ if __name__ == "__main__":
             logger.info("Access token is valid. No need to re-authenticate.")
             threading.Thread(target=main).start()
         else:
-            logger.error("Failed to authenticate after 10 attempts. Forcing re-authentication...")
+            logger.error(
+                "Failed to authenticate after 10 attempts. Forcing re-authentication..."
+            )
             webbrowser.open("http://localhost:5000/login")
             threading.Thread(target=run_flask_app).start()
 
