@@ -72,7 +72,7 @@ if __name__ == "__main__":
             if os.getenv("SPOTIFY_REFRESH_TOKEN"):
                 refresh_access_token()
             else:
-                webbrowser.open("http://localhost:5000/login")
+                webbrowser.open(os.getenv("SPOTIFY_REDIRECT_URI", "http://localhost:5000/login"))
                 threading.Thread(target=run_flask_app).start()
                 threading.Thread(target=main).start()
             ATTEMPTS += 1
@@ -84,7 +84,7 @@ if __name__ == "__main__":
             logger.error(
                 "Failed to authenticate after 10 attempts. Forcing re-authentication..."
             )
-            webbrowser.open("http://localhost:5000/login")
+            webbrowser.open(os.getenv("SPOTIFY_REDIRECT_URI", "http://localhost:5000/login"))
             threading.Thread(target=run_flask_app).start()
             threading.Thread(target=main).start()
 
