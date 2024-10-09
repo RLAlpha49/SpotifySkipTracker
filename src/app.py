@@ -66,16 +66,23 @@ def run_flask_app():
 
 if __name__ == "__main__":
     try:
-        if not is_token_valid():
+        ATTEMPTS = 0
+        while not is_token_valid() and ATTEMPTS < 10:
             logger.info("Access token is invalid or missing. Re-authenticating...")
             if os.getenv("SPOTIFY_REFRESH_TOKEN"):
                 refresh_access_token()
             else:
                 webbrowser.open("http://localhost:5000/login")
                 run_flask_app()
-        else:
+            ATTEMPTS += 1
+
+        if is_token_valid():
             logger.info("Access token is valid. No need to re-authenticate.")
             threading.Thread(target=main).start()
+        else:
+            logger.error("Failed to authenticate after 10 attempts. Forcing re-authentication...")
+            webbrowser.open("http://localhost:5000/login")
+            run_flask_app()
 
         # Keep the main thread alive to listen for the stop flag
         while not stop_flag.is_set():
