@@ -150,5 +150,5 @@ def main(stop_flag: threading.Event) -> None:
 
             last_progress = progress_ms
 
-        time.sleep(0.5)
+        time.sleep(1)
     logger.info("Playback monitoring stopped.")

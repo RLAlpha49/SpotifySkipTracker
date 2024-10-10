@@ -73,9 +73,15 @@ def get_current_playback(retries: int = 3) -> Optional[Dict[str, Any]]:
                 time.sleep(5)
                 continue
             if response.status_code == 429:
-                logger.debug(response.json())
-                logger.error("Rate limit exceeded, waiting for 10 seconds")
-                time.sleep(10)
+                if "Retry-After" in response.headers:
+                    retry_after = int(response.headers["Retry-After"])
+                    logger.error(
+                        "Rate limit exceeded, waiting for %d seconds", retry_after
+                    )
+                    time.sleep(retry_after)
+                else:
+                    logger.error("Rate limit exceeded, waiting for 10 seconds")
+                    time.sleep(10)
                 continue
             if response.status_code == 204:
                 return None
@@ -84,6 +90,10 @@ def get_current_playback(retries: int = 3) -> Optional[Dict[str, Any]]:
             time.sleep(2)
     except requests.exceptions.RequestException as e:
         logger.error("Failed to fetch current playback: %s", str(e))
+        if response:
+            logger.debug(response.text)
+            logger.debug(response.status_code)
+            logger.debug(response.headers)
         time.sleep(2)
     return None
 
