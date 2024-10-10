@@ -20,6 +20,7 @@ from logging_config import setup_logger
 if platform.system() == "Linux":
     src_path = os.path.dirname(os.path.abspath(__file__))
     os.system(f"export PYTHONPATH=$PYTHONPATH:{src_path}")
+    os.environ["PYTHONPATH"] = f"{os.environ.get('PYTHONPATH', '')}:{src_path}"
 
 # Set up logging
 logger = setup_logger()

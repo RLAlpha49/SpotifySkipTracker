@@ -134,6 +134,7 @@ def is_token_valid():
     Returns:
         bool: True if the access token is valid, False otherwise.
     """
+    load_dotenv()
     headers = {"Authorization": f"Bearer {os.getenv('SPOTIFY_ACCESS_TOKEN')}"}
     url = "https://api.spotify.com/v1/me"
     response = requests.get(url, headers=headers, timeout=10)
