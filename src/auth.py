@@ -10,32 +10,32 @@ import os
 import logging
 import requests
 from dotenv import load_dotenv, set_key
-from flask import request, redirect
+from flask import request, redirect, Response
 
 load_dotenv()
 
-CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
-CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
-REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI")
-AUTH_URL = "https://accounts.spotify.com/authorize"
-TOKEN_URL = "https://accounts.spotify.com/api/token"
-SCOPE = "user-read-playback-state user-library-modify user-read-recently-played"
+CLIENT_ID: str = os.getenv("SPOTIFY_CLIENT_ID", "")
+CLIENT_SECRET: str = os.getenv("SPOTIFY_CLIENT_SECRET", "")
+REDIRECT_URI: str = os.getenv("SPOTIFY_REDIRECT_URI", "")
+AUTH_URL: str = "https://accounts.spotify.com/authorize"
+TOKEN_URL: str = "https://accounts.spotify.com/api/token"
+SCOPE: str = "user-read-playback-state user-library-modify user-read-recently-played"
 
-logger = logging.getLogger("SpotifySkipTracker")
+logger: logging.Logger = logging.getLogger("SpotifySkipTracker")
 
 # Define global variables
-ACCESS_TOKEN = None
-REFRESH_TOKEN = None
+ACCESS_TOKEN: str = None
+REFRESH_TOKEN: str = None
 
 
-def reload_env():
+def reload_env() -> None:
     """
     Reload environment variables from the .env file.
     """
     load_dotenv(override=True)
 
 
-def save_access_token(token):
+def save_access_token(token: str) -> None:
     """
     Save the access token to the .env file.
 
@@ -46,7 +46,7 @@ def save_access_token(token):
     reload_env()
 
 
-def save_refresh_token(token):
+def save_refresh_token(token: str) -> None:
     """
     Save the refresh token to the .env file.
 
@@ -57,7 +57,7 @@ def save_refresh_token(token):
     reload_env()
 
 
-def refresh_access_token():
+def refresh_access_token() -> None:
     """
     Refresh the Spotify access token using the refresh token.
 
@@ -80,7 +80,7 @@ def refresh_access_token():
         logger.error("Failed to refresh access token")
 
 
-def login():
+def login() -> Response:
     """
     Redirect the user to the Spotify authorization URL.
 
@@ -94,7 +94,7 @@ def login():
     return redirect(auth_url)
 
 
-def callback():
+def callback() -> tuple[str, int]:
     """
     Handle the callback from Spotify after user authorization.
 
@@ -102,7 +102,7 @@ def callback():
     saves them to the .env file, and logs the success or failure.
 
     Returns:
-        str: A success message if the tokens are obtained successfully.
+        tuple: A success message and status code if the tokens are obtained successfully.
         tuple: An error message and status code if the token exchange fails.
     """
     global ACCESS_TOKEN, REFRESH_TOKEN  # pylint: disable=global-statement
@@ -122,12 +122,12 @@ def callback():
         save_refresh_token(REFRESH_TOKEN)
         save_access_token(ACCESS_TOKEN)
         logger.info("Access Token Obtained")
-        return "Login successful! You can now close this tab."
+        return "Login successful! You can now close this tab.", 200
     logger.error("Failed to get access token")
     return "Failed to get access token", 400
 
 
-def is_token_valid():
+def is_token_valid() -> bool:
     """
     Check if the current Spotify access token is valid.
 

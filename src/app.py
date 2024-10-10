@@ -11,6 +11,8 @@ import webbrowser
 import threading
 import signal
 import platform
+from typing import Optional
+from types import FrameType
 from urllib.parse import urlparse
 from flask import Flask
 from auth import login, callback, is_token_valid, refresh_access_token
@@ -37,23 +39,23 @@ if missing_vars:
     logger.error("Missing required environment variables: %s", ", ".join(missing_vars))
     raise SystemExit("Exiting due to missing environment variables.")
 
-app = Flask(__name__)
+app: Flask = Flask(__name__)
 
 # Define routes
 app.route("/login")(login)
 app.route("/callback")(callback)
 
-port = (
+port: int = (
     urlparse(os.getenv("SPOTIFY_REDIRECT_URI", "http://localhost:5000/callback")).port
     or 5000
 )
 
 # Global stop flags
-main_stop_flag = threading.Event()
-flask_stop_flag = threading.Event()
+main_stop_flag: threading.Event = threading.Event()
+flask_stop_flag: threading.Event = threading.Event()
 
 
-def signal_handler(sig, frame):  # pylint: disable=unused-argument
+def signal_handler(sig: int, frame: Optional[FrameType]) -> None:  # pylint: disable=unused-argument
     """
     Handle the signal to shut down the application.
 
@@ -71,14 +73,14 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 
-def main():
+def main() -> None:
     """
     Start the playback monitoring process.
     """
     playback_main(main_stop_flag)
 
 
-def run_flask_app():
+def run_flask_app() -> None:
     """
     Run the Flask application using the appropriate server based on the platform.
     """
@@ -93,10 +95,10 @@ def run_flask_app():
 
 if __name__ == "__main__":
     try:
-        ATTEMPTS = 0
-        WEBBROWSER_OPENED = False
-        FLASK_THREAD = None
-        MAIN_THREAD = None
+        ATTEMPTS: int = 0
+        WEBBROWSER_OPENED: bool = False
+        FLASK_THREAD: Optional[threading.Thread] = None
+        MAIN_THREAD: Optional[threading.Thread] = None
         while not is_token_valid() and ATTEMPTS < 10 and not WEBBROWSER_OPENED:
             logger.info("Access token is invalid or missing. Re-authenticating...")
             if os.getenv("SPOTIFY_REFRESH_TOKEN"):

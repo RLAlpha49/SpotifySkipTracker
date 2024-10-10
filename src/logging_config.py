@@ -5,13 +5,16 @@ support for rotating log files and UTF-8 encoding to handle a wide range of char
 """
 
 import logging
+from logging import Logger
 from logging.handlers import RotatingFileHandler
 import os
 
 
 def setup_logger(
-    name="SpotifySkipTracker", log_file="logs/spotify_app.log", level=logging.DEBUG
-):
+    name: str = "SpotifySkipTracker",
+    log_file: str = "logs/spotify_app.log",
+    level: int = logging.DEBUG,
+) -> Logger:
     """
     Set up a logger with a file and stream handler.
 
@@ -19,6 +22,9 @@ def setup_logger(
         name: The name of the logger.
         log_file: The file path for the log file.
         level: The logging level.
+
+    Returns:
+        Logger: Configured logger instance.
     """
     logger = logging.getLogger(name)
     logger.setLevel(level)

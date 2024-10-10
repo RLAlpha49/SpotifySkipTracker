@@ -7,6 +7,8 @@ load and save skip counts, unlike songs, and check if a song was skipped early.
 
 import time
 import logging
+import threading
+from typing import Optional, Dict, List
 from utils import (
     get_user_id,
     get_recently_played_tracks,
@@ -20,7 +22,7 @@ from utils import (
 logger = logging.getLogger("SpotifySkipTracker")
 
 
-def main(stop_flag):
+def main(stop_flag: threading.Event) -> None:
     """
     Monitor the current playback and track the user's song skipping behavior.
 
@@ -28,15 +30,15 @@ def main(stop_flag):
         stop_flag (threading.Event): A flag to stop the monitoring loop.
     """
     logger.info("Starting playback monitoring...")
-    user_id = get_user_id()
-    last_track_id = None
-    last_track_name = None
-    last_artist_names = None
-    last_progress = 0
-    last_duration_ms = 0
-    track_order = []
+    user_id: str = get_user_id()
+    last_track_id: Optional[str] = None
+    last_track_name: Optional[str] = None
+    last_artist_names: Optional[str] = None
+    last_progress: int = 0
+    last_duration_ms: int = 0
+    track_order: List[str] = []
 
-    skip_count = load_skip_count()
+    skip_count: Dict[str, int] = load_skip_count()
 
     while not stop_flag.is_set():
         playback = get_current_playback()
@@ -45,13 +47,15 @@ def main(stop_flag):
             and playback["is_playing"]
             and playback["context"]["uri"] == f"spotify:user:{user_id}:collection"
         ):
-            track_id = playback["item"]["id"]
-            track_name = playback["item"]["name"]
+            track_id: str = playback["item"]["id"]
+            track_name: str = playback["item"]["name"]
             # Extract artist names
-            artists = [artist["name"] for artist in playback["item"]["artists"]]
-            artist_names = ", ".join(artists)
-            progress_ms = playback["progress_ms"]
-            duration_ms = playback["item"]["duration_ms"]
+            artists: List[str] = [
+                artist["name"] for artist in playback["item"]["artists"]
+            ]
+            artist_names: str = ", ".join(artists)
+            progress_ms: int = playback["progress_ms"]
+            duration_ms: int = playback["item"]["duration_ms"]
 
             # Check if it's a new song
             if track_id != last_track_id:
@@ -68,7 +72,7 @@ def main(stop_flag):
                     )
                     # Fetch recently played tracks
                     recently_played_data = get_recently_played_tracks()
-                    recently_played = recently_played_data.get("tracks", [])
+                    recently_played: List[str] = recently_played_data.get("tracks", [])
 
                     # Track is not in the order and not recently played, it's a forward skip
                     if track_id not in recently_played:

@@ -9,13 +9,14 @@ import os
 import logging
 import json
 import time
+from typing import Optional, Dict, Any
 import requests
 from auth import refresh_access_token
 
 logger = logging.getLogger("SpotifySkipTracker")
 
 
-def get_user_id(retries=3):
+def get_user_id(retries: int = 3) -> Optional[str]:
     """
     Get the Spotify user ID of the current user.
 
@@ -23,7 +24,7 @@ def get_user_id(retries=3):
         retries (int, optional): The number of retries if the request fails. Defaults to 3.
 
     Returns:
-        str: The Spotify user ID if the request is successful, None otherwise.
+        Optional[str]: The Spotify user ID if the request is successful, None otherwise.
     """
     headers = {"Authorization": f"Bearer {os.getenv('SPOTIFY_ACCESS_TOKEN')}"}
     url = "https://api.spotify.com/v1/me"
@@ -47,15 +48,17 @@ def get_user_id(retries=3):
     return None
 
 
-def get_current_playback(retries=3):
+def get_current_playback(retries: int = 3) -> Optional[Dict[str, Any]]:
     """
     Get the current playback information of the user.
 
     Args:
-        retries (int, optional): The number of retries if the request fails. Defaults to 3.
+        retries (int, optional): The number of retries if the request fails.
+            Defaults to 3.
 
     Returns:
-        dict: The current playback information if the request is successful, None otherwise.
+        Optional[Dict[str, Any]]: The current playback information if the request
+            is successful, None otherwise.
     """
     headers = {"Authorization": f"Bearer {os.getenv('SPOTIFY_ACCESS_TOKEN')}"}
     url = "https://api.spotify.com/v1/me/player"
@@ -85,20 +88,25 @@ def get_current_playback(retries=3):
     return None
 
 
-def get_recently_played_tracks(limit=10, after=None, before=None, retries=3):
+def get_recently_played_tracks(
+    limit: int = 10,
+    after: Optional[int] = None,
+    before: Optional[int] = None,
+    retries: int = 3,
+) -> Dict[str, Any]:
     """
     Get the recently played tracks of the user.
 
     Args:
         limit (int, optional): The number of tracks to return. Defaults to 10.
-        after (int, optional): A Unix timestamp in milliseconds.
+        after (Optional[int], optional): A Unix timestamp in milliseconds.
             Returns all items after this timestamp.
-        before (int, optional): A Unix timestamp in milliseconds.
+        before (Optional[int], optional): A Unix timestamp in milliseconds.
             Returns all items before this timestamp.
         retries (int, optional): The number of retries if the request fails. Defaults to 3.
 
     Returns:
-        dict: A dictionary containing recently played tracks and metadata if the
+        Dict[str, Any]: A dictionary containing recently played tracks and metadata if the
             request is successful, an empty dictionary otherwise.
     """
     headers = {"Authorization": f"Bearer {os.getenv('SPOTIFY_ACCESS_TOKEN')}"}
@@ -143,12 +151,12 @@ def get_recently_played_tracks(limit=10, after=None, before=None, retries=3):
     return {}
 
 
-def load_skip_count():
+def load_skip_count() -> Dict[str, int]:
     """
     Load the skip count from a JSON file.
 
     Returns:
-        dict: The skip count data if the file exists, an empty dictionary otherwise.
+        Dict[str, int]: The skip count data if the file exists, an empty dictionary otherwise.
     """
     try:
         with open("skip_count.json", "r", encoding="utf-8") as file:
@@ -158,18 +166,18 @@ def load_skip_count():
         return {}
 
 
-def save_skip_count(skip_count):
+def save_skip_count(skip_count: Dict[str, int]) -> None:
     """
     Save the skip count to a JSON file.
 
     Args:
-        skip_count (dict): The skip count data to save.
+        skip_count (Dict[str, int]): The skip count data to save.
     """
     with open("skip_count.json", "w", encoding="utf-8") as file:
         json.dump(skip_count, file)
 
 
-def check_if_skipped_early(progress_ms, duration_ms):
+def check_if_skipped_early(progress_ms: int, duration_ms: int) -> bool:
     """
     Check if a song was skipped early.
 
@@ -185,7 +193,7 @@ def check_if_skipped_early(progress_ms, duration_ms):
     return progress_ms < duration_ms / 3
 
 
-def unlike_song(track_id, retries=3):
+def unlike_song(track_id: str, retries: int = 3) -> None:
     """
     Unlike a song on Spotify.
 
