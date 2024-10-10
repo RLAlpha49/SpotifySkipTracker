@@ -99,3 +99,9 @@ Contributions are welcome! Please fork the repository and submit a pull request 
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Additional Information
+
+- **Platform-Specific Configuration**: The application automatically sets the `PYTHONPATH` environment variable on Linux systems to ensure module imports work correctly.
+- **Logging**: Playback events and application logs are stored in `logs/spotify_app.log`. This includes information about track changes and access token refreshes.
+- **Debugging**: If you encounter issues, check the console output and `spotify_app.log` for detailed error messages and warnings.
