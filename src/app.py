@@ -17,11 +17,9 @@ from auth import login, callback, is_token_valid, refresh_access_token
 from playback import main as playback_main
 from logging_config import setup_logger
 
-# Automatically set PYTHONPATH if running on Linux
 if platform.system() == "Linux":
-    project_path = os.path.dirname(os.path.abspath(__file__))
-    src_path = os.path.join(project_path, "src")
-    os.environ["PYTHONPATH"] = f"{os.environ.get('PYTHONPATH', '')}:{src_path}"
+    src_path = os.path.dirname(os.path.abspath(__file__))
+    os.system(f"export PYTHONPATH=$PYTHONPATH:{src_path}")
 
 # Set up logging
 logger = setup_logger()
@@ -89,7 +87,7 @@ def run_flask_app():
 
         serve(app, host="0.0.0.0", port=port)
     else:
-        os.system(f"gunicorn -w 4 -b 0.0.0.0:{port} src.app:app")
+        os.system(f"gunicorn -w 1 -b 0.0.0.0:{port} src.app:app")
 
 
 if __name__ == "__main__":
