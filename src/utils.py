@@ -90,7 +90,7 @@ def get_current_playback(retries: int = 3) -> Optional[Dict[str, Any]]:
             time.sleep(2)
     except requests.exceptions.RequestException as e:
         logger.error("Failed to fetch current playback: %s", str(e))
-        if response:
+        if 'response' in locals():
             logger.debug(response.text)
             logger.debug(response.status_code)
             logger.debug(response.headers)
