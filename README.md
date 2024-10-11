@@ -72,11 +72,6 @@ SpotifySkipTracker
 ├── logs
 │   └── spotify_app.log
 ├── src
-│   ├── __pycache__
-│   │   ├── auth.cpython-312.pyc
-│   │   ├── logging_config.cpython-312.pyc
-│   │   ├── playback.cpython-312.pyc
-│   │   └── utils.cpython-312.pyc
 │   ├── app.py
 │   ├── auth.py
 │   ├── logging_config.py
