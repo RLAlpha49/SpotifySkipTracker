@@ -63,9 +63,9 @@ def main(stop_flag: threading.Event) -> None:
                     "New song: %s by %s (%s)", track_name, artist_names, track_id
                 )
                 # Check if the track is a forward skip
-                if track_id not in track_order:
+                if track_id not in track_order[-10:]:  # Check only the last 10 tracks
                     logger.debug(
-                        "Track not in order: %s by %s (%s)",
+                        "Track not in the last 10 played: %s by %s (%s)",
                         track_name,
                         artist_names,
                         track_id,
@@ -130,7 +130,7 @@ def main(stop_flag: threading.Event) -> None:
                         )
                 else:
                     logger.debug(
-                        "Track in order: %s by %s (%s)",
+                        "Track in the last 5 played: %s by %s (%s)",
                         track_name,
                         artist_names,
                         track_id,
