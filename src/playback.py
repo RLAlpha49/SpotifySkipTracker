@@ -30,7 +30,7 @@ def main(stop_flag: threading.Event) -> None:
         stop_flag (threading.Event): A flag to stop the monitoring loop.
     """
     logger.info("Starting playback monitoring...")
-    user_id: str = get_user_id()
+    user_id: Optional[str] = get_user_id()
     last_track_id: Optional[str] = None
     last_track_name: Optional[str] = None
     last_artist_names: Optional[str] = None
@@ -59,7 +59,7 @@ def main(stop_flag: threading.Event) -> None:
 
             # Check if it's a new song
             if track_id != last_track_id:
-                logger.info(
+                logger.debug(
                     "New song: %s by %s (%s)", track_name, artist_names, track_id
                 )
                 # Check if the track is a forward skip
@@ -95,7 +95,7 @@ def main(stop_flag: threading.Event) -> None:
                                 skip_count[last_track_id] = 1
 
                             logger.info(
-                                "Song '%s' by %s (%s) skipped %d times.",
+                                "Song %s by %s (%s) skipped %d times.",
                                 last_track_name,
                                 last_artist_names,
                                 last_track_id,

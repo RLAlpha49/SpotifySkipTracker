@@ -75,7 +75,7 @@ def refresh_access_token() -> None:
     if response.status_code == 200:
         ACCESS_TOKEN = response.json()["access_token"]
         save_access_token(ACCESS_TOKEN)
-        logger.info("Access Token Refreshed")
+        logger.debug("Access Token Refreshed")
     else:
         logger.error("Failed to refresh access token")
 
