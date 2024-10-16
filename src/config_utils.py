@@ -1,3 +1,7 @@
+"""
+This module provides functions to load, save, and manage configuration settings.
+"""
+
 import json
 import os
 import logging

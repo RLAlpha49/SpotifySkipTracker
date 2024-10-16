@@ -18,7 +18,10 @@ logger = logging.getLogger("SpotifySkipTracker")
 
 
 def auth_reload():
-    global SPOTIFY_ACCESS_TOKEN
+    """
+    Reload the authentication configuration variables from the config file.
+    """
+    global SPOTIFY_ACCESS_TOKEN  # pylint: disable=global-statement
     SPOTIFY_ACCESS_TOKEN = get_config_variable("SPOTIFY_ACCESS_TOKEN", "")
 
 

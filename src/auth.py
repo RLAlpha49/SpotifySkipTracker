@@ -6,12 +6,14 @@ token validation. It uses a JSON configuration file to store sensitive informati
 such as client ID, client secret, and tokens.
 """
 
+# pylint: disable=global-variable-not-assigned
+
 import logging
+from typing import Optional
+import threading
 import requests
 from flask import Blueprint, request, redirect, jsonify
-from typing import Optional
 from config_utils import set_config_variable, get_config_variable
-import threading
 
 # Define a global stop flag
 stop_flag = threading.Event()
@@ -36,7 +38,10 @@ shutdown_bp = Blueprint("shutdown", __name__)
 
 
 def auth_reload():
-    global CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
+    """
+    Reload the authentication configuration variables from the config file.
+    """
+    global CLIENT_ID, CLIENT_SECRET, REDIRECT_URI  # pylint: disable=global-statement
     CLIENT_ID = get_config_variable("SPOTIFY_CLIENT_ID", "")
     CLIENT_SECRET = get_config_variable("SPOTIFY_CLIENT_SECRET", "")
     REDIRECT_URI = get_config_variable("SPOTIFY_REDIRECT_URI", "")
@@ -44,6 +49,12 @@ def auth_reload():
 
 @login_bp.route("/")
 def spotify_login():
+    """
+    Redirect the user to the Spotify login page for authentication.
+
+    Returns:
+        Response: A redirect response to the Spotify authentication URL.
+    """
     auth_reload()
     auth_query = {
         "response_type": "code",
@@ -55,15 +66,21 @@ def spotify_login():
         [f"{key}={requests.utils.quote(val)}" for key, val in auth_query.items()]
     )
     auth_url_complete = f"{AUTH_URL}?{url_args}"
-    logger.debug(f"Redirecting to Spotify Auth URL: {auth_url_complete}")
+    logger.debug("Redirecting to Spotify Auth URL: %s", auth_url_complete)
     return redirect(auth_url_complete)
 
 
 @callback_bp.route("/")
 def oauth_callback():
+    """
+    Handle the OAuth callback from Spotify and exchange the authorization code for tokens.
+
+    Returns:
+        Response: A message indicating the success or failure of the authentication process.
+    """
     auth_reload()
-    global ACCESS_TOKEN
-    global REFRESH_TOKEN
+    global ACCESS_TOKEN  # pylint: disable=global-statement
+    global REFRESH_TOKEN  # pylint: disable=global-statement
 
     code = request.args.get("code")
     if code:
@@ -75,7 +92,7 @@ def oauth_callback():
             "client_secret": CLIENT_SECRET,
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        response = requests.post(TOKEN_URL, data=payload, headers=headers)
+        response = requests.post(TOKEN_URL, data=payload, headers=headers, timeout=10)
         if response.status_code == 200:
             tokens = response.json()
             ACCESS_TOKEN = tokens.get("access_token")
@@ -106,7 +123,9 @@ def is_token_valid() -> bool:
     """
     auth_reload()
     headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-    response = requests.get("https://api.spotify.com/v1/me", headers=headers)
+    response = requests.get(
+        "https://api.spotify.com/v1/me", headers=headers, timeout=10
+    )
     return response.status_code == 200
 
 
@@ -115,8 +134,8 @@ def refresh_access_token() -> None:
     Refresh the Spotify access token using the refresh token.
     """
     auth_reload()
-    global ACCESS_TOKEN
-    global REFRESH_TOKEN
+    global ACCESS_TOKEN  # pylint: disable=global-statement
+    global REFRESH_TOKEN  # pylint: disable=global-statement
     payload = {
         "grant_type": "refresh_token",
         "refresh_token": REFRESH_TOKEN,
@@ -124,7 +143,7 @@ def refresh_access_token() -> None:
         "client_secret": CLIENT_SECRET,
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
-    response = requests.post(TOKEN_URL, data=payload, headers=headers)
+    response = requests.post(TOKEN_URL, data=payload, headers=headers, timeout=10)
     if response.status_code == 200:
         tokens = response.json()
         ACCESS_TOKEN = tokens.get("access_token")
@@ -136,5 +155,8 @@ def refresh_access_token() -> None:
 
 
 def shutdown_flask_server():
+    """
+    Signal the Flask server to shut down.
+    """
     logger.info("Flask server shutting down...")
     stop_flag.set()

@@ -8,9 +8,9 @@ import threading
 import webbrowser
 import time
 from typing import Optional, Dict, Any
+from tkinter import messagebox
 import requests
 import customtkinter as ctk
-from tkinter import messagebox
 from flask import Flask
 from auth import login_bp, callback_bp, is_token_valid, stop_flag
 from playback import main as playback_main
@@ -28,7 +28,17 @@ flask_app.register_blueprint(callback_bp, url_prefix="/callback")
 
 
 class SpotifySkipTrackerGUI(ctk.CTk):
+    """
+    A GUI application for tracking Spotify skips using customtkinter.
+
+    This class handles user authentication, playback monitoring, and displays logs
+    within the interface.
+    """
+
     def __init__(self):
+        """
+        Initialize the SpotifySkipTrackerGUI application.
+        """
         super().__init__()
 
         self.title("Spotify Skip Tracker")
@@ -67,6 +77,9 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         self.update_log_text_box_thread.start()
 
     def create_header(self):
+        """
+        Create the header frame with the login button.
+        """
         self.header_frame = ctk.CTkFrame(self, height=50)
         self.header_frame.grid(row=0, column=0, sticky="ew")
 
@@ -76,6 +89,9 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         self.login_button.pack(pady=10, padx=10)
 
     def create_content_frame(self):
+        """
+        Create the content frame with playback information and log text boxes.
+        """
         self.content_frame = ctk.CTkFrame(self)
         self.content_frame.grid(row=1, column=0, sticky="nsew")
 
@@ -90,6 +106,9 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         self.log_text.configure(state="disabled")
 
     def authenticate(self):
+        """
+        Authenticate the user with Spotify by starting the Flask server and opening the login page.
+        """
         # Check for required configuration variables
         missing_vars = self.get_missing_config_variables()
         if missing_vars:
@@ -144,6 +163,9 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             entries[var] = entry
 
         def save_and_close():
+            """
+            Save the entered configuration variables and close the popup.
+            """
             for var, entry in entries.items():
                 value = entry.get().strip()
                 if not value:
@@ -155,7 +177,8 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             popup.destroy()
             messagebox.showinfo(
                 "Configuration Saved",
-                "Configuration variables have been saved. Please click the Login button again to authenticate.",
+                "Configuration variables have been saved. Please click the Login "
+                "button again to authenticate.",
             )
             logger.info("Configuration variables saved by the user.")
 
@@ -163,6 +186,12 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         save_button.pack(pady=20)
 
     def get_port(self) -> int:
+        """
+        Get the port number from the redirect URI.
+
+        Returns:
+            int: The port number.
+        """
         redirect_uri = self.config.get(
             "SPOTIFY_REDIRECT_URI", "http://localhost:5000/callback"
         )
@@ -170,6 +199,9 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         return parsed_uri.port or 5000
 
     def start_flask_server(self):
+        """
+        Start the Flask server in a separate thread.
+        """
         if not self.flask_thread or not self.flask_thread.is_alive():
             self.flask_thread = threading.Thread(target=self.run_flask, daemon=True)
             self.flask_thread.start()
@@ -177,14 +209,21 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             self.after(100, self.check_flask_thread)
 
     def run_flask(self):
+        """
+        Run the Flask server for handling OAuth callbacks.
+        """
         while not stop_flag.is_set():
             try:
                 flask_app.run(port=self.get_port(), debug=False, use_reloader=False)
-            except Exception as e:
-                logger.error(f"Error running Flask server: {e}")
+            except Exception as e:  # pylint: disable=broad-except
+                logger.error("Error running Flask server: %s", e)
             time.sleep(1)
 
     def check_flask_thread(self):
+        """
+        Check the status of the Flask thread and start playback monitoring
+        if the thread has stopped.
+        """
         if stop_flag.is_set():
             self.start_playback_monitoring()
         else:
@@ -192,6 +231,9 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             self.after(100, self.check_flask_thread)
 
     def start_playback_monitoring(self):
+        """
+        Start the playback monitoring thread.
+        """
         if self.playback_thread and self.playback_thread.is_alive():
             return
         self.stop_event.clear()
@@ -201,10 +243,19 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         self.playback_thread.start()
 
     def monitor_playback(self):
+        """
+        Monitor the playback information and update the playback info text box.
+        """
         self.user_id = get_user_id()
         playback_main(self.stop_event, self.update_playback_info)
 
     def update_playback_info(self, playback: Optional[Dict[str, Any]]):
+        """
+        Update the playback information text box with the current playback details.
+
+        Args:
+            playback (Optional[Dict[str, Any]]): The current playback information.
+        """
         if playback:
             track_name = playback["item"]["name"]
             artists = ", ".join(
@@ -230,6 +281,12 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         self.playback_info.configure(state="disabled")
 
     def append_log(self, message: str):
+        """
+        Append a log message to the log text box.
+
+        Args:
+            message (str): The log message to append.
+        """
         self.log_text.configure(state="normal")
         self.log_text.insert("end", message + "\n")
         self.log_text.configure(state="disabled")
