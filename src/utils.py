@@ -5,15 +5,21 @@ This module provides utility functions for interacting with the Spotify API,
 managing skip counts, and checking if a song was skipped early.
 """
 
-import os
 import logging
 import json
 import time
 from typing import Optional, Dict, Any
 import requests
 from auth import refresh_access_token
+from config_utils import get_config_variable
 
+SPOTIFY_ACCESS_TOKEN = get_config_variable("SPOTIFY_ACCESS_TOKEN", "")
 logger = logging.getLogger("SpotifySkipTracker")
+
+
+def auth_reload():
+    global SPOTIFY_ACCESS_TOKEN
+    SPOTIFY_ACCESS_TOKEN = get_config_variable("SPOTIFY_ACCESS_TOKEN", "")
 
 
 def get_user_id(retries: int = 3) -> Optional[str]:
@@ -26,17 +32,21 @@ def get_user_id(retries: int = 3) -> Optional[str]:
     Returns:
         Optional[str]: The Spotify user ID if the request is successful, None otherwise.
     """
-    headers = {"Authorization": f"Bearer {os.getenv('SPOTIFY_ACCESS_TOKEN')}"}
-    url = "https://api.spotify.com/v1/me"
+    auth_reload()
 
     try:
         for attempt in range(retries):
+            auth_reload()
+            access_token = SPOTIFY_ACCESS_TOKEN
+            headers = {"Authorization": f"Bearer {access_token}"}
+            url = "https://api.spotify.com/v1/me"
             response = requests.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
                 return response.json()["id"]
             if response.status_code == 401:
                 time.sleep(5)
                 refresh_access_token()
+                auth_reload()
             else:
                 logger.error(
                     "Failed to fetch user ID, attempt %d/%d", attempt + 1, retries
@@ -60,7 +70,9 @@ def get_current_playback(retries: int = 3) -> Optional[Dict[str, Any]]:
         Optional[Dict[str, Any]]: The current playback information if the request
             is successful, None otherwise.
     """
-    headers = {"Authorization": f"Bearer {os.getenv('SPOTIFY_ACCESS_TOKEN')}"}
+    auth_reload()
+
+    headers = {"Authorization": f"Bearer {SPOTIFY_ACCESS_TOKEN}"}
     url = "https://api.spotify.com/v1/me/player"
 
     try:
@@ -71,6 +83,8 @@ def get_current_playback(retries: int = 3) -> Optional[Dict[str, Any]]:
             if response.status_code == 401:
                 refresh_access_token()
                 time.sleep(5)
+                auth_reload()
+                headers["Authorization"] = f"Bearer {SPOTIFY_ACCESS_TOKEN}"
                 continue
             if response.status_code == 429:
                 if "Retry-After" in response.headers:
@@ -85,70 +99,51 @@ def get_current_playback(retries: int = 3) -> Optional[Dict[str, Any]]:
                 continue
             if response.status_code == 204:
                 return None
-            logger.debug(response)
             logger.error("Failed to fetch current playback")
             time.sleep(2)
     except requests.exceptions.RequestException as e:
         logger.error("Failed to fetch current playback: %s", str(e))
-        if "response" in locals():
-            logger.debug(response.text)
-            logger.debug(response.status_code)
-            logger.debug(response.headers)
         time.sleep(2)
     return None
 
 
-def get_recently_played_tracks(
-    limit: int = 10,
-    after: Optional[int] = None,
-    before: Optional[int] = None,
-    retries: int = 3,
-) -> Dict[str, Any]:
+def get_recently_played_tracks(retries: int = 3) -> Dict[str, Any]:
     """
     Get the recently played tracks of the user.
 
     Args:
-        limit (int, optional): The number of tracks to return. Defaults to 10.
-        after (Optional[int], optional): A Unix timestamp in milliseconds.
-            Returns all items after this timestamp.
-        before (Optional[int], optional): A Unix timestamp in milliseconds.
-            Returns all items before this timestamp.
         retries (int, optional): The number of retries if the request fails. Defaults to 3.
 
     Returns:
-        Dict[str, Any]: A dictionary containing recently played tracks and metadata if the
-            request is successful, an empty dictionary otherwise.
+        Dict[str, Any]: The recently played tracks data.
     """
-    headers = {"Authorization": f"Bearer {os.getenv('SPOTIFY_ACCESS_TOKEN')}"}
-    url = f"https://api.spotify.com/v1/me/player/recently-played?limit={limit}"
+    auth_reload()
 
-    if after:
-        url += f"&after={after}"
-    if before:
-        url += f"&before={before}"
+    headers = {"Authorization": f"Bearer {SPOTIFY_ACCESS_TOKEN}"}
+    url = "https://api.spotify.com/v1/me/player/recently-played?limit=50"
 
     try:
         for attempt in range(retries):
             response = requests.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
-                data = response.json()
-                tracks = [item["track"]["id"] for item in data["items"]]
-                return {
-                    "href": data.get("href"),
-                    "limit": data.get("limit"),
-                    "next": data.get("next"),
-                    "cursors": data.get("cursors"),
-                    "total": data.get("total"),
-                    "tracks": tracks,
-                }
-            if response.status_code == 403:
-                error_message = (
-                    response.json().get("error", {}).get("message", "Unknown error")
-                )
-                logger.error(
-                    "Failed to fetch recently played tracks: %s", error_message
-                )
-                return {}
+                return response.json()
+            if response.status_code == 401:
+                refresh_access_token()
+                time.sleep(5)
+                auth_reload()
+                headers["Authorization"] = f"Bearer {SPOTIFY_ACCESS_TOKEN}"
+                continue
+            if response.status_code == 429:
+                if "Retry-After" in response.headers:
+                    retry_after = int(response.headers["Retry-After"])
+                    logger.error(
+                        "Rate limit exceeded, waiting for %d seconds", retry_after
+                    )
+                    time.sleep(retry_after)
+                else:
+                    logger.error("Rate limit exceeded, waiting for 10 seconds")
+                    time.sleep(10)
+                continue
             logger.error(
                 "Failed to fetch recently played tracks, attempt %d/%d",
                 attempt + 1,
@@ -211,7 +206,9 @@ def unlike_song(track_id: str, retries: int = 3) -> None:
         track_id (str): The ID of the track to unlike.
         retries (int): The number of retry attempts if the request fails.
     """
-    headers = {"Authorization": f"Bearer {os.getenv('SPOTIFY_ACCESS_TOKEN')}"}
+    auth_reload()
+
+    headers = {"Authorization": f"Bearer {SPOTIFY_ACCESS_TOKEN}"}
     url = f"https://api.spotify.com/v1/me/tracks?ids={track_id}"
 
     try:

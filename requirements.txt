@@ -1,6 +1,4 @@
 setuptools
-python-dotenv
-flask
 requests
-waitress
-gunicorn
+customtkinter
+flask

@@ -30,21 +30,23 @@
    pip install -r requirements.txt
    ```
 
-4. **Environment Variables**
+4. **Configuration File**
 
-   Create a `.env` file in the root directory and add your Spotify API credentials:
+   The application uses a `config.json` file to store configuration settings. If it does not exist, the application will create one automatically with required keys initialized to empty strings.
 
-   ```plaintext
-   SPOTIFY_CLIENT_ID=your_client_id
-   SPOTIFY_CLIENT_SECRET=your_client_secret
-   SPOTIFY_REDIRECT_URI=http://localhost:5000/callback
-   ```
+   **Filling Configuration Variables:**
+
+   - Run the application.
+   - Click on the "Login with Spotify" button.
+   - If any required configuration variables (`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REDIRECT_URI`) are missing, a popup will appear prompting you to enter them.
+   - Fill in the required information and click "Save".
+   - Click the "Login with Spotify" button again to proceed with authentication.
 
 ## Usage
 
 1. **Run the Application**
 
-   Start the Flask application:
+   Start the GUI application:
 
    ```bash
    python src/app.py
@@ -52,12 +54,16 @@
 
 2. **Authenticate with Spotify**
 
-   - Open your browser and navigate to `http://localhost:5000/login`.
-   - Log in with your Spotify account to grant access.
+   - Click on the "Login with Spotify" button in the GUI.
+   - If prompted, enter the missing configuration variables.
+   - Your default browser will open; log in with your Spotify account to grant access.
+   - After successful authentication, the GUI will start monitoring your playback.
 
 3. **Monitor Playback**
 
-   The application will start monitoring Spotify playback and log events to `logs/spotify_app.log`.
+   - The application will display current playback information.
+   - Logs are displayed within the GUI for real-time feedback.
+   - The application will automatically unlike songs if skipped more than 5 times.
 
 ## Project Structure
 
@@ -74,10 +80,11 @@ SpotifySkipTracker
 ├── src
 │   ├── app.py
 │   ├── auth.py
+│   ├── config_utils.py
 │   ├── logging_config.py
 │   ├── playback.py
 │   └── utils.py
-├── .env
+├── config.json
 ├── .gitignore
 ├── LICENSE
 ├── mypy.ini
@@ -97,6 +104,4 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## Additional Information
 
-- **Platform-Specific Configuration**: The application automatically sets the `PYTHONPATH` environment variable on Linux systems to ensure module imports work correctly.
-- **Logging**: Playback events and application logs are stored in `logs/spotify_app.log`. This includes information about track changes and access token refreshes.
-- **Debugging**: If you encounter issues, check the console output and `spotify_app.log` for detailed error messages and warnings.
+- **Logging**: Playback events and application logs are stored in `logs/spotify_app.log`.

@@ -11,15 +11,13 @@ setup(
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     install_requires=[
-        "python-dotenv",
-        "flask",
         "requests",
-        "waitress",
-        "gunicorn",
+        "customtkinter",
+        "flask",
     ],
     entry_points={
         "console_scripts": [
-            "spotify-skip-tracker=src.app:main",
+            "spotify-skip-tracker=app:SpotifySkipTrackerGUI",
         ],
     },
     classifiers=[
@@ -27,5 +25,5 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.6",
+    python_requires=">=3.10",
 )

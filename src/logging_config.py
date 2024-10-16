@@ -10,51 +10,39 @@ from logging.handlers import RotatingFileHandler
 import os
 
 
-def setup_logger(
-    name: str = "SpotifySkipTracker",
-    log_file: str = "logs/spotify_app.log",
-    level: int = logging.DEBUG,
-) -> Logger:
+def setup_logger() -> Logger:
     """
-    Set up a logger with a file and stream handler.
-
-    Args:
-        name: The name of the logger.
-        log_file: The file path for the log file.
-        level: The logging level.
+    Set up a logger with file and stream handlers.
 
     Returns:
         Logger: Configured logger instance.
     """
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
+    logger = logging.getLogger("SpotifySkipTracker")
+    logger.setLevel(logging.DEBUG)
 
-    if not logger.handlers:
-        # Create logs directory if it doesn't exist
-        log_dir = os.path.dirname(log_file)
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir)
+    # Create logs directory if it doesn't exist
+    if not os.path.exists("logs"):
+        os.makedirs("logs")
 
-        # File handler for logging to a file
-        file_handler = RotatingFileHandler(
-            log_file, maxBytes=10 * 1024 * 1024, backupCount=10, encoding="utf-8"
-        )
-        file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-        file_handler.setFormatter(file_formatter)
-        file_handler.setLevel(level)
+    # File handler with rotation
+    file_handler = RotatingFileHandler(
+        "logs/spotify_app.log",
+        maxBytes=10 * 1024 * 1024,
+        backupCount=10,
+        encoding="utf-8",
+    )
+    file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    file_handler.setFormatter(file_formatter)
+    file_handler.setLevel(logging.DEBUG)
 
-        # Stream handler for logging to the terminal
-        stream_handler = logging.StreamHandler()
-        stream_formatter = logging.Formatter("%(levelname)s - %(message)s")
-        stream_handler.setFormatter(stream_formatter)
-        stream_handler.setLevel(logging.INFO)
-        stream_handler.setStream(open(1, "w", encoding="utf-8", closefd=False))
+    # Stream handler for console
+    stream_handler = logging.StreamHandler()
+    stream_formatter = logging.Formatter("%(levelname)s - %(message)s")
+    stream_handler.setFormatter(stream_formatter)
+    stream_handler.setLevel(logging.INFO)
 
-        # Add handlers to the logger
-        logger.addHandler(file_handler)
-        logger.addHandler(stream_handler)
-
-    # Prevent log messages from being propagated to the root logger
-    logger.propagate = False
+    # Add handlers to the logger
+    logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
 
     return logger

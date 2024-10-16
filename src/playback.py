@@ -8,7 +8,7 @@ load and save skip counts, unlike songs, and check if a song was skipped early.
 import time
 import logging
 import threading
-from typing import Optional, Dict, List
+from typing import Any, Optional, Dict, List, Callable
 from utils import (
     get_user_id,
     get_recently_played_tracks,
@@ -22,12 +22,16 @@ from utils import (
 logger = logging.getLogger("SpotifySkipTracker")
 
 
-def main(stop_flag: threading.Event) -> None:
+def main(
+    stop_flag: threading.Event,
+    update_callback: Callable[[Optional[Dict[str, Any]]], None],
+) -> None:
     """
     Monitor the current playback and track the user's song skipping behavior.
 
     Args:
         stop_flag (threading.Event): A flag to stop the monitoring loop.
+        update_callback (Callable): A callback function to update the GUI with playback info.
     """
     logger.info("Starting playback monitoring...")
     user_id: Optional[str] = get_user_id()
@@ -42,6 +46,8 @@ def main(stop_flag: threading.Event) -> None:
 
     while not stop_flag.is_set():
         playback = get_current_playback()
+        update_callback(playback)  # Update GUI
+
         if (
             playback
             and playback["is_playing"]
@@ -63,16 +69,19 @@ def main(stop_flag: threading.Event) -> None:
                     "New song: %s by %s (%s)", track_name, artist_names, track_id
                 )
                 # Check if the track is a forward skip
-                if track_id not in track_order[-10:]:  # Check only the last 10 tracks
+                if track_id not in track_order[-5:]:  # Check only the last 5 tracks
                     logger.debug(
-                        "Track not in the last 10 played: %s by %s (%s)",
+                        "Track not in the last 5 played: %s by %s (%s)",
                         track_name,
                         artist_names,
                         track_id,
                     )
                     # Fetch recently played tracks
                     recently_played_data = get_recently_played_tracks()
-                    recently_played: List[str] = recently_played_data.get("tracks", [])
+                    recently_played: List[str] = [
+                        track["track"]["id"]
+                        for track in recently_played_data.get("items", [])
+                    ]
 
                     # Track is not in the order and not recently played, it's a forward skip
                     if track_id not in recently_played:
@@ -89,21 +98,22 @@ def main(stop_flag: threading.Event) -> None:
                                 artist_names,
                                 track_id,
                             )
-                            if last_track_id in skip_count:
+                            if last_track_id and last_track_id in skip_count:
                                 skip_count[last_track_id] += 1
-                            else:
+                            elif last_track_id:
                                 skip_count[last_track_id] = 1
 
-                            logger.info(
-                                "Song %s by %s (%s) skipped %d times.",
-                                last_track_name,
-                                last_artist_names,
-                                last_track_id,
-                                skip_count[last_track_id],
-                            )
+                            if last_track_id:
+                                logger.info(
+                                    "Song %s by %s (%s) skipped %d times.",
+                                    last_track_name,
+                                    last_artist_names,
+                                    last_track_id,
+                                    skip_count[last_track_id],
+                                )
 
                             # Unlike if skipped 5 times
-                            if skip_count[last_track_id] >= 5:
+                            if last_track_id and skip_count[last_track_id] >= 5:
                                 logger.info(
                                     "Unliking song: %s by %s (%s)",
                                     last_track_name,
