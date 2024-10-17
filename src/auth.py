@@ -126,6 +126,14 @@ def is_token_valid() -> bool:
     response = requests.get(
         "https://api.spotify.com/v1/me", headers=headers, timeout=10
     )
+    if response.status_code != 200:
+        logger.error("Token is invalid.")
+        logger.debug("Attempting to refresh token...")
+        refresh_access_token()
+        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        response = requests.get(
+            "https://api.spotify.com/v1/me", headers=headers, timeout=10
+        )
     return response.status_code == 200
 
 

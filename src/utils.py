@@ -218,7 +218,7 @@ def unlike_song(track_id: str, retries: int = 3) -> None:
         for attempt in range(retries):
             response = requests.delete(url, headers=headers, timeout=10)
             if response.status_code == 200:
-                logger.info("Unliked song: %s", track_id)
+                logger.debug("Unliked song: %s", track_id)
                 return
             logger.error(
                 "Failed to unlike song: %s (Attempt %d/%d)",

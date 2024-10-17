@@ -73,7 +73,7 @@ def save_config(config: dict) -> None:
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as file:
             json.dump(config, file, indent=4)
-        logger.info("Configuration saved to %s.", CONFIG_FILE)
+        logger.debug("Configuration saved to %s.", CONFIG_FILE)
     except (OSError, IOError, json.JSONDecodeError) as e:
         logger.error("Failed to save configuration: %s", e)
 

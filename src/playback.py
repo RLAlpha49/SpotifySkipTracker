@@ -149,7 +149,7 @@ def main(
                 # Update track order
                 track_order.append(track_id)
                 if len(track_order) > 1000:
-                    logger.info("Track order limit reached: %s", track_order)
+                    logger.debug("Track order limit reached: %s", track_order)
                     track_order.pop(0)
 
                 # Update last track details
