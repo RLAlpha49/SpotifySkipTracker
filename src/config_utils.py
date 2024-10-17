@@ -47,7 +47,7 @@ def load_config() -> dict:
         for key in missing_keys:
             config[key] = ""
         save_config(config)
-
+        logger.debug("Missing keys added to config: %s.", missing_keys)
     return config
 
 
@@ -60,6 +60,7 @@ def create_default_config() -> dict:
     """
     config = {key: "" for key in REQUIRED_KEYS}
     save_config(config)
+    logger.debug("Default configuration created and saved to %s.", CONFIG_FILE)
     return config
 
 
@@ -73,7 +74,6 @@ def save_config(config: dict) -> None:
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as file:
             json.dump(config, file, indent=4)
-        logger.debug("Configuration saved to %s.", CONFIG_FILE)
     except (OSError, IOError, json.JSONDecodeError) as e:
         logger.error("Failed to save configuration: %s", e)
 
@@ -87,8 +87,17 @@ def set_config_variable(key: str, value: str) -> None:
         value (str): Configuration value.
     """
     config = load_config()
-    config[key] = value
-    save_config(config)
+    old_value = config.get(key, "")
+    if old_value != value:
+        config[key] = value
+        save_config(config)
+        logger.debug(
+            "Configuration key '%s' changed from '%s' to '%s' and saved to %s.",
+            key,
+            old_value,
+            value,
+            CONFIG_FILE,
+        )
 
 
 def get_config_variable(key: str, default: str = "") -> str:

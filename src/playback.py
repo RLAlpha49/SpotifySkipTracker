@@ -69,7 +69,7 @@ def main(
                     "New song: %s by %s (%s)", track_name, artist_names, track_id
                 )
                 # Check if the track is a forward skip
-                if track_id not in track_order[-5:]:  # Check only the last 5 tracks
+                if track_id not in track_order:
                     logger.debug(
                         "Track not in the last 5 played: %s by %s (%s)",
                         track_name,
@@ -148,8 +148,7 @@ def main(
 
                 # Update track order
                 track_order.append(track_id)
-                if len(track_order) > 1000:
-                    logger.debug("Track order limit reached: %s", track_order)
+                if len(track_order) > 5:
                     track_order.pop(0)
 
                 # Update last track details

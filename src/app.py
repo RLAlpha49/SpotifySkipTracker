@@ -21,6 +21,8 @@ from config_utils import load_config, set_config_variable
 
 # Initialize logging
 logger = setup_logger()
+log_level = load_config().get("LOG_LEVEL", "INFO")
+logger.setLevel(log_level)
 
 # Initialize Flask app for OAuth callback
 flask_app = Flask(__name__)
@@ -43,20 +45,25 @@ class HeaderFrame(ctk.CTkFrame):
             logout_callback (callable): Function to call for logout.
         """
         super().__init__(master, height=50)
-        self.grid(row=0, column=0, sticky="ew")
+        self.grid(row=0, column=0, sticky="ew", padx=20, pady=5)
 
         self.authenticate_callback = authenticate_callback
         self.logout_callback = logout_callback
 
+        self.header_label = ctk.CTkLabel(
+            self, text="Spotify Skip Tracker", font=("Arial", 24)
+        )
+        self.header_label.pack(side="top", pady=(10, 0))
+
         self.login_button = ctk.CTkButton(
             self, text="Login with Spotify", command=self.authenticate_callback
         )
-        self.login_button.pack(side="left", pady=10, padx=10)
+        self.login_button.pack(side="left", pady=(0, 10), padx=10)
 
         self.logout_button = ctk.CTkButton(
             self, text="Logout", command=self.logout_callback
         )
-        self.logout_button.pack(side="left", pady=10, padx=10)
+        self.logout_button.pack(side="right", pady=(0, 10), padx=10)
 
 
 class HomeTab:
@@ -229,13 +236,50 @@ class SettingsTab:
             frame = ctk.CTkFrame(parent)
             frame.pack(pady=5, padx=20, fill="x")
 
-            label = ctk.CTkLabel(frame, text=f"{key}:", width=160, anchor="w")
+            formatted_key = " ".join(
+                word.capitalize() for word in key.lower().split("_")
+            )
+            label = ctk.CTkLabel(frame, text=f"{formatted_key}:", width=160, anchor="w")
             label.pack(side="left", padx=5, pady=5)
 
             entry = ctk.CTkEntry(frame, width=500)
             entry.pack(side="left", padx=5, pady=5)
             entry.insert(0, self.config.get(key, ""))
             self.settings_entries[key] = entry
+
+        # Log Level Dropdown
+        log_level_frame = ctk.CTkFrame(parent)
+        log_level_frame.pack(pady=5, padx=20, fill="x")
+
+        log_level_label = ctk.CTkLabel(
+            log_level_frame, text="Log Level:", width=160, anchor="w"
+        )
+        log_level_label.pack(side="left", padx=5, pady=5)
+
+        self.log_level_var = ctk.StringVar(value=self.config.get("LOG_LEVEL", "INFO"))
+        self.log_level_dropdown = ctk.CTkOptionMenu(
+            log_level_frame,
+            variable=self.log_level_var,
+            values=["DEBUG", "INFO", "WARNING", "ERROR"],
+        )
+        self.log_level_dropdown.pack(side="left", padx=5, pady=5)
+
+        # Log Line Count Textbox
+        log_line_count_frame = ctk.CTkFrame(parent)
+        log_line_count_frame.pack(pady=5, padx=20, fill="x")
+
+        log_line_count_label = ctk.CTkLabel(
+            log_line_count_frame, text="Log Lines:", width=160, anchor="w"
+        )
+        log_line_count_label.pack(side="left", padx=5, pady=5)
+
+        self.log_line_count_var = ctk.StringVar(
+            value=self.config.get("LOG_LINE_COUNT", "500")
+        )
+        self.log_line_count_entry = ctk.CTkEntry(
+            log_line_count_frame, textvariable=self.log_line_count_var, width=500
+        )
+        self.log_line_count_entry.pack(side="left", padx=5, pady=5)
 
         # Save Settings Button
         self.save_button = ctk.CTkButton(
@@ -253,7 +297,18 @@ class SettingsTab:
                 messagebox.showerror("Input Error", f"{key} cannot be empty.")
                 return
             set_config_variable(key, value)
-            self.config[key] = value  # Update the current config
+            self.config[key] = value
+
+        # Save log level setting
+        log_level = self.log_level_var.get()  # pylint: disable=redefined-outer-name
+        set_config_variable("LOG_LEVEL", log_level)
+        self.config["LOG_LEVEL"] = log_level
+        self.logger.setLevel(log_level)
+
+        # Save log line count setting
+        log_line_count = self.log_line_count_var.get()
+        set_config_variable("LOG_LINE_COUNT", log_line_count)
+        self.config["LOG_LINE_COUNT"] = log_line_count
 
         messagebox.showinfo("Settings Saved", "Settings have been saved successfully.")
         self.logger.info("Settings saved by the user.")
@@ -274,7 +329,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         super().__init__()
 
         self.title("Spotify Skip Tracker")
-        self.geometry("900x700")  # Increased size for better tab display
+        self.geometry("900x700")
 
         # Load configuration
         self.config = load_config()
@@ -521,15 +576,22 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         while True:
             try:
                 with open(self.log_file_path, "r", encoding="utf-8") as log_file:
-                    log_contents = log_file.read()
+                    log_contents = log_file.readlines()
             except FileNotFoundError:
-                log_contents = ""
+                log_contents = []
 
-            if log_contents != previous_log_contents:
-                self.home_tab.update_logs(log_contents)
-                previous_log_contents = log_contents
+            # Get the number of log lines to display
+            log_line_count = int(self.config.get("LOG_LINE_COUNT", "500"))
 
-            time.sleep(1)  # Update every second
+            # Display the most recent log lines
+            recent_logs = log_contents[-log_line_count:]
+            display_logs = "".join(recent_logs)
+
+            if display_logs != previous_log_contents:
+                self.home_tab.update_logs(display_logs)
+                previous_log_contents = display_logs
+
+            time.sleep(1)
 
     def logout(self):
         """
