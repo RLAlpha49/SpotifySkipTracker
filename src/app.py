@@ -296,7 +296,10 @@ class SettingsTab:
             if not value:
                 messagebox.showerror("Input Error", f"{key} cannot be empty.")
                 return
-            set_config_variable(key, value)
+            if key == "SPOTIFY_CLIENT_ID" or key == "SPOTIFY_CLIENT_SECRET":
+                set_config_variable(key, value, encrypt=True)
+            else:
+                set_config_variable(key, value)
             self.config[key] = value
 
         # Save log level setting
@@ -332,7 +335,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         self.geometry("900x700")
 
         # Load configuration
-        self.config = load_config()
+        self.config = load_config(decrypt=True)
         self.access_token = self.config.get("SPOTIFY_ACCESS_TOKEN", "")
         self.refresh_token = self.config.get("SPOTIFY_REFRESH_TOKEN", "")
         self.user_id: Optional[str] = None
@@ -438,7 +441,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             "SPOTIFY_CLIENT_SECRET",
             "SPOTIFY_REDIRECT_URI",
         ]
-        self.config = load_config()
+        self.config = load_config(decrypt=True)
         missing = [key for key in required_keys if not self.config.get(key)]
         return missing
 
@@ -475,8 +478,11 @@ class SpotifySkipTrackerGUI(ctk.CTk):
                 if not value:
                     messagebox.showerror("Input Error", f"{var} cannot be empty.")
                     return
-                set_config_variable(var, value)
-                self.config[var] = value  # Update the current config
+                if var == "SPOTIFY_CLIENT_ID" or var == "SPOTIFY_CLIENT_SECRET":
+                    set_config_variable(var, value, encrypt=True)
+                else:
+                    set_config_variable(var, value)
+                self.config[var] = value
 
             popup.destroy()
             messagebox.showinfo(
@@ -605,8 +611,8 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         if self.flask_thread:
             self.flask_thread = None
 
-        set_config_variable("SPOTIFY_ACCESS_TOKEN", "")
-        set_config_variable("SPOTIFY_REFRESH_TOKEN", "")
+        set_config_variable("SPOTIFY_ACCESS_TOKEN", "", encrypt=True)
+        set_config_variable("SPOTIFY_REFRESH_TOKEN", "", encrypt=True)
         self.config["SPOTIFY_ACCESS_TOKEN"] = ""
         self.config["SPOTIFY_REFRESH_TOKEN"] = ""
         self.access_token = ""

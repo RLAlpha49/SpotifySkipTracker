@@ -14,6 +14,8 @@ setup(
         "requests",
         "customtkinter",
         "flask",
+        "cryptography",
+        "python-dotenv",
     ],
     entry_points={
         "console_scripts": [

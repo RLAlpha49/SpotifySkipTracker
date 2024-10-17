@@ -13,7 +13,7 @@ import requests
 from auth import refresh_access_token
 from config_utils import get_config_variable
 
-SPOTIFY_ACCESS_TOKEN = get_config_variable("SPOTIFY_ACCESS_TOKEN", "")
+SPOTIFY_ACCESS_TOKEN = get_config_variable("SPOTIFY_ACCESS_TOKEN", "", decrypt=True)
 logger = logging.getLogger("SpotifySkipTracker")
 
 
@@ -22,7 +22,7 @@ def auth_reload():
     Reload the authentication configuration variables from the config file.
     """
     global SPOTIFY_ACCESS_TOKEN  # pylint: disable=global-statement
-    SPOTIFY_ACCESS_TOKEN = get_config_variable("SPOTIFY_ACCESS_TOKEN", "")
+    SPOTIFY_ACCESS_TOKEN = get_config_variable("SPOTIFY_ACCESS_TOKEN", "", decrypt=True)
 
 
 def get_user_id(retries: int = 3) -> Optional[str]:

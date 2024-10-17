@@ -18,8 +18,8 @@ from config_utils import set_config_variable, get_config_variable
 # Define a global stop flag
 stop_flag = threading.Event()
 
-CLIENT_ID: str = get_config_variable("SPOTIFY_CLIENT_ID", "")
-CLIENT_SECRET: str = get_config_variable("SPOTIFY_CLIENT_SECRET", "")
+CLIENT_ID: str = get_config_variable("SPOTIFY_CLIENT_ID", "", decrypt=True)
+CLIENT_SECRET: str = get_config_variable("SPOTIFY_CLIENT_SECRET", "", decrypt=True)
 REDIRECT_URI: str = get_config_variable("SPOTIFY_REDIRECT_URI", "")
 AUTH_URL: str = "https://accounts.spotify.com/authorize"
 TOKEN_URL: str = "https://accounts.spotify.com/api/token"
@@ -28,8 +28,12 @@ SCOPE: str = "user-read-playback-state user-library-modify user-read-recently-pl
 logger: logging.Logger = logging.getLogger("SpotifySkipTracker")
 
 # Define global variables
-ACCESS_TOKEN: Optional[str] = get_config_variable("SPOTIFY_ACCESS_TOKEN", "")
-REFRESH_TOKEN: Optional[str] = get_config_variable("SPOTIFY_REFRESH_TOKEN", "")
+ACCESS_TOKEN: Optional[str] = get_config_variable(
+    "SPOTIFY_ACCESS_TOKEN", "", decrypt=True
+)
+REFRESH_TOKEN: Optional[str] = get_config_variable(
+    "SPOTIFY_REFRESH_TOKEN", "", decrypt=True
+)
 
 # Define Flask Blueprints
 login_bp = Blueprint("login", __name__)
@@ -42,8 +46,8 @@ def auth_reload():
     Reload the authentication configuration variables from the config file.
     """
     global CLIENT_ID, CLIENT_SECRET, REDIRECT_URI  # pylint: disable=global-statement
-    CLIENT_ID = get_config_variable("SPOTIFY_CLIENT_ID", "")
-    CLIENT_SECRET = get_config_variable("SPOTIFY_CLIENT_SECRET", "")
+    CLIENT_ID = get_config_variable("SPOTIFY_CLIENT_ID", "", decrypt=True)
+    CLIENT_SECRET = get_config_variable("SPOTIFY_CLIENT_SECRET", "", decrypt=True)
     REDIRECT_URI = get_config_variable("SPOTIFY_REDIRECT_URI", "")
 
 
@@ -99,8 +103,8 @@ def oauth_callback():
             REFRESH_TOKEN = tokens.get("refresh_token")
 
             # Save tokens to config.json
-            set_config_variable("SPOTIFY_ACCESS_TOKEN", ACCESS_TOKEN)
-            set_config_variable("SPOTIFY_REFRESH_TOKEN", REFRESH_TOKEN)
+            set_config_variable("SPOTIFY_ACCESS_TOKEN", ACCESS_TOKEN, encrypt=True)
+            set_config_variable("SPOTIFY_REFRESH_TOKEN", REFRESH_TOKEN, encrypt=True)
 
             logger.info("Authentication successful.")
             # Signal the GUI to stop the Flask server and start playback
@@ -155,7 +159,7 @@ def refresh_access_token() -> None:
     if response.status_code == 200:
         tokens = response.json()
         ACCESS_TOKEN = tokens.get("access_token")
-        set_config_variable("SPOTIFY_ACCESS_TOKEN", ACCESS_TOKEN)
+        set_config_variable("SPOTIFY_ACCESS_TOKEN", ACCESS_TOKEN, encrypt=True)
         auth_reload()
         logger.info("Access Token Refreshed")
     else:
