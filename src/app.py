@@ -28,6 +28,237 @@ flask_app.register_blueprint(login_bp, url_prefix="/login")
 flask_app.register_blueprint(callback_bp, url_prefix="/callback")
 
 
+class HeaderFrame(ctk.CTkFrame):
+    """
+    A header frame containing Login and Logout buttons for the Spotify Skip Tracker GUI.
+    """
+
+    def __init__(self, master, authenticate_callback, logout_callback):
+        """
+        Initialize the HeaderFrame.
+
+        Args:
+            master (ctk.CTk): The parent widget.
+            authenticate_callback (callable): Function to call for authentication.
+            logout_callback (callable): Function to call for logout.
+        """
+        super().__init__(master, height=50)
+        self.grid(row=0, column=0, sticky="ew")
+
+        self.authenticate_callback = authenticate_callback
+        self.logout_callback = logout_callback
+
+        self.login_button = ctk.CTkButton(
+            self, text="Login with Spotify", command=self.authenticate_callback
+        )
+        self.login_button.pack(side="left", pady=10, padx=10)
+
+        self.logout_button = ctk.CTkButton(
+            self, text="Logout", command=self.logout_callback
+        )
+        self.logout_button.pack(side="left", pady=10, padx=10)
+
+
+class HomeTab:
+    """
+    A Home tab for the Spotify Skip Tracker GUI, displaying playback information and logs.
+    """
+
+    def __init__(self, parent):
+        """
+        Initialize the HomeTab.
+
+        Args:
+            parent (ctk.CTkFrame): The parent frame for the Home tab.
+        """
+        self.parent = parent
+
+        # Playback Information Text Box
+        self.playback_info = ctk.CTkTextbox(parent, width=800, height=250)
+        self.playback_info.pack(pady=10, padx=10)
+        self.playback_info.configure(state="disabled")
+
+        # Log Text Box
+        self.log_text = ctk.CTkTextbox(parent, width=800, height=250)
+        self.log_text.pack(pady=10, padx=10)
+        self.log_text.configure(state="disabled")
+
+    def update_playback_info(self, playback: Optional[Dict[str, Any]]):
+        """
+        Update the playback information text box with the current playback details.
+
+        Args:
+            playback (Optional[Dict[str, Any]]): The current playback information.
+        """
+        if playback:
+            track_name = playback["item"]["name"]
+            artists = ", ".join(
+                [artist["name"] for artist in playback["item"]["artists"]]
+            )
+            progress = playback["progress_ms"] // 1000
+            duration = playback["item"]["duration_ms"] // 1000
+            is_playing = playback["is_playing"]
+            status = "Playing" if is_playing else "Paused"
+
+            info = (
+                f"Track: {track_name}\n"
+                f"Artists: {artists}\n"
+                f"Progress: {progress}s / {duration}s\n"
+                f"Status: {status}\n"
+            )
+        else:
+            info = "No playback information available."
+
+        self.playback_info.configure(state="normal")
+        self.playback_info.delete("1.0", "end")
+        self.playback_info.insert("1.0", info)
+        self.playback_info.configure(state="disabled")
+
+    def update_logs(self, log_contents: str):
+        """
+        Update the log text box with new log contents.
+
+        Args:
+            log_contents (str): The contents of the log file.
+        """
+        self.log_text.configure(state="normal")
+        self.log_text.delete("1.0", "end")
+        self.log_text.insert("1.0", log_contents)
+        self.log_text.yview_moveto(1.0)
+        self.log_text.configure(state="disabled")
+
+
+class SkippedTab:
+    """
+    A Skipped tab for the Spotify Skip Tracker GUI, displaying skipped songs count.
+    """
+
+    def __init__(self, parent):
+        """
+        Initialize the SkippedTab.
+
+        Args:
+            parent (ctk.CTkFrame): The parent frame for the Skipped tab.
+        """
+        self.parent = parent
+
+        # Title Label
+        self.skipped_label = ctk.CTkLabel(
+            parent, text="Skipped Songs Count", font=("Arial", 16)
+        )
+        self.skipped_label.pack(pady=10)
+
+        # Skipped Songs Text Box
+        self.skipped_text = ctk.CTkTextbox(parent, width=800, height=450)
+        self.skipped_text.pack(pady=10, padx=10)
+        self.skipped_text.configure(state="disabled")
+
+        # Refresh Button
+        self.refresh_button = ctk.CTkButton(
+            parent, text="Refresh", command=self.refresh
+        )
+        self.refresh_button.pack(pady=10)
+
+        # Load skipped songs data initially
+        self.load_skipped_data()
+
+    def load_skipped_data(self):
+        """
+        Load and display the skipped songs data from skip_count.json.
+        """
+        skipped_file = "skip_count.json"
+        try:
+            with open(skipped_file, "r", encoding="utf-8") as file:
+                skip_data = json.load(file)
+            if skip_data:
+                display_text = "\n".join(
+                    [f"{track}: {count}" for track, count in skip_data.items()]
+                )
+            else:
+                display_text = "No skipped songs recorded."
+        except FileNotFoundError:
+            display_text = "Skip count file not found."
+        except json.JSONDecodeError:
+            display_text = "Error decoding skip count file."
+
+        self.skipped_text.configure(state="normal")
+        self.skipped_text.delete("1.0", "end")
+        self.skipped_text.insert("1.0", display_text)
+        self.skipped_text.configure(state="disabled")
+
+    def refresh(self):
+        """
+        Refresh the skipped songs data.
+        """
+        self.load_skipped_data()
+
+
+class SettingsTab:
+    """
+    A Settings tab for the Spotify Skip Tracker GUI, allows users to configure application settings.
+    """
+
+    def __init__(self, parent, config, logger):  # pylint: disable=redefined-outer-name
+        """
+        Initialize the SettingsTab.
+
+        Args:
+            parent (ctk.CTkFrame): The parent frame for the Settings tab.
+            config (dict): The current configuration dictionary.
+            logger (logging.Logger): The logger instance for logging activities.
+        """
+        self.parent = parent
+        self.config = config
+        self.logger = logger
+
+        # Title Label
+        self.settings_label = ctk.CTkLabel(
+            parent, text="Application Settings", font=("Arial", 16)
+        )
+        self.settings_label.pack(pady=10)
+
+        # Configuration Variables
+        self.settings_entries = {}
+        required_keys = [
+            "SPOTIFY_CLIENT_ID",
+            "SPOTIFY_CLIENT_SECRET",
+            "SPOTIFY_REDIRECT_URI",
+        ]
+
+        for key in required_keys:
+            frame = ctk.CTkFrame(parent)
+            frame.pack(pady=5, padx=20, fill="x")
+
+            label = ctk.CTkLabel(frame, text=f"{key}:", width=160, anchor="w")
+            label.pack(side="left", padx=5, pady=5)
+
+            entry = ctk.CTkEntry(frame, width=500)
+            entry.pack(side="left", padx=5, pady=5)
+            entry.insert(0, self.config.get(key, ""))
+            self.settings_entries[key] = entry
+
+        # Save Settings Button
+        self.save_button = ctk.CTkButton(
+            parent, text="Save Settings", command=self.save_settings
+        )
+        self.save_button.pack(pady=20)
+
+    def save_settings(self):
+        """
+        Save the settings entered in the Settings tab.
+        """
+        for key, entry in self.settings_entries.items():
+            value = entry.get().strip()
+            if not value:
+                messagebox.showerror("Input Error", f"{key} cannot be empty.")
+                return
+            set_config_variable(key, value)
+            self.config[key] = value  # Update the current config
+
+        messagebox.showinfo("Settings Saved", "Settings have been saved successfully.")
+        self.logger.info("Settings saved by the user.")
+
+
 class SpotifySkipTrackerGUI(ctk.CTk):
     """
     A GUI application for tracking Spotify skips using customtkinter.
@@ -58,7 +289,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # Create header
+        # Create header using HeaderFrame
         self.create_header()
 
         # Create tab view
@@ -79,20 +310,11 @@ class SpotifySkipTrackerGUI(ctk.CTk):
 
     def create_header(self):
         """
-        Create the header frame with the login and logout buttons.
+        Create the header frame with the login and logout buttons using HeaderFrame class.
         """
-        self.header_frame = ctk.CTkFrame(self, height=50)
-        self.header_frame.grid(row=0, column=0, sticky="ew")
-
-        self.login_button = ctk.CTkButton(
-            self.header_frame, text="Login with Spotify", command=self.authenticate
+        self.header = HeaderFrame(
+            self, authenticate_callback=self.authenticate, logout_callback=self.logout
         )
-        self.login_button.pack(side="left", pady=10, padx=10)
-
-        self.logout_button = ctk.CTkButton(
-            self.header_frame, text="Logout", command=self.logout
-        )
-        self.logout_button.pack(side="left", pady=10, padx=10)
 
     def create_tab_view(self):
         """
@@ -113,83 +335,24 @@ class SpotifySkipTrackerGUI(ctk.CTk):
 
     def create_home_tab(self):
         """
-        Create the Home tab with playback information and log display.
+        Create the Home tab by instantiating the HomeTab class.
         """
         home_frame = self.tab_view.tab("Home")
-
-        # Playback Information Text Box
-        self.playback_info = ctk.CTkTextbox(home_frame, width=800, height=250)
-        self.playback_info.pack(pady=10, padx=10)
-        self.playback_info.configure(state="disabled")
-
-        # Log Text Box
-        self.log_text = ctk.CTkTextbox(home_frame, width=800, height=250)
-        self.log_text.pack(pady=10, padx=10)
-        self.log_text.configure(state="disabled")
+        self.home_tab = HomeTab(home_frame)  # pylint: disable=attribute-defined-outside-init
 
     def create_skipped_tab(self):
         """
-        Create the Skipped tab to display skip count data.
+        Create the Skipped tab by instantiating the SkippedTab class.
         """
         skipped_frame = self.tab_view.tab("Skipped")
-
-        # Title Label
-        skipped_label = ctk.CTkLabel(
-            skipped_frame, text="Skipped Songs Count", font=("Arial", 16)
-        )
-        skipped_label.pack(pady=10)
-
-        # Skipped Songs Text Box
-        self.skipped_text = ctk.CTkTextbox(skipped_frame, width=800, height=450)
-        self.skipped_text.pack(pady=10, padx=10)
-        self.skipped_text.configure(state="disabled")
-
-        # Load skipped songs data
-        self.load_skipped_data()
-
-        # Refresh Button
-        refresh_button = ctk.CTkButton(
-            skipped_frame, text="Refresh", command=self.load_skipped_data
-        )
-        refresh_button.pack(pady=10)
+        self.skipped_tab = SkippedTab(skipped_frame)  # pylint: disable=attribute-defined-outside-init
 
     def create_settings_tab(self):
         """
-        Create the Settings tab for configuring application settings.
+        Create the Settings tab by instantiating the SettingsTab class.
         """
         settings_frame = self.tab_view.tab("Settings")
-
-        # Title Label
-        settings_label = ctk.CTkLabel(
-            settings_frame, text="Application Settings", font=("Arial", 16)
-        )
-        settings_label.pack(pady=10)
-
-        # Configuration Variables
-        self.settings_entries = {}
-        required_keys = [
-            "SPOTIFY_CLIENT_ID",
-            "SPOTIFY_CLIENT_SECRET",
-            "SPOTIFY_REDIRECT_URI",
-        ]
-
-        for key in required_keys:
-            frame = ctk.CTkFrame(settings_frame)
-            frame.pack(pady=5, padx=20, fill="x")
-
-            label = ctk.CTkLabel(frame, text=f"{key}:", width=160, anchor="w")
-            label.pack(side="left", padx=5, pady=5)
-
-            entry = ctk.CTkEntry(frame, width=500)
-            entry.pack(side="left", padx=5, pady=5)
-            entry.insert(0, self.config.get(key, ""))
-            self.settings_entries[key] = entry
-
-        # Save Settings Button
-        save_button = ctk.CTkButton(
-            settings_frame, text="Save Settings", command=self.save_settings
-        )
-        save_button.pack(pady=20)
+        self.settings_tab = SettingsTab(settings_frame, self.config, logger)  # pylint: disable=attribute-defined-outside-init
 
     def authenticate(self):
         """
@@ -271,21 +434,6 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         save_button = ctk.CTkButton(popup, text="Save", command=save_and_close)
         save_button.pack(pady=20)
 
-    def save_settings(self):
-        """
-        Save the settings entered in the Settings tab.
-        """
-        for key, entry in self.settings_entries.items():
-            value = entry.get().strip()
-            if not value:
-                messagebox.showerror("Input Error", f"{key} cannot be empty.")
-                return
-            set_config_variable(key, value)
-            self.config[key] = value  # Update the current config
-
-        messagebox.showinfo("Settings Saved", "Settings have been saved successfully.")
-        logger.info("Settings saved by the user.")
-
     def get_port(self) -> int:
         """
         Get the port number from the redirect URI.
@@ -330,7 +478,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             try:
                 if self.flask_thread and self.flask_thread.is_alive():
                     self.flask_thread = None
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
                 logger.error("Error joining Flask thread: %s", e)
         else:
             # Check again after 100ms
@@ -357,69 +505,12 @@ class SpotifySkipTrackerGUI(ctk.CTk):
 
     def update_playback_info(self, playback: Optional[Dict[str, Any]]):
         """
-        Update the playback information text box with the current playback details.
+        Update the playback information in the Home tab.
 
         Args:
             playback (Optional[Dict[str, Any]]): The current playback information.
         """
-        if playback:
-            track_name = playback["item"]["name"]
-            artists = ", ".join(
-                [artist["name"] for artist in playback["item"]["artists"]]
-            )
-            progress = playback["progress_ms"] // 1000
-            duration = playback["item"]["duration_ms"] // 1000
-            is_playing = playback["is_playing"]
-            status = "Playing" if is_playing else "Paused"
-
-            info = (
-                f"Track: {track_name}\n"
-                f"Artists: {artists}\n"
-                f"Progress: {progress}s / {duration}s\n"
-                f"Status: {status}\n"
-            )
-        else:
-            info = "No playback information available."
-
-        self.playback_info.configure(state="normal")
-        self.playback_info.delete("1.0", "end")
-        self.playback_info.insert("1.0", info)
-        self.playback_info.configure(state="disabled")
-
-    def load_skipped_data(self):
-        """
-        Load and display the skipped songs data from skip_count.json.
-        """
-        skipped_file = "skip_count.json"
-        try:
-            with open(skipped_file, "r", encoding="utf-8") as file:
-                skip_data = json.load(file)
-            if skip_data:
-                display_text = "\n".join(
-                    [f"{track}: {count}" for track, count in skip_data.items()]
-                )
-            else:
-                display_text = "No skipped songs recorded."
-        except FileNotFoundError:
-            display_text = "Skip count file not found."
-        except json.JSONDecodeError:
-            display_text = "Error decoding skip count file."
-
-        self.skipped_text.configure(state="normal")
-        self.skipped_text.delete("1.0", "end")
-        self.skipped_text.insert("1.0", display_text)
-        self.skipped_text.configure(state="disabled")
-
-    def append_log(self, message: str):
-        """
-        Append a log message to the log text box.
-
-        Args:
-            message (str): The log message to append.
-        """
-        self.log_text.configure(state="normal")
-        self.log_text.insert("end", message + "\n")
-        self.log_text.configure(state="disabled")
+        self.home_tab.update_playback_info(playback)
 
     def update_log_text_box(self):
         """
@@ -435,11 +526,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
                 log_contents = ""
 
             if log_contents != previous_log_contents:
-                self.log_text.configure(state="normal")
-                self.log_text.delete("1.0", "end")
-                self.log_text.insert("1.0", log_contents)
-                self.log_text.yview_moveto(1.0)
-                self.log_text.configure(state="disabled")
+                self.home_tab.update_logs(log_contents)
                 previous_log_contents = log_contents
 
             time.sleep(1)  # Update every second
