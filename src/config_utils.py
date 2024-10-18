@@ -27,6 +27,12 @@ load_dotenv(ENV_FILE)
 
 # Retrieve or generate the encryption key
 def get_encryption_key() -> bytes:
+    """
+    Retrieve the encryption key from the environment or generate a new one if it does not exist.
+
+    Returns:
+        bytes: The encryption key.
+    """
     key = os.getenv("ENCRYPTION_KEY")
     if not key:
         key = Fernet.generate_key().decode()
@@ -111,7 +117,7 @@ def load_config(decrypt: bool = False) -> dict:
             if key in config and config[key].startswith(ENCRYPTION_PREFIX):
                 try:
                     config[key] = decrypt_data(config[key])
-                except Exception as e:
+                except Exception as e:  # pylint: disable=broad-except
                     logger.error("Failed to decrypt key %s: %s", key, e)
 
     return config

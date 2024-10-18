@@ -3,6 +3,7 @@ This module creates a GUI application for Spotify Skip Tracker using customtkint
 It handles user authentication, playback monitoring, and displays logs within the interface.
 """
 
+import io
 import os
 import threading
 import webbrowser
@@ -10,8 +11,10 @@ import time
 from typing import Optional, Dict, Any
 from tkinter import messagebox
 import json
+from PIL import Image
 import requests
 import customtkinter as ctk
+from customtkinter import CTkImage, get_appearance_mode
 from flask import Flask
 from auth import login_bp, callback_bp, is_token_valid, stop_flag
 from playback import main as playback_main
@@ -28,6 +31,20 @@ logger.setLevel(log_level)
 flask_app = Flask(__name__)
 flask_app.register_blueprint(login_bp, url_prefix="/login")
 flask_app.register_blueprint(callback_bp, url_prefix="/callback")
+
+config = load_config()
+ctk.set_appearance_mode(config.get("APPEARANCE_MODE", "System"))
+if config.get("COLOR_THEME", "blue") == "NightTrain":
+    ctk.set_default_color_theme("assets/themes/night_train.json")
+else:
+    ctk.set_default_color_theme(config.get("COLOR_THEME", "blue"))
+
+
+def get_text_color():
+    """
+    Determine the text color based on the current appearance mode.
+    """
+    return "black" if get_appearance_mode() == "Dark" else "white"
 
 
 class HeaderFrame(ctk.CTkFrame):
@@ -79,20 +96,92 @@ class HomeTab:
             parent (ctk.CTkFrame): The parent frame for the Home tab.
         """
         self.parent = parent
+        self.placeholder_image = ctk.CTkImage(
+            light_image=Image.open("assets/images/black.jpg"),
+            dark_image=Image.open("assets/images/white.jpg"),
+            size=(200, 200),
+        )
 
-        # Playback Information Text Box
-        self.playback_info = ctk.CTkTextbox(parent, width=800, height=250)
-        self.playback_info.pack(pady=10, padx=10)
-        self.playback_info.configure(state="disabled")
+        # Playback Information Frame
+        self.playback_frame = ctk.CTkFrame(parent, width=800, fg_color="transparent")
+        self.playback_frame.pack(pady=10, padx=10, fill="x", expand=True)
+
+        # Album Art
+        self.album_art_label = ctk.CTkLabel(
+            self.playback_frame,
+            text="No Playback",
+            image=self.placeholder_image,
+            width=200,
+            height=200,
+            text_color=get_text_color(),
+        )
+        self.album_art_label.grid(row=0, column=0, rowspan=3, padx=10, pady=10)
+
+        # Track Information Frame
+        self.track_info_frame = ctk.CTkFrame(self.playback_frame, width=590)
+        self.track_info_frame.grid(
+            row=0, column=1, columnspan=6, sticky="nsew", padx=10, pady=10
+        )
+
+        # Track Name Label
+        self.track_name_label = ctk.CTkLabel(
+            self.track_info_frame,
+            text="Track: ",
+            font=("Arial", 16, "bold"),
+            anchor="w",
+            width=590,
+        )
+        self.track_name_label.pack(fill="both", pady=2, expand=True)
+
+        # Artists Label
+        self.artists_label = ctk.CTkLabel(
+            self.track_info_frame,
+            text="Artists: ",
+            font=("Arial", 14),
+            anchor="w",
+            width=590,
+        )
+        self.artists_label.pack(fill="both", pady=2, expand=True)
+
+        # Status Label
+        self.status_label = ctk.CTkLabel(
+            self.track_info_frame,
+            text="Status: ",
+            font=("Arial", 14),
+            anchor="w",
+            width=590,
+        )
+        self.status_label.pack(fill="both", pady=2, expand=True)
+
+        # Progress Bar Frame
+        self.progress_frame = ctk.CTkFrame(self.playback_frame, width=590)
+        self.progress_frame.grid(row=1, column=1, sticky="nsew", padx=5, pady=10)
+
+        # Progress Bar
+        self.progress_var = ctk.DoubleVar(value=0)
+        self.progress_bar = ctk.CTkProgressBar(
+            self.progress_frame, variable=self.progress_var, width=575
+        )
+        self.progress_bar.pack(pady=5, expand=True)
+
+        # Progress Labels
+        self.progress_time_label = ctk.CTkLabel(
+            self.progress_frame,
+            text="0s / 0s",
+            font=("Arial", 12),
+            anchor="w",
+            width=575,
+        )
+        self.progress_time_label.pack(side="left", padx=5, expand=True)
 
         # Log Text Box
         self.log_text = ctk.CTkTextbox(parent, width=800, height=250)
-        self.log_text.pack(pady=10, padx=10)
+        self.log_text.pack(pady=10, padx=10, fill="both", expand=True)
         self.log_text.configure(state="disabled")
 
     def update_playback_info(self, playback: Optional[Dict[str, Any]]):
         """
-        Update the playback information text box with the current playback details.
+        Update the playback information in the Home tab.
 
         Args:
             playback (Optional[Dict[str, Any]]): The current playback information.
@@ -107,19 +196,37 @@ class HomeTab:
             is_playing = playback["is_playing"]
             status = "Playing" if is_playing else "Paused"
 
-            info = (
-                f"Track: {track_name}\n"
-                f"Artists: {artists}\n"
-                f"Progress: {progress}s / {duration}s\n"
-                f"Status: {status}\n"
-            )
-        else:
-            info = "No playback information available."
+            # Update Labels
+            self.track_name_label.configure(text=f"Track: {track_name}")
+            self.artists_label.configure(text=f"Artists: {artists}")
+            self.status_label.configure(text=f"Status: {status}")
 
-        self.playback_info.configure(state="normal")
-        self.playback_info.delete("1.0", "end")
-        self.playback_info.insert("1.0", info)
-        self.playback_info.configure(state="disabled")
+            # Update Progress Bar
+            progress_percentage = (progress / duration) if duration > 0 else 0
+            self.progress_var.set(progress_percentage)
+            self.progress_time_label.configure(text=f"{progress}s / {duration}s")
+
+            # Update Album Art
+            album_art_url = playback["item"]["album"]["images"][0]["url"]
+            if (
+                not hasattr(self, "current_album_art_url")
+                or self.current_album_art_url != album_art_url  # pylint: disable=access-member-before-definition
+            ):
+                self.current_album_art_url = album_art_url  # pylint: disable=attribute-defined-outside-init
+                self.load_album_art_async(album_art_url)
+        else:
+            # Clear Playback Information
+            self.track_name_label.configure(text="Track: ")
+            self.artists_label.configure(text="Artists: ")
+            self.status_label.configure(text="Status: ")
+            self.progress_var.set(0)
+            self.progress_time_label.configure(text="0s / 0s")
+            self.album_art_label.configure(
+                text="No Playback",
+                image=self.placeholder_image,
+                text_color=get_text_color(),
+            )
+            self.current_album_art_url = None  # pylint: disable=attribute-defined-outside-init
 
     def update_logs(self, log_contents: str):
         """
@@ -133,6 +240,34 @@ class HomeTab:
         self.log_text.insert("1.0", log_contents)
         self.log_text.yview_moveto(1.0)
         self.log_text.configure(state="disabled")
+
+    def load_album_art(self, url: str):
+        """
+        Load and display album art from a URL.
+
+        Args:
+            url (str): URL of the album art image.
+        """
+        try:
+            response = requests.get(url, timeout=5)
+            response.raise_for_status()
+            image_data = response.content
+            image = Image.open(io.BytesIO(image_data))
+            image = image.resize((200, 200), Image.Resampling.LANCZOS)
+            self.album_art_image = CTkImage(image, size=(200, 200))  # pylint: disable=attribute-defined-outside-init
+            self.album_art_label.configure(text="", image=self.album_art_image)
+        except Exception as e:  # pylint: disable=broad-except
+            logger.error("Failed to load album art: %s", e)
+            self.album_art_label.configure(image=None)
+
+    def load_album_art_async(self, url: str):
+        """
+        Load album art asynchronously from a URL.
+
+        Args:
+            url (str): URL of the album art image.
+        """
+        threading.Thread(target=self.load_album_art, args=(url,), daemon=True).start()
 
 
 class SkippedTab:
@@ -281,6 +416,42 @@ class SettingsTab:
         )
         self.log_line_count_entry.pack(side="left", padx=5, pady=5)
 
+        # Appearance Mode Dropdown
+        appearance_mode_frame = ctk.CTkFrame(parent)
+        appearance_mode_frame.pack(pady=5, padx=20, fill="x")
+
+        appearance_mode_label = ctk.CTkLabel(
+            appearance_mode_frame, text="Appearance Mode:", width=160, anchor="w"
+        )
+        appearance_mode_label.pack(side="left", padx=5, pady=5)
+
+        self.appearance_mode_var = ctk.StringVar(
+            value=self.config.get("APPEARANCE_MODE", "System")
+        )
+        self.appearance_mode_dropdown = ctk.CTkOptionMenu(
+            appearance_mode_frame,
+            variable=self.appearance_mode_var,
+            values=["System", "Dark", "Light"],
+        )
+        self.appearance_mode_dropdown.pack(side="left", padx=5, pady=5)
+
+        # Color Theme Dropdown
+        theme_frame = ctk.CTkFrame(parent)
+        theme_frame.pack(pady=5, padx=20, fill="x")
+
+        theme_label = ctk.CTkLabel(
+            theme_frame, text="Color Theme:", width=160, anchor="w"
+        )
+        theme_label.pack(side="left", padx=5, pady=5)
+
+        self.theme_var = ctk.StringVar(value=self.config.get("COLOR_THEME", "blue"))
+        self.theme_dropdown = ctk.CTkOptionMenu(
+            theme_frame,
+            variable=self.theme_var,
+            values=["blue", "green", "dark-blue", "NightTrain"],
+        )
+        self.theme_dropdown.pack(side="left", padx=5, pady=5)
+
         # Save Settings Button
         self.save_button = ctk.CTkButton(
             parent, text="Save Settings", command=self.save_settings
@@ -313,7 +484,37 @@ class SettingsTab:
         set_config_variable("LOG_LINE_COUNT", log_line_count)
         self.config["LOG_LINE_COUNT"] = log_line_count
 
-        messagebox.showinfo("Settings Saved", "Settings have been saved successfully.")
+        # Save appearance mode setting
+        appearance_mode = self.appearance_mode_var.get()
+        set_config_variable("APPEARANCE_MODE", appearance_mode)
+        self.config["APPEARANCE_MODE"] = appearance_mode
+
+        # Apply appearance mode
+        ctk.set_appearance_mode(self.config["APPEARANCE_MODE"])
+
+        # Check if color theme was changed
+        if self.theme_var.get() != self.config.get("COLOR_THEME"):
+            messagebox.showinfo(
+                "Settings Saved",
+                "Settings have been saved successfully. A restart is required "
+                "for Color Theme setting to take effect.",
+            )
+        else:
+            messagebox.showinfo(
+                "Settings Saved", "Settings have been saved successfully."
+            )
+
+        # Save color theme setting
+        color_theme = self.theme_var.get()
+        set_config_variable("COLOR_THEME", color_theme)
+        self.config["COLOR_THEME"] = color_theme
+
+        # Apply color theme
+        if self.config["COLOR_THEME"] == "NightTrain":
+            ctk.set_default_color_theme("assets/themes/night_train.json")
+        else:
+            ctk.set_default_color_theme(self.config["COLOR_THEME"])
+
         self.logger.info("Settings saved by the user.")
 
 
