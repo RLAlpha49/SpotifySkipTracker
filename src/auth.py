@@ -97,7 +97,9 @@ def oauth_callback():
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         try:
-            response = requests.post(TOKEN_URL, data=payload, headers=headers, timeout=10)
+            response = requests.post(
+                TOKEN_URL, data=payload, headers=headers, timeout=10
+            )
             response.raise_for_status()  # Raise an error for bad responses
             tokens = response.json()
             ACCESS_TOKEN = tokens.get("access_token")
@@ -113,6 +115,7 @@ def oauth_callback():
             return "Authentication successful. Server shutting down..."
         except requests.exceptions.RequestException as e:
             logger.error("Failed to obtain tokens: %s", e)
+            logger.debug("Response content: %s", response.content)
             return jsonify({"error": "Failed to obtain tokens."}), 400
     else:
         logger.error("No code found in callback.")
@@ -159,7 +162,7 @@ def refresh_access_token() -> None:
     response = requests.post(TOKEN_URL, data=payload, headers=headers, timeout=10)
     if response.status_code == 200:
         tokens = response.json()
-        ACCESS_TOKEN = tokens.get("access_token", "")
+        ACCESS_TOKEN = tokens.get("access_token")
         set_config_variable("SPOTIFY_ACCESS_TOKEN", ACCESS_TOKEN, encrypt=True)
         auth_reload()
         logger.info("Access Token Refreshed")

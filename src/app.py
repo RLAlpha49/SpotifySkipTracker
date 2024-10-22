@@ -15,11 +15,12 @@ from PIL import Image
 import requests
 import customtkinter as ctk
 from customtkinter import CTkImage, get_appearance_mode
+from CTkTreeview import CTkTreeview
 from flask import Flask
 from auth import login_bp, callback_bp, is_token_valid, stop_flag
 from playback import main as playback_main
 from logging_config import setup_logger
-from utils import get_user_id
+from utils import get_user_id, load_skip_count
 from config_utils import load_config, set_config_variable
 
 # Initialize logging
@@ -154,15 +155,15 @@ class HomeTab:
         self.status_label.pack(fill="both", pady=2, expand=True)
 
         # Progress Bar Frame
-        self.progress_frame = ctk.CTkFrame(self.playback_frame, width=590)
+        self.progress_frame = ctk.CTkFrame(self.playback_frame, width=420)
         self.progress_frame.grid(row=1, column=1, sticky="nsew", padx=5, pady=10)
 
         # Progress Bar
         self.progress_var = ctk.DoubleVar(value=0)
         self.progress_bar = ctk.CTkProgressBar(
-            self.progress_frame, variable=self.progress_var, width=575
+            self.progress_frame, variable=self.progress_var, width=420
         )
-        self.progress_bar.pack(pady=5, expand=True)
+        self.progress_bar.grid(row=0, column=0, pady=5, padx=(0, 5), sticky="w")
 
         # Progress Labels
         self.progress_time_label = ctk.CTkLabel(
@@ -172,7 +173,7 @@ class HomeTab:
             anchor="w",
             width=575,
         )
-        self.progress_time_label.pack(side="left", padx=5, expand=True)
+        self.progress_time_label.grid(row=1, column=0, pady=5, sticky="ew")
 
         # Log Text Box
         self.log_text = ctk.CTkTextbox(parent, width=800, height=250)
@@ -253,7 +254,7 @@ class HomeTab:
             response.raise_for_status()
             image_data = response.content
             image = Image.open(io.BytesIO(image_data))
-            image = image.resize((200, 200), Image.Resampling.LANCZOS)
+            image = image.resize((200, 200), Image.Resampling.LANCZOS)  # type: ignore
             self.album_art_image = CTkImage(image, size=(200, 200))  # pylint: disable=attribute-defined-outside-init
             self.album_art_label.configure(text="", image=self.album_art_image)
         except Exception as e:  # pylint: disable=broad-except
@@ -286,14 +287,25 @@ class SkippedTab:
 
         # Title Label
         self.skipped_label = ctk.CTkLabel(
-            parent, text="Skipped Songs Count", font=("Arial", 16)
+            parent, text="Skipped Songs Details", font=("Arial", 16)
         )
         self.skipped_label.pack(pady=10)
 
-        # Skipped Songs Text Box
-        self.skipped_text = ctk.CTkTextbox(parent, width=800, height=450)
-        self.skipped_text.pack(pady=10, padx=10)
-        self.skipped_text.configure(state="disabled")
+        # Skipped Songs Treeview
+        self.skipped_tree = CTkTreeview(
+            parent,
+            columns=("Track ID", "Skipped", "Not Skipped", "Last Skipped"),
+            show="headings",
+        )
+        self.skipped_tree.heading("Track ID", text="Track ID")
+        self.skipped_tree.heading("Skipped", text="Skipped Count")
+        self.skipped_tree.heading("Not Skipped", text="Not Skipped Count")
+        self.skipped_tree.heading("Last Skipped", text="Last Skipped")
+        self.skipped_tree.column("Track ID", anchor="center", stretch=True)
+        self.skipped_tree.column("Skipped", anchor="center", stretch=True)
+        self.skipped_tree.column("Not Skipped", anchor="center", stretch=True)
+        self.skipped_tree.column("Last Skipped", anchor="center", stretch=True)
+        self.skipped_tree.pack(pady=10, padx=10, fill="both", expand=True)
 
         # Refresh Button
         self.refresh_button = ctk.CTkButton(
@@ -308,30 +320,43 @@ class SkippedTab:
         """
         Load and display the skipped songs data from skip_count.json.
         """
-        skipped_file = "skip_count.json"
         try:
-            with open(skipped_file, "r", encoding="utf-8") as file:
-                skip_data = json.load(file)
+            skip_data = load_skip_count()
             if skip_data:
-                display_text = "\n".join(
-                    [f"{track}: {count}" for track, count in skip_data.items()]
-                )
+                for track_id, data in skip_data.items():
+                    skipped_count = data.get("skipped", 0)
+                    not_skipped_count = data.get("not_skipped", 0)
+                    last_skipped = data.get("last_skipped", "N/A")
+                    self.skipped_tree.insert(
+                        "",
+                        "end",
+                        iid=track_id,
+                        values=(
+                            track_id,
+                            skipped_count,
+                            not_skipped_count,
+                            last_skipped,
+                        ),
+                    )
             else:
-                display_text = "No skipped songs recorded."
+                self.skipped_tree.insert("", "end", values=("No data", "", "", ""))
         except FileNotFoundError:
-            display_text = "Skip count file not found."
+            self.skipped_tree.insert(
+                "", "end", values=("Skip count file not found.", "", "", "")
+            )
         except json.JSONDecodeError:
-            display_text = "Error decoding skip count file."
-
-        self.skipped_text.configure(state="normal")
-        self.skipped_text.delete("1.0", "end")
-        self.skipped_text.insert("1.0", display_text)
-        self.skipped_text.configure(state="disabled")
+            self.skipped_tree.insert(
+                "", "end", values=("Error decoding skip count file.", "", "", "")
+            )
 
     def refresh(self):
         """
         Refresh the skipped songs data.
         """
+        # Clear existing data
+        for item in self.skipped_tree.get_children():
+            self.skipped_tree.delete(item)
+        # Reload data
         self.load_skipped_data()
 
 
@@ -533,15 +558,15 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         super().__init__()
 
         self.title("Spotify Skip Tracker")
-        self.geometry("900x700")
+        self.geometry("730x700")
 
         # Load configuration
         self.config = load_config(decrypt=True)
         self.access_token = self.config.get("SPOTIFY_ACCESS_TOKEN", "")
         self.refresh_token = self.config.get("SPOTIFY_REFRESH_TOKEN", "")
-        self.user_id: Optional[str] = None
-        self.playback_thread: Optional[threading.Thread] = None
-        self.flask_thread: Optional[threading.Thread] = None
+        self.user_id = None
+        self.playback_thread = None
+        self.flask_thread = None
         self.stop_event = threading.Event()
 
         # Configure grid

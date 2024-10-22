@@ -159,17 +159,34 @@ def get_recently_played_tracks(retries: int = 3) -> Dict[str, Any]:
     return {}
 
 
-def load_skip_count() -> Dict[str, int]:
+def load_skip_count() -> Dict[str, Dict[str, Any]]:
     """
     Load the skip count from a JSON file.
 
     Returns:
-        Dict[str, int]: The skip count data if the file exists, an empty dictionary otherwise.
+        Dict[str, Dict[str, Any]]: The skip count data if the file exists.
     """
     try:
         with open("skip_count.json", "r", encoding="utf-8") as file:
             skip_count = json.load(file)
-        return skip_count
+            # Update old format to new format
+            for track_id, count in skip_count.items():
+                if isinstance(count, int):
+                    skip_count[track_id] = {
+                        "skipped": count,
+                        "not_skipped": 0,
+                        "last_skipped": None,
+                    }
+            # Sort the skip count by the number of skips in descending order
+            sorted_skip_count = dict(
+                sorted(
+                    skip_count.items(),
+                    key=lambda item: item[1]["skipped"],
+                    reverse=True,
+                )
+            )
+            save_skip_count(sorted_skip_count)
+        return sorted_skip_count
     except FileNotFoundError:
         return {}
 
@@ -182,7 +199,7 @@ def save_skip_count(skip_count: Dict[str, int]) -> None:
         skip_count (Dict[str, int]): The skip count data to save.
     """
     with open("skip_count.json", "w", encoding="utf-8") as file:
-        json.dump(skip_count, file)
+        json.dump(skip_count, file, indent=4)
 
 
 def check_if_skipped_early(progress_ms: int, duration_ms: int) -> bool:
