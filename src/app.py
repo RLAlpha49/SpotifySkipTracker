@@ -17,11 +17,13 @@ import customtkinter as ctk
 from customtkinter import CTkImage, get_appearance_mode
 from CTkTreeview import CTkTreeview
 from flask import Flask
+from CTkToolTip import CTkToolTip
 from auth import login_bp, callback_bp, is_token_valid, stop_flag
-from playback import main as playback_main
+from playback import main as playback_main, unlike_song
 from logging_config import setup_logger
-from utils import get_user_id, load_skip_count
+from utils import get_user_id, load_skip_count, save_skip_count
 from config_utils import load_config, set_config_variable
+
 
 # Initialize logging
 logger = setup_logger()
@@ -276,14 +278,18 @@ class SkippedTab:
     A Skipped tab for the Spotify Skip Tracker GUI, displaying skipped songs count.
     """
 
-    def __init__(self, parent):
+    def __init__(self, parent, config, logger):
         """
         Initialize the SkippedTab.
 
         Args:
             parent (ctk.CTkFrame): The parent frame for the Skipped tab.
+            config (dict): The current configuration dictionary.
+            logger (logging.Logger): The logger instance for logging activities.
         """
         self.parent = parent
+        self.config = config
+        self.logger = logger
 
         # Title Label
         self.skipped_label = ctk.CTkLabel(
@@ -351,11 +357,46 @@ class SkippedTab:
 
     def refresh(self):
         """
-        Refresh the skipped songs data.
+        Refresh the skipped songs data and enforce skip threshold settings.
         """
+        # Load current configuration
+        self.config = load_config(decrypt=True)
+        skip_threshold = self.config.get("SKIP_THRESHOLD", 5)
+
+        # Load current skip_count
+        skip_count = load_skip_count()
+
+        # Identify tracks that exceed the skip threshold
+        tracks_to_unlike = [
+            track_id
+            for track_id, data in skip_count.items()
+            if data.get("skipped", 0) >= skip_threshold
+        ]
+
+        if tracks_to_unlike:
+            for track_id in tracks_to_unlike:
+                self.logger.info(
+                    f"Unliking track {track_id} due to exceeding skip threshold."
+                )
+                unlike_song(track_id)
+                del skip_count[track_id]
+                self.logger.debug(
+                    f"Removed track {track_id} from skip_count after unliking."
+                )
+
+            # Save the updated skip_count
+            save_skip_count(skip_count)
+
+            # Notify the user
+            messagebox.showinfo(
+                "Tracks Unliked",
+                f"{len(tracks_to_unlike)} track(s) have been unliked based on the new skip threshold.",
+            )
+
         # Clear existing data
         for item in self.skipped_tree.get_children():
             self.skipped_tree.delete(item)
+
         # Reload data
         self.load_skipped_data()
 
@@ -394,27 +435,27 @@ class SettingsTab:
 
         for key in required_keys:
             frame = ctk.CTkFrame(parent)
-            frame.pack(pady=5, padx=20, fill="x")
+            frame.pack(pady=3, padx=20, fill="x")
 
             formatted_key = " ".join(
                 word.capitalize() for word in key.lower().split("_")
             )
             label = ctk.CTkLabel(frame, text=f"{formatted_key}:", width=160, anchor="w")
-            label.pack(side="left", padx=5, pady=5)
+            label.pack(side="left", padx=5, pady=3)
 
             entry = ctk.CTkEntry(frame, width=500)
-            entry.pack(side="left", padx=5, pady=5)
+            entry.pack(side="left", padx=5, pady=3)
             entry.insert(0, self.config.get(key, ""))
             self.settings_entries[key] = entry
 
         # Log Level Dropdown
         log_level_frame = ctk.CTkFrame(parent)
-        log_level_frame.pack(pady=5, padx=20, fill="x")
+        log_level_frame.pack(pady=3, padx=20, fill="x")
 
         log_level_label = ctk.CTkLabel(
             log_level_frame, text="Log Level:", width=160, anchor="w"
         )
-        log_level_label.pack(side="left", padx=5, pady=5)
+        log_level_label.pack(side="left", padx=5, pady=3)
 
         self.log_level_var = ctk.StringVar(value=self.config.get("LOG_LEVEL", "INFO"))
         self.log_level_dropdown = ctk.CTkOptionMenu(
@@ -422,16 +463,16 @@ class SettingsTab:
             variable=self.log_level_var,
             values=["DEBUG", "INFO", "WARNING", "ERROR"],
         )
-        self.log_level_dropdown.pack(side="left", padx=5, pady=5)
+        self.log_level_dropdown.pack(side="left", padx=5, pady=3)
 
         # Log Line Count Textbox
         log_line_count_frame = ctk.CTkFrame(parent)
-        log_line_count_frame.pack(pady=5, padx=20, fill="x")
+        log_line_count_frame.pack(pady=3, padx=20, fill="x")
 
         log_line_count_label = ctk.CTkLabel(
             log_line_count_frame, text="Log Lines:", width=160, anchor="w"
         )
-        log_line_count_label.pack(side="left", padx=5, pady=5)
+        log_line_count_label.pack(side="left", padx=5, pady=3)
 
         self.log_line_count_var = ctk.StringVar(
             value=self.config.get("LOG_LINE_COUNT", "500")
@@ -439,16 +480,16 @@ class SettingsTab:
         self.log_line_count_entry = ctk.CTkEntry(
             log_line_count_frame, textvariable=self.log_line_count_var, width=500
         )
-        self.log_line_count_entry.pack(side="left", padx=5, pady=5)
+        self.log_line_count_entry.pack(side="left", padx=5, pady=3)
 
         # Appearance Mode Dropdown
         appearance_mode_frame = ctk.CTkFrame(parent)
-        appearance_mode_frame.pack(pady=5, padx=20, fill="x")
+        appearance_mode_frame.pack(pady=3, padx=20, fill="x")
 
         appearance_mode_label = ctk.CTkLabel(
             appearance_mode_frame, text="Appearance Mode:", width=160, anchor="w"
         )
-        appearance_mode_label.pack(side="left", padx=5, pady=5)
+        appearance_mode_label.pack(side="left", padx=5, pady=3)
 
         self.appearance_mode_var = ctk.StringVar(
             value=self.config.get("APPEARANCE_MODE", "System")
@@ -458,16 +499,16 @@ class SettingsTab:
             variable=self.appearance_mode_var,
             values=["System", "Dark", "Light"],
         )
-        self.appearance_mode_dropdown.pack(side="left", padx=5, pady=5)
+        self.appearance_mode_dropdown.pack(side="left", padx=5, pady=3)
 
         # Color Theme Dropdown
         theme_frame = ctk.CTkFrame(parent)
-        theme_frame.pack(pady=5, padx=20, fill="x")
+        theme_frame.pack(pady=3, padx=20, fill="x")
 
         theme_label = ctk.CTkLabel(
             theme_frame, text="Color Theme:", width=160, anchor="w"
         )
-        theme_label.pack(side="left", padx=5, pady=5)
+        theme_label.pack(side="left", padx=5, pady=3)
 
         self.theme_var = ctk.StringVar(value=self.config.get("COLOR_THEME", "blue"))
         self.theme_dropdown = ctk.CTkOptionMenu(
@@ -475,13 +516,107 @@ class SettingsTab:
             variable=self.theme_var,
             values=["blue", "green", "dark-blue", "NightTrain"],
         )
-        self.theme_dropdown.pack(side="left", padx=5, pady=5)
+        self.theme_dropdown.pack(side="left", padx=5, pady=3)
 
-        # Save Settings Button
+        # Skip Threshold Setting
+        skip_threshold_frame = ctk.CTkFrame(parent)
+        skip_threshold_frame.pack(pady=3, padx=20, fill="x")
+
+        skip_threshold_label = ctk.CTkLabel(
+            skip_threshold_frame, text="Skip Threshold:", width=160, anchor="w"
+        )
+        skip_threshold_label.pack(side="left", padx=5, pady=3)
+
+        self.skip_threshold_var = ctk.IntVar(value=self.config.get("SKIP_THRESHOLD", 5))
+        self.skip_threshold_entry = ctk.CTkEntry(
+            skip_threshold_frame, textvariable=self.skip_threshold_var, width=500
+        )
+        self.skip_threshold_entry.pack(side="left", padx=5, pady=3)
+
+        # Skip Progress Threshold Setting
+        skip_progress_frame = ctk.CTkFrame(parent)
+        skip_progress_frame.pack(pady=3, padx=20, fill="x")
+
+        skip_progress_label = ctk.CTkLabel(
+            skip_progress_frame, text="Skip Progress Threshold:", width=160, anchor="w"
+        )
+        skip_progress_label.pack(side="left", padx=5, pady=3)
+
+        self.skip_progress_var = ctk.DoubleVar(
+            value=self.config.get("SKIP_PROGRESS_THRESHOLD", 0.42)
+        )
+
+        # Slider for skip progress
+        self.skip_progress_slider = ctk.CTkSlider(
+            skip_progress_frame,
+            from_=0.01,
+            to=0.99,
+            variable=self.skip_progress_var,
+            command=self.update_skip_progress_label,
+        )
+        self.skip_progress_slider.pack(
+            side="left", padx=5, pady=3, fill="x", expand=True
+        )
+
+        # Tooltip for slider
+        self.skip_progress_tooltip = CTkToolTip(
+            self.skip_progress_slider,
+            message=f"{self.skip_progress_var.get() * 100:.0f}%",
+            delay=0.2,
+        )
+
+        # Label to show percentage
+        self.skip_progress_percentage_label = ctk.CTkLabel(
+            skip_progress_frame,
+            text=f"{self.skip_progress_var.get() * 100:.0f}%",
+            width=50,
+            anchor="w",
+        )
+        self.skip_progress_percentage_label.pack(side="left", padx=5, pady=3)
+
+        # Entry for manual input
+        self.skip_progress_entry = ctk.CTkEntry(
+            skip_progress_frame, textvariable=self.skip_progress_var, width=50
+        )
+        self.skip_progress_entry.pack(side="left", padx=5, pady=3)
+
+        # Trace changes to the skip progress variable
+        self.skip_progress_var.trace("w", self.on_skip_progress_var_change)
+
+        # Save Button
         self.save_button = ctk.CTkButton(
             parent, text="Save Settings", command=self.save_settings
         )
         self.save_button.pack(pady=20)
+
+    def update_skip_progress_label(self, value):
+        """
+        Update the skip progress percentage label and tooltip.
+        """
+        percentage = float(value) * 100
+        self.skip_progress_percentage_label.configure(text=f"{percentage:.0f}%")
+        self.skip_progress_tooltip.configure(message=f"{percentage:.0f}%")
+
+        # Update the entry box to show only two decimal points
+        self.skip_progress_var.set(f"{float(value):.2f}")
+
+    def on_skip_progress_var_change(self, *args):
+        """
+        Update the skip progress label when the skip progress variable changes.
+        """
+        value = self.skip_progress_var.get()
+        try:
+            # Ensure the value is a valid float
+            float_value = float(value)
+            # Check if the value is within the allowed range
+            if 0.00 <= float_value <= 0.99:
+                self.update_skip_progress_label(float_value)
+            else:
+                raise ValueError("Value out of range")
+        except ValueError:
+            # Reset to the default value if input is invalid or out of range
+            self.skip_progress_var.set("0.42")
+            self.update_skip_progress_label(0.42)
 
     def save_settings(self):
         """
@@ -505,7 +640,10 @@ class SettingsTab:
         self.logger.setLevel(log_level)
 
         # Save log line count setting
-        log_line_count = self.log_line_count_var.get()
+        log_line_count = self.log_line_count_var.get().strip()
+        if not log_line_count.isdigit():
+            messagebox.showerror("Input Error", "Log Lines must be an integer.")
+            return
         set_config_variable("LOG_LINE_COUNT", log_line_count)
         self.config["LOG_LINE_COUNT"] = log_line_count
 
@@ -539,6 +677,24 @@ class SettingsTab:
             ctk.set_default_color_theme("assets/themes/night_train.json")
         else:
             ctk.set_default_color_theme(self.config["COLOR_THEME"])
+
+        # Save skip threshold setting
+        skip_threshold = self.skip_threshold_var.get()
+        if not isinstance(skip_threshold, int):
+            messagebox.showerror("Input Error", "Skip Threshold must be an integer.")
+            return
+        set_config_variable("SKIP_THRESHOLD", skip_threshold)
+        self.config["SKIP_THRESHOLD"] = skip_threshold
+
+        # Save skip progress threshold setting
+        skip_progress_threshold = self.skip_progress_var.get()
+        if not (0.01 <= skip_progress_threshold <= 0.99):
+            messagebox.showerror(
+                "Input Error", "Skip Progress Threshold must be between 0.01 and 0.99."
+            )
+            return
+        set_config_variable("SKIP_PROGRESS_THRESHOLD", skip_progress_threshold)
+        self.config["SKIP_PROGRESS_THRESHOLD"] = skip_progress_threshold
 
         self.logger.info("Settings saved by the user.")
 
@@ -629,14 +785,18 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         Create the Skipped tab by instantiating the SkippedTab class.
         """
         skipped_frame = self.tab_view.tab("Skipped")
-        self.skipped_tab = SkippedTab(skipped_frame)  # pylint: disable=attribute-defined-outside-init
+        self.skipped_tab = SkippedTab(
+            skipped_frame, self.config, logger
+        )
 
     def create_settings_tab(self):
         """
         Create the Settings tab by instantiating the SettingsTab class.
         """
         settings_frame = self.tab_view.tab("Settings")
-        self.settings_tab = SettingsTab(settings_frame, self.config, logger)  # pylint: disable=attribute-defined-outside-init
+        self.settings_tab = SettingsTab(
+            settings_frame, self.config, logger
+        )
 
     def authenticate(self):
         """

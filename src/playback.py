@@ -18,6 +18,7 @@ from utils import (
     unlike_song,
     check_if_skipped_early,
 )
+from config_utils import load_config
 
 logger = logging.getLogger("SpotifySkipTracker")
 
@@ -110,10 +111,12 @@ def main(
                                     skip_count[last_track_id]["skipped"],
                                 )
 
-                            # Unlike if skipped 5 times
+                            config = load_config(decrypt=True)
+                            skip_threshold = config.get("SKIP_THRESHOLD", 5)
                             if (
                                 last_track_id
-                                and skip_count[last_track_id]["skipped"] >= 5
+                                and skip_count[last_track_id]["skipped"]
+                                >= skip_threshold
                             ):
                                 logger.info(
                                     "Unliking song: %s by %s (%s)",
@@ -122,7 +125,7 @@ def main(
                                     last_track_id,
                                 )
                                 unlike_song(last_track_id)
-                                skip_count.pop(last_track_id)
+                                del skip_count[last_track_id]
 
                             save_skip_count(skip_count)
                         else:

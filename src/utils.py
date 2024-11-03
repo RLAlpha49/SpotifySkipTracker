@@ -11,7 +11,7 @@ import time
 from typing import Optional, Dict, Any
 import requests
 from auth import refresh_access_token
-from config_utils import get_config_variable
+from config_utils import get_config_variable, load_config
 
 SPOTIFY_ACCESS_TOKEN = get_config_variable("SPOTIFY_ACCESS_TOKEN", "", decrypt=True)
 logger = logging.getLogger("SpotifySkipTracker")
@@ -213,9 +213,11 @@ def check_if_skipped_early(progress_ms: int, duration_ms: int) -> bool:
     Returns:
         bool: True if the song was skipped early, False otherwise.
     """
+    config = load_config(decrypt=True)
+    skip_progress_threshold = config.get("SKIP_PROGRESS_THRESHOLD", 0.42)
     if duration_ms <= 2 * 60 * 1000:
-        return progress_ms < duration_ms / 2
-    return progress_ms < duration_ms / 3
+        return progress_ms < duration_ms * skip_progress_threshold
+    return progress_ms < duration_ms * skip_progress_threshold
 
 
 def unlike_song(track_id: str, retries: int = 3) -> None:
