@@ -785,18 +785,14 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         Create the Skipped tab by instantiating the SkippedTab class.
         """
         skipped_frame = self.tab_view.tab("Skipped")
-        self.skipped_tab = SkippedTab(
-            skipped_frame, self.config, logger
-        )
+        self.skipped_tab = SkippedTab(skipped_frame, self.config, logger)
 
     def create_settings_tab(self):
         """
         Create the Settings tab by instantiating the SettingsTab class.
         """
         settings_frame = self.tab_view.tab("Settings")
-        self.settings_tab = SettingsTab(
-            settings_frame, self.config, logger
-        )
+        self.settings_tab = SettingsTab(settings_frame, self.config, logger)
 
     def authenticate(self):
         """
