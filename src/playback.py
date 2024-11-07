@@ -97,12 +97,12 @@ def main(
                                 artist_names,
                                 track_id,
                             )
-                            skip_count[track_id]["skipped"] += 1
-                            skip_count[track_id]["last_skipped"] = time.strftime(
-                                "%Y-%m-%dT%H:%M:%S", time.localtime()
-                            )
 
                             if last_track_id:
+                                skip_count[last_track_id]["skipped"] += 1
+                                skip_count[last_track_id]["last_skipped"] = (
+                                    time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
+                                )
                                 logger.info(
                                     "Song %s by %s (%s) skipped %d times.",
                                     last_track_name,
