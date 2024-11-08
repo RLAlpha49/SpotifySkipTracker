@@ -43,7 +43,7 @@ def main(
     last_duration_ms: int = 0
     track_order: List[str] = []
 
-    skip_count: Dict[str, int] = load_skip_count()
+    skip_count: Dict[str, Dict[str, Any]] = load_skip_count()
 
     while not stop_flag.is_set():
         playback = get_current_playback()

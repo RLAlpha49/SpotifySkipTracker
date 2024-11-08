@@ -278,7 +278,7 @@ class SkippedTab:
     A Skipped tab for the Spotify Skip Tracker GUI, displaying skipped songs count.
     """
 
-    def __init__(self, parent, config, logger):
+    def __init__(self, parent, app_config, app_logger):
         """
         Initialize the SkippedTab.
 
@@ -288,8 +288,8 @@ class SkippedTab:
             logger (logging.Logger): The logger instance for logging activities.
         """
         self.parent = parent
-        self.config = config
-        self.logger = logger
+        self.config = app_config
+        self.logger = app_logger
 
         # Title Label
         self.skipped_label = ctk.CTkLabel(
@@ -390,7 +390,10 @@ class SkippedTab:
             # Notify the user
             messagebox.showinfo(
                 "Tracks Unliked",
-                f"{len(tracks_to_unlike)} track(s) have been unliked based on the new skip threshold.",
+                (
+                    f"{len(tracks_to_unlike)} track(s) have been unliked "
+                    "based on the new skip threshold."
+                ),
             )
 
         # Clear existing data
@@ -406,7 +409,7 @@ class SettingsTab:
     A Settings tab for the Spotify Skip Tracker GUI, allows users to configure application settings.
     """
 
-    def __init__(self, parent, config, logger):  # pylint: disable=redefined-outer-name
+    def __init__(self, parent, app_config, app_logger):  # pylint: disable=redefined-outer-name
         """
         Initialize the SettingsTab.
 
@@ -416,8 +419,8 @@ class SettingsTab:
             logger (logging.Logger): The logger instance for logging activities.
         """
         self.parent = parent
-        self.config = config
-        self.logger = logger
+        self.config = app_config
+        self.logger = app_logger
 
         # Title Label
         self.settings_label = ctk.CTkLabel(
@@ -600,7 +603,7 @@ class SettingsTab:
         # Update the entry box to show only two decimal points
         self.skip_progress_var.set(f"{float(value):.2f}")
 
-    def on_skip_progress_var_change(self, *args):
+    def on_skip_progress_var_change(self, *_):
         """
         Update the skip progress label when the skip progress variable changes.
         """
@@ -688,7 +691,7 @@ class SettingsTab:
 
         # Save skip progress threshold setting
         skip_progress_threshold = self.skip_progress_var.get()
-        if not (0.01 <= skip_progress_threshold <= 0.99):
+        if not 0.01 <= skip_progress_threshold <= 0.99:
             messagebox.showerror(
                 "Input Error", "Skip Progress Threshold must be between 0.01 and 0.99."
             )
@@ -735,6 +738,11 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         # Create tab view
         self.create_tab_view()
 
+        # Define tabs
+        self.home_tab = None
+        self.skipped_tab = None
+        self.settings_tab = None
+
         if self.access_token and is_token_valid():
             self.user_id = get_user_id()
             self.start_playback_monitoring()
@@ -778,7 +786,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         Create the Home tab by instantiating the HomeTab class.
         """
         home_frame = self.tab_view.tab("Home")
-        self.home_tab = HomeTab(home_frame)  # pylint: disable=attribute-defined-outside-init
+        self.home_tab = HomeTab(home_frame)
 
     def create_skipped_tab(self):
         """
