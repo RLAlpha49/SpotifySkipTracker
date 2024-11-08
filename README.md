@@ -120,6 +120,10 @@ SpotifySkipTracker
 ├── logs
 │   └── spotify_app.log
 ├── src
+│   ├── gui
+│   │   ├── home_tab.py
+│   │   ├── skipped_tab.py
+│   │   └── settings_tab.py
 │   ├── app.py
 │   ├── auth.py
 │   ├── config_utils.py
