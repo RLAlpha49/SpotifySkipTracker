@@ -6,6 +6,7 @@ log level, appearance mode, color theme, and skip thresholds.
 
 from tkinter import messagebox
 import customtkinter as ctk
+from CTkToolTip import CTkToolTip
 from config_utils import set_config_variable  # type: ignore
 
 
@@ -190,22 +191,87 @@ class SettingsTab:
 
     def _create_skip_progress_slider(self, parent):
         """
-        Create a slider for skip progress threshold.
-
+        Create a slider for configuring the skip progress threshold, including a tooltip and entry.
         Args:
             parent (ctk.CTkFrame): The parent frame to add the slider to.
         """
-        frame = ctk.CTkFrame(parent)
-        frame.pack(pady=3, padx=20, fill="x")
+        skip_progress_frame = ctk.CTkFrame(parent)
+        skip_progress_frame.pack(pady=3, padx=20, fill="x")
 
         ctk.CTkLabel(
-            frame, text="Skip Progress Threshold:", width=160, anchor="w"
+            skip_progress_frame, text="Skip Progress Threshold:", width=160, anchor="w"
         ).pack(side="left", padx=5, pady=3)
 
         slider = ctk.CTkSlider(
-            frame, from_=0.01, to=0.99, variable=self.variables["skip_progress"]
+            skip_progress_frame,
+            from_=0.01,
+            to=0.99,
+            variable=self.variables["skip_progress"],
+            command=self.update_skip_progress_label,
         )
         slider.pack(side="left", padx=5, pady=3, fill="x", expand=True)
+
+        # Tooltip for slider
+        tooltip = CTkToolTip(
+            slider,
+            message=f"{self.variables['skip_progress'].get() * 100:.0f}%",
+            delay=0.2,
+        )
+        # Label to show percentage
+        percentage_label = ctk.CTkLabel(
+            skip_progress_frame,
+            text=f"{self.variables['skip_progress'].get() * 100:.0f}%",
+            width=50,
+            anchor="w",
+        )
+        percentage_label.pack(side="left", padx=5, pady=3)
+        # Entry for manual input
+        skip_progress_entry = ctk.CTkEntry(
+            skip_progress_frame, textvariable=self.variables["skip_progress"], width=50
+        )
+        skip_progress_entry.pack(side="left", padx=5, pady=3)
+        # Trace changes to the skip progress variable
+        self.variables["skip_progress"].trace("w", self.on_skip_progress_var_change)
+        # Store references in a dictionary to avoid multiple instance attributes
+        self.skip_progress_widgets = {
+            "slider": slider,
+            "percentage_label": percentage_label,
+            "entry": skip_progress_entry,
+            "tooltip": tooltip,
+        }
+
+    def update_skip_progress_label(self, value):
+        """
+        Update the skip progress percentage label and tooltip.
+        Args:
+            value (float): The current value of the skip progress slider.
+        """
+        percentage = float(value) * 100
+        self.skip_progress_widgets["percentage_label"].configure(
+            text=f"{percentage:.0f}%"
+        )
+        # Assuming tooltip can be updated similarly
+        self.skip_progress_widgets["tooltip"].configure(message=f"{percentage:.0f}%")
+        # Update the entry box to show only two decimal points
+        self.variables["skip_progress"].set(f"{float(value):.2f}")
+
+    def on_skip_progress_var_change(self, *_):
+        """
+        Update the skip progress label when the skip progress variable changes.
+        """
+        value = self.variables["skip_progress"].get()
+        try:
+            # Ensure the value is a valid float
+            float_value = float(value)
+            # Check if the value is within the allowed range
+            if 0.00 <= float_value <= 0.99:
+                self.update_skip_progress_label(float_value)
+            else:
+                raise ValueError("Value out of range")
+        except ValueError:
+            # Reset to the default value if input is invalid or out of range
+            self.variables["skip_progress"].set("0.42")
+            self.update_skip_progress_label(0.42)
 
     def save_settings(self):
         """
