@@ -110,7 +110,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         super().__init__()
 
         self.title("Spotify Skip Tracker")
-        self.geometry("730x700")
+        self.geometry("730x750")
 
         # Initialize state groups
         self.auth = self.AuthState()

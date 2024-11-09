@@ -39,9 +39,16 @@ class HomeTab:
             size=(200, 200),
         )
 
+        # Configure grid layout
+        self.parent.grid_rowconfigure(0, weight=0)
+        self.parent.grid_rowconfigure(1, weight=1)
+        self.parent.grid_columnconfigure(0, weight=1)
+
         # Playback Information Frame
-        self.playback_frame = ctk.CTkFrame(parent, width=800, fg_color="transparent")
-        self.playback_frame.pack(pady=10, padx=10, fill="x", expand=True)
+        self.playback_frame = ctk.CTkFrame(
+            self.parent, width=800, fg_color="transparent"
+        )
+        self.playback_frame.grid(row=0, column=0, pady=10, padx=10, sticky="nsew")
 
         # UI Elements
         self.ui_elements = {}
@@ -127,8 +134,8 @@ class HomeTab:
         )
 
         # Log Text Box
-        self.log_text = ctk.CTkTextbox(parent, width=800, height=250)
-        self.log_text.pack(pady=10, padx=10, fill="both", expand=True)
+        self.log_text = ctk.CTkTextbox(self.parent, width=800, height=250)
+        self.log_text.grid(row=1, column=0, pady=10, padx=10, sticky="nsew")
         self.log_text.configure(state="disabled")
 
         # Dynamic Variables

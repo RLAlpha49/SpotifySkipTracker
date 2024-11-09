@@ -5,11 +5,11 @@ allowing users to refresh the data and enforce skip threshold settings.
 """
 
 import json
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 import customtkinter as ctk
-from CTkTreeview import CTkTreeview
 from utils import load_skip_count, save_skip_count, unlike_song
 from config_utils import load_config
+from datetime import datetime, timedelta
 
 
 class SkippedTab:
@@ -23,43 +23,78 @@ class SkippedTab:
 
         Args:
             parent (ctk.CTkFrame): The parent frame for the Skipped tab.
-            config (dict): The current configuration dictionary.
-            logger (logging.Logger): The logger instance for logging activities.
+            app_config (dict): The current configuration dictionary.
+            app_logger (logging.Logger): The logger instance for logging activities.
         """
         self.parent = parent
         self.config = app_config
         self.logger = app_logger
 
+        # Configure grid layout
+        self.parent.grid_rowconfigure(1, weight=1)
+        self.parent.grid_columnconfigure(0, weight=1)
+        self.parent.grid_columnconfigure(1, weight=0)
+
         # Title Label
         self.skipped_label = ctk.CTkLabel(
             parent, text="Skipped Songs Details", font=("Arial", 16)
         )
-        self.skipped_label.pack(pady=10)
+        self.skipped_label.grid(row=0, column=0, columnspan=2, pady=10, sticky="n")
 
-        # Skipped Songs Treeview
-        self.skipped_tree = CTkTreeview(
+        # Skipped Songs Treeview using ttk
+        columns = ("Track ID", "Skipped", "Not Skipped", "Last Skipped")
+        self.skipped_tree = ttk.Treeview(
             parent,
-            columns=("Track ID", "Skipped", "Not Skipped", "Last Skipped"),
+            columns=columns,
             show="headings",
+            selectmode="browse",
         )
         self.skipped_tree.heading("Track ID", text="Track ID")
         self.skipped_tree.heading("Skipped", text="Skipped Count")
         self.skipped_tree.heading("Not Skipped", text="Not Skipped Count")
         self.skipped_tree.heading("Last Skipped", text="Last Skipped")
-        self.skipped_tree.column("Track ID", anchor="center", stretch=True)
-        self.skipped_tree.column("Skipped", anchor="center", stretch=True)
-        self.skipped_tree.column("Not Skipped", anchor="center", stretch=True)
-        self.skipped_tree.column("Last Skipped", anchor="center", stretch=True)
-        self.skipped_tree.pack(pady=10, padx=10, fill="both", expand=True)
+        self.skipped_tree.column("Track ID", anchor="center", minwidth=100, width=100)
+        self.skipped_tree.column("Skipped", anchor="center", minwidth=100, width=100)
+        self.skipped_tree.column(
+            "Not Skipped", anchor="center", minwidth=100, width=100
+        )
+        self.skipped_tree.column(
+            "Last Skipped", anchor="center", minwidth=150, width=150
+        )
+        self.skipped_tree.grid(row=1, column=0, pady=10, padx=(10, 0), sticky="nsew")
+
+        # Add a scrollbar
+        scrollbar = ctk.CTkScrollbar(
+            parent, orientation="vertical", command=self.skipped_tree.yview
+        )
+        self.skipped_tree.configure(yscroll=scrollbar.set)
+        scrollbar.grid(row=1, column=1, pady=10, sticky="ns")
 
         # Refresh Button
         self.refresh_button = ctk.CTkButton(
             parent, text="Refresh", command=self.refresh
         )
-        self.refresh_button.pack(pady=10)
+        self.refresh_button.grid(row=2, column=0, columnspan=2, pady=10, sticky="s")
+
+        # Bind the resize event
+        self.parent.bind("<Configure>", self.on_resize)
 
         # Load skipped songs data initially
         self.load_skipped_data()
+
+    def on_resize(self, _):
+        """
+        Adjust the treeview height based on the window size.
+        """
+        # Calculate the available height for the treeview
+        available_height = (
+            self.parent.winfo_height() - 100
+        )  # Adjust for padding and other widgets
+        row_height = 20  # Approximate height of a row in pixels
+        num_rows = max(5, available_height // row_height)  # Ensure a minimum of 5 rows
+
+        # Update the treeview height
+        self.skipped_tree.configure(height=num_rows)
 
     def load_skipped_data(self):
         """
@@ -101,16 +136,37 @@ class SkippedTab:
         # Load current configuration
         self.config = load_config(decrypt=True)
         skip_threshold = self.config.get("SKIP_THRESHOLD", 5)
+        timeframe_value = self.config.get("TIMEFRAME_VALUE", 1)
+        timeframe_unit = self.config.get("TIMEFRAME_UNIT", "weeks")
+
+        # Calculate the timeframe delta
+        if timeframe_unit == "days":
+            delta = timedelta(days=timeframe_value)
+        elif timeframe_unit == "weeks":
+            delta = timedelta(weeks=timeframe_value)
+        elif timeframe_unit == "months":
+            delta = timedelta(days=30 * timeframe_value)
+        elif timeframe_unit == "years":
+            delta = timedelta(days=365 * timeframe_value)
+        else:
+            delta = timedelta(days=timeframe_value)  # Default to days
+
+        now = datetime.now()
 
         # Load current skip_count
         skip_count = load_skip_count()
 
-        # Identify tracks that exceed the skip threshold
-        tracks_to_unlike = [
-            track_id
-            for track_id, data in skip_count.items()
-            if data.get("skipped", 0) >= skip_threshold
-        ]
+        # Identify tracks that exceed the skip threshold within the timeframe
+        tracks_to_unlike = []
+        for track_id, data in skip_count.items():
+            skipped_dates = data.get("skipped_dates", [])
+            recent_skips = [
+                datetime.strptime(date, "%Y-%m-%dT%H:%M:%S")
+                for date in skipped_dates
+                if now - datetime.strptime(date, "%Y-%m-%dT%H:%M:%S") <= delta
+            ]
+            if len(recent_skips) >= skip_threshold:
+                tracks_to_unlike.append(track_id)
 
         if tracks_to_unlike:
             for track_id in tracks_to_unlike:

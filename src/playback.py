@@ -99,6 +99,11 @@ def main(
                             )
 
                             if last_track_id:
+                                skip_count[last_track_id].setdefault(
+                                    "skipped_dates", []
+                                ).append(
+                                    time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
+                                )
                                 skip_count[last_track_id]["skipped"] += 1
                                 skip_count[last_track_id]["last_skipped"] = (
                                     time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
