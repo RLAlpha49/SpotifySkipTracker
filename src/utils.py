@@ -191,12 +191,12 @@ def load_skip_count() -> Dict[str, Dict[str, Any]]:
         return {}
 
 
-def save_skip_count(skip_count: Dict[str, int]) -> None:
+def save_skip_count(skip_count: Dict[str, Dict[str, Any]]) -> None:
     """
     Save the skip count to a JSON file.
 
     Args:
-        skip_count (Dict[str, int]): The skip count data to save.
+        skip_count (Dict[str, Dict[str, Any]]): The skip count data to save.
     """
     with open("skip_count.json", "w", encoding="utf-8") as file:
         json.dump(skip_count, file, indent=4)

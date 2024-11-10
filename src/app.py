@@ -7,7 +7,7 @@ import os
 import threading
 import webbrowser
 import time
-from typing import Optional, Dict, Any
+from typing import Callable, Optional, Dict, Any
 from tkinter import messagebox
 import requests
 import customtkinter as ctk
@@ -18,8 +18,8 @@ from gui.skipped_tab import SkippedTab
 from gui.settings_tab import SettingsTab
 from playback import main as playback_main
 from logging_config import setup_logger
-from utils import get_user_id
-from config_utils import load_config, set_config_variable
+from utils import get_user_id  # pylint: disable=import-error
+from config_utils import load_config, set_config_variable  # pylint: disable=import-error
 
 
 # Initialize logging
@@ -48,8 +48,8 @@ class HeaderFrame:
     def __init__(
         self,
         master: ctk.CTk,
-        authenticate_callback: callable,
-        logout_callback: callable,
+        authenticate_callback: Callable,
+        logout_callback: Callable,
     ):
         """
         Initialize the HeaderFrame.

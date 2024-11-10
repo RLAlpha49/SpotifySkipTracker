@@ -5,3 +5,5 @@ venv/
 venv_linux/
 skip_count.json
 config.json
+pyinstaller.txt
+output/

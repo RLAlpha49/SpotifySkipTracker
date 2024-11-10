@@ -9,7 +9,7 @@ import time
 import logging
 import threading
 from typing import Any, Optional, Dict, List, Callable
-from utils import (
+from utils import (  # pylint: disable=import-error
     get_user_id,
     get_recently_played_tracks,
     get_current_playback,
@@ -18,7 +18,7 @@ from utils import (
     unlike_song,
     check_if_skipped_early,
 )
-from config_utils import load_config
+from config_utils import load_config  # pylint: disable=import-error
 
 logger = logging.getLogger("SpotifySkipTracker")
 

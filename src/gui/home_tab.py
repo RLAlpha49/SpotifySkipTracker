@@ -6,6 +6,8 @@ It provides functionality to display playback information and logs.
 import io
 import threading
 from typing import Optional, Dict, Any
+import os
+import sys
 import customtkinter as ctk
 from PIL import Image
 import requests
@@ -17,6 +19,19 @@ def get_text_color():
     Determine the text color based on the current appearance mode.
     """
     return "black" if get_appearance_mode() == "Dark" else "white"
+
+
+def resource_path(relative_path):
+    """
+    Get the absolute path to a resource, works for dev and for PyInstaller.
+    """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS  # pylint: disable=protected-access
+    except AttributeError:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 
 class HomeTab:
@@ -34,8 +49,8 @@ class HomeTab:
         self.parent = parent
         self.logger = app_logger
         self.placeholder_image = ctk.CTkImage(
-            light_image=Image.open("assets/images/black.jpg"),
-            dark_image=Image.open("assets/images/white.jpg"),
+            light_image=Image.open(resource_path("assets/images/black.jpg")),
+            dark_image=Image.open(resource_path("assets/images/white.jpg")),
             size=(200, 200),
         )
 

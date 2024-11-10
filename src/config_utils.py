@@ -45,16 +45,20 @@ ENCRYPTION_KEY = get_encryption_key()
 ENCRYPTION_PREFIX = "enc:"
 
 
-def encrypt_data(data: str) -> str:
+def encrypt_data(data: str | int | float | None) -> str:
     """
     Encrypt data using Fernet symmetric encryption.
 
     Args:
-        data (str): Data to encrypt.
+        data (str | None): Data to encrypt.
 
     Returns:
         str: Encrypted data.
     """
+    if not data:
+        return ""
+    if isinstance(data, (int, float)):
+        data = str(data)
     fernet = Fernet(ENCRYPTION_KEY)
     encrypted_data = fernet.encrypt(data.encode())
     return ENCRYPTION_PREFIX + encrypted_data.decode()
@@ -150,7 +154,7 @@ def save_config(config: dict) -> None:
         logger.error("Failed to save configuration: %s", e)
 
 
-def set_config_variable(key: str, value: str, encrypt: bool = False) -> None:
+def set_config_variable(key: str, value: str | int | float | None, encrypt: bool = False) -> None:
     """
     Set a configuration variable and save it, optionally encrypting the value.
 

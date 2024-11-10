@@ -7,7 +7,7 @@ log level, appearance mode, color theme, and skip thresholds.
 from tkinter import messagebox
 import customtkinter as ctk
 from CTkToolTip import CTkToolTip
-from config_utils import set_config_variable  # type: ignore
+from config_utils import set_config_variable  # pylint: disable=import-error
 
 
 class SettingsTab:

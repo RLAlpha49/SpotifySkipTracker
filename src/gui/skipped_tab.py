@@ -6,10 +6,10 @@ allowing users to refresh the data and enforce skip threshold settings.
 
 import json
 from tkinter import messagebox, ttk
-import customtkinter as ctk
-from utils import load_skip_count, save_skip_count, unlike_song
-from config_utils import load_config
 from datetime import datetime, timedelta
+import customtkinter as ctk
+from utils import load_skip_count, save_skip_count, unlike_song  # pylint: disable=import-error  # type: ignore
+from config_utils import load_config  #pylint: disable=import-error  # type: ignore
 
 
 class SkippedTab:
@@ -67,7 +67,7 @@ class SkippedTab:
         scrollbar = ctk.CTkScrollbar(
             parent, orientation="vertical", command=self.skipped_tree.yview
         )
-        self.skipped_tree.configure(yscroll=scrollbar.set)
+        self.skipped_tree.configure(yscrollcommand=scrollbar.set)
         scrollbar.grid(row=1, column=1, pady=10, sticky="ns")
 
         # Refresh Button
