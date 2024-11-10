@@ -7,7 +7,7 @@ import os
 import threading
 import webbrowser
 import time
-from typing import Callable, Optional, Dict, Any
+from typing import Callable, Optional, Dict, Any, List
 from tkinter import messagebox
 import requests
 import customtkinter as ctk
@@ -48,16 +48,16 @@ class HeaderFrame:
     def __init__(
         self,
         master: ctk.CTk,
-        authenticate_callback: Callable,
-        logout_callback: Callable,
-    ):
+        authenticate_callback: Callable[[], None],
+        logout_callback: Callable[[], None],
+    ) -> None:
         """
         Initialize the HeaderFrame.
 
         Args:
             master (ctk.CTk): The parent widget.
-            authenticate_callback (callable): Function to call for authentication.
-            logout_callback (callable): Function to call for logout.
+            authenticate_callback (Callable[[], None]): Function to call for authentication.
+            logout_callback (Callable[[], None]): Function to call for logout.
         """
         self.frame = ctk.CTkFrame(master, height=50)
         self.frame.grid(row=0, column=0, sticky="ew", padx=20, pady=5)
@@ -80,14 +80,14 @@ class HeaderFrame:
         )
         self.logout_button.pack(side="right", pady=(0, 10), padx=10)
 
-    def show_login_button(self):
+    def show_login_button(self) -> None:
         """
         Display the login button and hide the logout button.
         """
         self.login_button.pack(side="left", pady=(0, 10), padx=10)
         self.logout_button.pack_forget()
 
-    def show_logout_button(self):
+    def show_logout_button(self) -> None:
         """
         Display the logout button and hide the login button.
         """
@@ -103,7 +103,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
     within the interface.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initialize the SpotifySkipTrackerGUI application.
         """
@@ -153,7 +153,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         Manages authentication state including tokens and user ID.
         """
 
-        def __init__(self):
+        def __init__(self) -> None:
             """
             Initialize the AuthState with default values.
             """
@@ -167,7 +167,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         Manages threads for playback monitoring and Flask server.
         """
 
-        def __init__(self):
+        def __init__(self) -> None:
             """
             Initialize the ThreadState with default threads and stop event.
             """
@@ -180,7 +180,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         Manages the different tabs within the GUI.
         """
 
-        def __init__(self):
+        def __init__(self) -> None:
             """
             Initialize the TabState with default tabs.
             """
@@ -194,14 +194,14 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             Manages the logging state, including log file path and update thread.
             """
 
-            def __init__(self):
+            def __init__(self) -> None:
                 """
                 Initialize the LogState with default values.
                 """
                 self.log_file_path: str = ""
                 self.update_log_text_box_thread: Optional[threading.Thread] = None
 
-    def create_header(self):
+    def create_header(self) -> None:
         """
         Create the header frame with the login and logout buttons using HeaderFrame class.
         """
@@ -209,7 +209,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             self, authenticate_callback=self.authenticate, logout_callback=self.logout
         )
 
-    def create_tab_view(self):
+    def create_tab_view(self) -> None:
         """
         Create the tabbed interface with Home, Skipped, and Settings tabs.
         """
@@ -226,28 +226,28 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         self.create_skipped_tab()
         self.create_settings_tab()
 
-    def create_home_tab(self):
+    def create_home_tab(self) -> None:
         """
         Create the Home tab by instantiating the HomeTab class.
         """
         home_frame = self.tab_view.tab("Home")
         self.tabs.home_tab = HomeTab(home_frame, logger)
 
-    def create_skipped_tab(self):
+    def create_skipped_tab(self) -> None:
         """
         Create the Skipped tab by instantiating the SkippedTab class.
         """
         skipped_frame = self.tab_view.tab("Skipped")
         self.tabs.skipped_tab = SkippedTab(skipped_frame, self.auth.config, logger)
 
-    def create_settings_tab(self):
+    def create_settings_tab(self) -> None:
         """
         Create the Settings tab by instantiating the SettingsTab class.
         """
         settings_frame = self.tab_view.tab("Settings")
         self.tabs.settings_tab = SettingsTab(settings_frame, self.auth.config, logger)
 
-    def authenticate(self):
+    def authenticate(self) -> None:
         """
         Authenticate the user with Spotify by starting the Flask server and opening the login page.
         """
@@ -264,12 +264,12 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         logger.info("Starting authentication process...")
         webbrowser.open(f"http://localhost:{self.get_port()}/login")
 
-    def get_missing_config_variables(self) -> list:
+    def get_missing_config_variables(self) -> List[str]:
         """
         Identify missing configuration variables that are required for authentication.
 
         Returns:
-            list: A list of missing configuration keys.
+            List[str]: A list of missing configuration keys.
         """
         required_keys = [
             "SPOTIFY_CLIENT_ID",
@@ -280,19 +280,19 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         missing = [key for key in required_keys if not self.auth.config.get(key)]
         return missing
 
-    def prompt_for_config_variables(self, missing_vars: list):
+    def prompt_for_config_variables(self, missing_vars: List[str]) -> None:
         """
         Prompt the user to enter missing configuration variables.
 
         Args:
-            missing_vars (list): A list of missing configuration keys.
+            missing_vars (List[str]): A list of missing configuration keys.
         """
         popup = ctk.CTkToplevel(self)
         popup.title("Enter Missing Configuration Variables")
         popup.geometry("500x400")
         popup.grab_set()  # Make the popup modal
 
-        entries = {}
+        entries: Dict[str, ctk.CTkEntry] = {}
         for var in missing_vars:
             frame = ctk.CTkFrame(popup)
             frame.pack(pady=10, padx=20, fill="x")
@@ -304,7 +304,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             entry.pack(side="left", padx=5, pady=5)
             entries[var] = entry
 
-        def save_and_close():
+        def save_and_close() -> None:
             """
             Save the entered configuration variables and close the popup.
             """
@@ -343,7 +343,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         parsed_uri = requests.utils.urlparse(redirect_uri)
         return parsed_uri.port or 5000
 
-    def start_flask_server(self):
+    def start_flask_server(self) -> None:
         """
         Start the Flask server in a separate thread.
         """
@@ -355,7 +355,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             # Monitor the Flask thread
             self.after(100, self.check_flask_thread)
 
-    def run_flask(self):
+    def run_flask(self) -> None:
         """
         Run the Flask server for handling OAuth callbacks.
         """
@@ -366,7 +366,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
                 logger.error("Error running Flask server: %s", e)
             time.sleep(1)
 
-    def check_flask_thread(self):
+    def check_flask_thread(self) -> None:
         """
         Check the status of the Flask thread and start playback monitoring
         if the thread has stopped.
@@ -382,7 +382,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             # Check again after 100ms
             self.after(100, self.check_flask_thread)
 
-    def start_playback_monitoring(self):
+    def start_playback_monitoring(self) -> None:
         """
         Start the playback monitoring thread.
         """
@@ -394,27 +394,28 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         )
         self.threads.playback_thread.start()
 
-    def monitor_playback(self):
+    def monitor_playback(self) -> None:
         """
         Monitor the playback information and update the playback info text box.
         """
         self.auth.user_id = get_user_id()
         playback_main(self.threads.stop_event, self.update_playback_info)
 
-    def update_playback_info(self, playback: Optional[Dict[str, Any]]):
+    def update_playback_info(self, playback: Optional[Dict[str, Any]]) -> None:
         """
         Update the playback information in the Home tab.
 
         Args:
             playback (Optional[Dict[str, Any]]): The current playback information.
         """
-        self.tabs.home_tab.update_playback_info(playback)
+        if self.tabs.home_tab:
+            self.tabs.home_tab.update_playback_info(playback)
 
-    def update_log_text_box(self):
+    def update_log_text_box(self) -> None:
         """
         Continuously update the log text box with the contents of the log file.
         """
-        previous_log_contents = ""
+        previous_log_contents: str = ""
 
         while True:
             try:
@@ -426,19 +427,28 @@ class SpotifySkipTrackerGUI(ctk.CTk):
                 log_contents = []
 
             # Get the number of log lines to display
-            log_line_count = int(self.auth.config.get("LOG_LINE_COUNT", "500"))
+            log_line_count_str = self.auth.config.get("LOG_LINE_COUNT", "500")
+            try:
+                log_line_count = int(log_line_count_str)
+            except ValueError:
+                logger.error(
+                    "Invalid LOG_LINE_COUNT value '%s'; defaulting to 500.",
+                    log_line_count_str,
+                )
+                log_line_count = 500
 
             # Display the most recent log lines
             recent_logs = log_contents[-log_line_count:]
             display_logs = "".join(recent_logs)
 
             if display_logs != previous_log_contents:
-                self.tabs.home_tab.update_logs(display_logs)
+                if self.tabs.home_tab:
+                    self.tabs.home_tab.update_logs(display_logs)
                 previous_log_contents = display_logs
 
             time.sleep(1)
 
-    def logout(self):
+    def logout(self) -> None:
         """
         Logout the user by clearing access and refresh tokens from the configuration.
         """
@@ -462,14 +472,18 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         logger.info("User logged out and tokens cleared.")
 
         # Clear playback info
-        self.playback_info.configure(state="normal")
-        self.playback_info.delete("1.0", "end")
-        self.playback_info.configure(state="disabled")
+        # Assuming `self.playback_info` is defined elsewhere in the class
+        if hasattr(self, "playback_info"):
+            self.playback_info.configure(state="normal")
+            self.playback_info.delete("1.0", "end")
+            self.playback_info.configure(state="disabled")
 
         # Clear skipped songs display
-        self.skipped_text.configure(state="normal")
-        self.skipped_text.delete("1.0", "end")
-        self.skipped_text.configure(state="disabled")
+        # Assuming `self.skipped_text` is defined elsewhere in the class
+        if hasattr(self, "skipped_text"):
+            self.skipped_text.configure(state="normal")
+            self.skipped_text.delete("1.0", "end")
+            self.skipped_text.configure(state="disabled")
 
 
 if __name__ == "__main__":

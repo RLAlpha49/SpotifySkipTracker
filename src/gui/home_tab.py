@@ -14,16 +14,25 @@ import requests
 from customtkinter import CTkImage, get_appearance_mode
 
 
-def get_text_color():
+def get_text_color() -> str:
     """
     Determine the text color based on the current appearance mode.
+
+    Returns:
+        str: "black" if in Dark mode, otherwise "white".
     """
     return "black" if get_appearance_mode() == "Dark" else "white"
 
 
-def resource_path(relative_path):
+def resource_path(relative_path: str) -> str:
     """
     Get the absolute path to a resource, works for dev and for PyInstaller.
+
+    Args:
+        relative_path (str): The relative path to the resource.
+
+    Returns:
+        str: The absolute path to the resource.
     """
     try:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
@@ -39,16 +48,17 @@ class HomeTab:
     A Home tab for the Spotify Skip Tracker GUI, displaying playback information and logs.
     """
 
-    def __init__(self, parent, app_logger):
+    def __init__(self, parent: ctk.CTkFrame, app_logger: Any) -> None:
         """
         Initialize the HomeTab.
 
         Args:
             parent (ctk.CTkFrame): The parent frame for the Home tab.
+            app_logger (Any): Logger instance for logging purposes.
         """
-        self.parent = parent
-        self.logger = app_logger
-        self.placeholder_image = ctk.CTkImage(
+        self.parent: ctk.CTkFrame = parent
+        self.logger: Any = app_logger
+        self.placeholder_image: CTkImage = ctk.CTkImage(
             light_image=Image.open(resource_path("assets/images/black.jpg")),
             dark_image=Image.open(resource_path("assets/images/white.jpg")),
             size=(200, 200),
@@ -60,13 +70,13 @@ class HomeTab:
         self.parent.grid_columnconfigure(0, weight=1)
 
         # Playback Information Frame
-        self.playback_frame = ctk.CTkFrame(
+        self.playback_frame: ctk.CTkFrame = ctk.CTkFrame(
             self.parent, width=800, fg_color="transparent"
         )
         self.playback_frame.grid(row=0, column=0, pady=10, padx=10, sticky="nsew")
 
         # UI Elements
-        self.ui_elements = {}
+        self.ui_elements: Dict[str, Any] = {}
 
         # Album Art
         self.ui_elements["album_art_label"] = ctk.CTkLabel(
@@ -90,7 +100,7 @@ class HomeTab:
         )
 
         # Track Information Labels
-        self.ui_elements["track_info_labels"] = {
+        self.ui_elements["track_info_labels"]: Dict[str, ctk.CTkLabel] = { # type: ignore
             "track_name": ctk.CTkLabel(
                 self.ui_elements["track_info_frame"],
                 text="Track: ",
@@ -126,7 +136,7 @@ class HomeTab:
         )
 
         # Progress Bar and Label
-        progress_var = ctk.DoubleVar(value=0)
+        progress_var: ctk.DoubleVar = ctk.DoubleVar(value=0)
         self.ui_elements["progress"] = {
             "var": progress_var,
             "bar": ctk.CTkProgressBar(
@@ -149,14 +159,19 @@ class HomeTab:
         )
 
         # Log Text Box
-        self.log_text = ctk.CTkTextbox(self.parent, width=800, height=250)
+        self.log_text: ctk.CTkTextbox = ctk.CTkTextbox(
+            self.parent, width=800, height=250
+        )
         self.log_text.grid(row=1, column=0, pady=10, padx=10, sticky="nsew")
         self.log_text.configure(state="disabled")
 
         # Dynamic Variables
-        self.dynamic_vars = {"album_art_image": None, "current_album_art_url": None}
+        self.dynamic_vars: Dict[str, Optional[Any]] = {
+            "album_art_image": None,
+            "current_album_art_url": None,
+        }
 
-    def update_playback_info(self, playback: Optional[Dict[str, Any]]):
+    def update_playback_info(self, playback: Optional[Dict[str, Any]]) -> None:
         """
         Update the playback information in the Home tab.
 
@@ -164,14 +179,14 @@ class HomeTab:
             playback (Optional[Dict[str, Any]]): The current playback information.
         """
         if playback:
-            track_name = playback["item"]["name"]
-            artists = ", ".join(
+            track_name: str = playback["item"]["name"]
+            artists: str = ", ".join(
                 [artist["name"] for artist in playback["item"]["artists"]]
             )
-            progress = playback["progress_ms"] // 1000
-            duration = playback["item"]["duration_ms"] // 1000
-            is_playing = playback["is_playing"]
-            status = "Playing" if is_playing else "Paused"
+            progress: int = playback["progress_ms"] // 1000
+            duration: int = playback["item"]["duration_ms"] // 1000
+            is_playing: bool = playback["is_playing"]
+            status: str = "Playing" if is_playing else "Paused"
 
             # Update Labels
             self.ui_elements["track_info_labels"]["track_name"].configure(
@@ -185,14 +200,14 @@ class HomeTab:
             )
 
             # Update Progress Bar
-            progress_percentage = (progress / duration) if duration > 0 else 0
+            progress_percentage: float = (progress / duration) if duration > 0 else 0.0
             self.ui_elements["progress"]["var"].set(progress_percentage)
             self.ui_elements["progress"]["time_label"].configure(
                 text=f"{progress}s / {duration}s"
             )
 
             # Update Album Art
-            album_art_url = playback["item"]["album"]["images"][0]["url"]
+            album_art_url: str = playback["item"]["album"]["images"][0]["url"]
             if (
                 not self.dynamic_vars["current_album_art_url"]
                 or self.dynamic_vars["current_album_art_url"] != album_art_url
@@ -206,7 +221,7 @@ class HomeTab:
             )
             self.ui_elements["track_info_labels"]["artists"].configure(text="Artists: ")
             self.ui_elements["track_info_labels"]["status"].configure(text="Status: ")
-            self.ui_elements["progress"]["var"].set(0)
+            self.ui_elements["progress"]["var"].set(0.0)
             self.ui_elements["progress"]["time_label"].configure(text="0s / 0s")
             self.ui_elements["album_art_label"].configure(
                 text="No Playback",
@@ -215,7 +230,7 @@ class HomeTab:
             )
             self.dynamic_vars["current_album_art_url"] = None
 
-    def update_logs(self, log_contents: str):
+    def update_logs(self, log_contents: str) -> None:
         """
         Update the log text box with new log contents.
 
@@ -228,7 +243,7 @@ class HomeTab:
         self.log_text.yview_moveto(1.0)
         self.log_text.configure(state="disabled")
 
-    def load_album_art(self, url: str):
+    def load_album_art(self, url: str) -> None:
         """
         Load and display album art from a URL.
 
@@ -236,10 +251,10 @@ class HomeTab:
             url (str): URL of the album art image.
         """
         try:
-            response = requests.get(url, timeout=5)
+            response: requests.Response = requests.get(url, timeout=5)
             response.raise_for_status()
-            image_data = response.content
-            image = Image.open(io.BytesIO(image_data))
+            image_data: bytes = response.content
+            image: Image.Image = Image.open(io.BytesIO(image_data))
             image = image.resize((200, 200), Image.Resampling.LANCZOS)  # type: ignore
             self.dynamic_vars["album_art_image"] = CTkImage(image, size=(200, 200))
             self.ui_elements["album_art_label"].configure(
@@ -249,7 +264,7 @@ class HomeTab:
             self.logger.error("Failed to load album art: %s", e)
             self.ui_elements["album_art_label"].configure(image=None)
 
-    def load_album_art_async(self, url: str):
+    def load_album_art_async(self, url: str) -> None:
         """
         Load album art asynchronously from a URL.
 

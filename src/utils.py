@@ -13,11 +13,13 @@ import requests
 from auth import refresh_access_token
 from config_utils import get_config_variable, load_config
 
-SPOTIFY_ACCESS_TOKEN = get_config_variable("SPOTIFY_ACCESS_TOKEN", "", decrypt=True)
-logger = logging.getLogger("SpotifySkipTracker")
+SPOTIFY_ACCESS_TOKEN: Optional[str] = get_config_variable(
+    "SPOTIFY_ACCESS_TOKEN", "", decrypt=True
+)
+logger: logging.Logger = logging.getLogger("SpotifySkipTracker")
 
 
-def auth_reload():
+def auth_reload() -> None:
     """
     Reload the authentication configuration variables from the config file.
     """
@@ -40,13 +42,17 @@ def get_user_id(retries: int = 3) -> Optional[str]:
     try:
         for attempt in range(retries):
             auth_reload()
-            access_token = SPOTIFY_ACCESS_TOKEN
-            headers = {"Authorization": f"Bearer {access_token}"}
-            url = "https://api.spotify.com/v1/me"
-            response = requests.get(url, headers=headers, timeout=10)
+            access_token: Optional[str] = SPOTIFY_ACCESS_TOKEN
+            if not access_token:
+                logger.error("Access token is not available.")
+                return None
+            headers: Dict[str, str] = {"Authorization": f"Bearer {access_token}"}
+            url: str = "https://api.spotify.com/v1/me"
+            response: requests.Response = requests.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
-                return response.json()["id"]
+                return response.json().get("id")
             if response.status_code == 401:
+                logger.warning("Access token expired. Refreshing token...")
                 time.sleep(5)
                 refresh_access_token()
                 auth_reload()
@@ -75,30 +81,25 @@ def get_current_playback(retries: int = 3) -> Optional[Dict[str, Any]]:
     """
     auth_reload()
 
-    headers = {"Authorization": f"Bearer {SPOTIFY_ACCESS_TOKEN}"}
-    url = "https://api.spotify.com/v1/me/player"
+    headers: Dict[str, str] = {"Authorization": f"Bearer {SPOTIFY_ACCESS_TOKEN}"}
+    url: str = "https://api.spotify.com/v1/me/player"
 
     try:
         for _ in range(retries):
-            response = requests.get(url, headers=headers, timeout=10)
+            response: requests.Response = requests.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
                 return response.json()
             if response.status_code == 401:
+                logger.warning("Access token expired. Refreshing token...")
                 refresh_access_token()
                 time.sleep(5)
                 auth_reload()
                 headers["Authorization"] = f"Bearer {SPOTIFY_ACCESS_TOKEN}"
                 continue
             if response.status_code == 429:
-                if "Retry-After" in response.headers:
-                    retry_after = int(response.headers["Retry-After"])
-                    logger.error(
-                        "Rate limit exceeded, waiting for %d seconds", retry_after
-                    )
-                    time.sleep(retry_after)
-                else:
-                    logger.error("Rate limit exceeded, waiting for 10 seconds")
-                    time.sleep(10)
+                retry_after: int = int(response.headers.get("Retry-After", "10"))
+                logger.error("Rate limit exceeded, waiting for %d seconds", retry_after)
+                time.sleep(retry_after)
                 continue
             if response.status_code == 204:
                 return None
@@ -122,30 +123,25 @@ def get_recently_played_tracks(retries: int = 3) -> Dict[str, Any]:
     """
     auth_reload()
 
-    headers = {"Authorization": f"Bearer {SPOTIFY_ACCESS_TOKEN}"}
-    url = "https://api.spotify.com/v1/me/player/recently-played?limit=50"
+    headers: Dict[str, str] = {"Authorization": f"Bearer {SPOTIFY_ACCESS_TOKEN}"}
+    url: str = "https://api.spotify.com/v1/me/player/recently-played?limit=50"
 
     try:
         for attempt in range(retries):
-            response = requests.get(url, headers=headers, timeout=10)
+            response: requests.Response = requests.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
                 return response.json()
             if response.status_code == 401:
+                logger.warning("Access token expired. Refreshing token...")
                 refresh_access_token()
                 time.sleep(5)
                 auth_reload()
                 headers["Authorization"] = f"Bearer {SPOTIFY_ACCESS_TOKEN}"
                 continue
             if response.status_code == 429:
-                if "Retry-After" in response.headers:
-                    retry_after = int(response.headers["Retry-After"])
-                    logger.error(
-                        "Rate limit exceeded, waiting for %d seconds", retry_after
-                    )
-                    time.sleep(retry_after)
-                else:
-                    logger.error("Rate limit exceeded, waiting for 10 seconds")
-                    time.sleep(10)
+                retry_after: int = int(response.headers.get("Retry-After", "10"))
+                logger.error("Rate limit exceeded, waiting for %d seconds", retry_after)
+                time.sleep(retry_after)
                 continue
             logger.error(
                 "Failed to fetch recently played tracks, attempt %d/%d",
@@ -168,7 +164,7 @@ def load_skip_count() -> Dict[str, Dict[str, Any]]:
     """
     try:
         with open("skip_count.json", "r", encoding="utf-8") as file:
-            skip_count = json.load(file)
+            skip_count: Dict[str, Dict[str, Any]] = json.load(file)
             # Update old format to new format
             for track_id, count in skip_count.items():
                 if isinstance(count, int):
@@ -178,7 +174,7 @@ def load_skip_count() -> Dict[str, Dict[str, Any]]:
                         "last_skipped": None,
                     }
             # Sort the skip count by the number of skips in descending order
-            sorted_skip_count = dict(
+            sorted_skip_count: Dict[str, Dict[str, Any]] = dict(
                 sorted(
                     skip_count.items(),
                     key=lambda item: item[1]["skipped"],
@@ -188,6 +184,7 @@ def load_skip_count() -> Dict[str, Dict[str, Any]]:
             save_skip_count(sorted_skip_count)
         return sorted_skip_count
     except FileNotFoundError:
+        logger.info("skip_count.json not found. Returning empty skip count.")
         return {}
 
 
@@ -198,8 +195,12 @@ def save_skip_count(skip_count: Dict[str, Dict[str, Any]]) -> None:
     Args:
         skip_count (Dict[str, Dict[str, Any]]): The skip count data to save.
     """
-    with open("skip_count.json", "w", encoding="utf-8") as file:
-        json.dump(skip_count, file, indent=4)
+    try:
+        with open("skip_count.json", "w", encoding="utf-8") as file:
+            json.dump(skip_count, file, indent=4)
+        logger.debug("Skip count saved successfully.")
+    except (OSError, IOError) as e:
+        logger.error("Failed to save skip count: %s", e)
 
 
 def check_if_skipped_early(progress_ms: int, duration_ms: int) -> bool:
@@ -213,8 +214,8 @@ def check_if_skipped_early(progress_ms: int, duration_ms: int) -> bool:
     Returns:
         bool: True if the song was skipped early, False otherwise.
     """
-    config = load_config(decrypt=True)
-    skip_progress_threshold = config.get("SKIP_PROGRESS_THRESHOLD", 0.42)
+    config: Dict[str, Any] = load_config(decrypt=True)
+    skip_progress_threshold: float = float(config.get("SKIP_PROGRESS_THRESHOLD", 0.42))
     if duration_ms <= 2 * 60 * 1000:
         return progress_ms < duration_ms * skip_progress_threshold
     return progress_ms < duration_ms * skip_progress_threshold
@@ -226,16 +227,18 @@ def unlike_song(track_id: str, retries: int = 3) -> None:
 
     Args:
         track_id (str): The ID of the track to unlike.
-        retries (int): The number of retry attempts if the request fails.
+        retries (int, optional): The number of retry attempts if the request fails. Defaults to 3.
     """
     auth_reload()
 
-    headers = {"Authorization": f"Bearer {SPOTIFY_ACCESS_TOKEN}"}
-    url = f"https://api.spotify.com/v1/me/tracks?ids={track_id}"
+    headers: Dict[str, str] = {"Authorization": f"Bearer {SPOTIFY_ACCESS_TOKEN}"}
+    url: str = f"https://api.spotify.com/v1/me/tracks?ids={track_id}"
 
     try:
         for attempt in range(retries):
-            response = requests.delete(url, headers=headers, timeout=10)
+            response: requests.Response = requests.delete(
+                url, headers=headers, timeout=10
+            )
             if response.status_code == 200:
                 logger.debug("Unliked song: %s", track_id)
                 return

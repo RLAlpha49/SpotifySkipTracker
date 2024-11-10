@@ -5,15 +5,16 @@ This module provides functions to load, save, and manage configuration settings.
 import json
 import os
 import logging
+from typing import Any, Dict, Optional, Union
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv, set_key
 
-CONFIG_FILE = "config.json"
-ENV_FILE = ".env"
-logger = logging.getLogger("SpotifySkipTracker")
+CONFIG_FILE: str = "config.json"
+ENV_FILE: str = ".env"
+logger: logging.Logger = logging.getLogger("SpotifySkipTracker")
 
 # Define required configuration keys
-REQUIRED_KEYS = [
+REQUIRED_KEYS: list[str] = [
     "SPOTIFY_CLIENT_ID",
     "SPOTIFY_CLIENT_SECRET",
     "SPOTIFY_REDIRECT_URI",
@@ -33,7 +34,7 @@ def get_encryption_key() -> bytes:
     Returns:
         bytes: The encryption key.
     """
-    key = os.getenv("ENCRYPTION_KEY")
+    key: Optional[str] = os.getenv("ENCRYPTION_KEY")
     if not key:
         key = Fernet.generate_key().decode()
         set_key(ENV_FILE, "ENCRYPTION_KEY", key)
@@ -41,16 +42,16 @@ def get_encryption_key() -> bytes:
     return key.encode()
 
 
-ENCRYPTION_KEY = get_encryption_key()
-ENCRYPTION_PREFIX = "enc:"
+ENCRYPTION_KEY: bytes = get_encryption_key()
+ENCRYPTION_PREFIX: str = "enc:"
 
 
-def encrypt_data(data: str | int | float | None) -> str:
+def encrypt_data(data: Union[str, int, float, None]) -> str:
     """
     Encrypt data using Fernet symmetric encryption.
 
     Args:
-        data (str | None): Data to encrypt.
+        data (Union[str, int, float, None]): Data to encrypt.
 
     Returns:
         str: Encrypted data.
@@ -59,8 +60,8 @@ def encrypt_data(data: str | int | float | None) -> str:
         return ""
     if isinstance(data, (int, float)):
         data = str(data)
-    fernet = Fernet(ENCRYPTION_KEY)
-    encrypted_data = fernet.encrypt(data.encode())
+    fernet: Fernet = Fernet(ENCRYPTION_KEY)
+    encrypted_data: bytes = fernet.encrypt(data.encode())
     return ENCRYPTION_PREFIX + encrypted_data.decode()
 
 
@@ -77,35 +78,36 @@ def decrypt_data(encrypted_data: str) -> str:
     if not encrypted_data.startswith(ENCRYPTION_PREFIX):
         return encrypted_data
     encrypted_data = encrypted_data[len(ENCRYPTION_PREFIX) :]
-    fernet = Fernet(ENCRYPTION_KEY)
-    decrypted_data = fernet.decrypt(encrypted_data.encode())
+    fernet: Fernet = Fernet(ENCRYPTION_KEY)
+    decrypted_data: bytes = fernet.decrypt(encrypted_data.encode())
     return decrypted_data.decode()
 
 
-def load_config(decrypt: bool = False) -> dict:
+def load_config(decrypt: bool = False) -> Dict[str, Any]:
     """
     Load configuration from the JSON file. If the file does not exist,
     create it with required keys initialized to empty strings.
 
     Args:
-        decrypt (bool): Whether to attempt to decrypt the configuration values.
+        decrypt (bool, optional): Whether to attempt to decrypt the configuration values.
+            Defaults to False.
 
     Returns:
-        dict: Configuration data.
+        Dict[str, Any]: Configuration data.
     """
     if not os.path.exists(CONFIG_FILE):
         logger.info("%s not found. Creating a new one with empty values.", CONFIG_FILE)
-        create_default_config()
-
-    try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as file:
-            config = json.load(file)
-    except json.JSONDecodeError as e:
-        logger.error("Error decoding %s: %s", CONFIG_FILE, e)
-        config = create_default_config()
+        config: Dict[str, Any] = create_default_config()
+    else:
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as file:
+                config = json.load(file)
+        except json.JSONDecodeError as e:
+            logger.error("Error decoding %s: %s", CONFIG_FILE, e)
+            config = create_default_config()
 
     # Ensure all required keys are present
-    missing_keys = [key for key in REQUIRED_KEYS if key not in config]
+    missing_keys: list[str] = [key for key in REQUIRED_KEYS if key not in config]
     if missing_keys:
         logger.info(
             "Missing keys in config: %s. Adding them with empty values.", missing_keys
@@ -127,25 +129,25 @@ def load_config(decrypt: bool = False) -> dict:
     return config
 
 
-def create_default_config() -> dict:
+def create_default_config() -> Dict[str, Any]:
     """
     Create a default configuration with required keys set to empty strings.
 
     Returns:
-        dict: Default configuration data.
+        Dict[str, Any]: Default configuration data.
     """
-    config = {key: "" for key in REQUIRED_KEYS}
+    config: Dict[str, Any] = {key: "" for key in REQUIRED_KEYS}
     save_config(config)
     logger.debug("Default configuration created and saved to %s.", CONFIG_FILE)
     return config
 
 
-def save_config(config: dict) -> None:
+def save_config(config: Dict[str, Any]) -> None:
     """
     Save configuration to the JSON file.
 
     Args:
-        config (dict): Configuration data to save.
+        config (Dict[str, Any]): Configuration data to save.
     """
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as file:
@@ -154,17 +156,19 @@ def save_config(config: dict) -> None:
         logger.error("Failed to save configuration: %s", e)
 
 
-def set_config_variable(key: str, value: str | int | float | None, encrypt: bool = False) -> None:
+def set_config_variable(
+    key: str, value: Union[str, int, float, None], encrypt: bool = False
+) -> None:
     """
     Set a configuration variable and save it, optionally encrypting the value.
 
     Args:
         key (str): Configuration key.
-        value (str): Configuration value.
-        encrypt (bool): Whether to encrypt the value.
+        value (Union[str, int, float, None]): Configuration value.
+        encrypt (bool, optional): Whether to encrypt the value. Defaults to False.
     """
-    config = load_config()
-    old_value = config.get(key, "")
+    config: Dict[str, Any] = load_config()
+    old_value: Any = config.get(key, "")
     if encrypt:
         value = encrypt_data(value)
     if old_value != value:
@@ -184,13 +188,13 @@ def get_config_variable(key: str, default: str = "", decrypt: bool = False) -> s
     Args:
         key (str): Configuration key.
         default (str, optional): Default value if key is not found. Defaults to "".
-        decrypt (bool): Whether to decrypt the value.
+        decrypt (bool, optional): Whether to decrypt the value. Defaults to False.
 
     Returns:
         str: Configuration value.
     """
-    config = load_config()
-    value = config.get(key, default)
+    config: Dict[str, Any] = load_config()
+    value: Any = config.get(key, default)
     if decrypt and value:
         value = decrypt_data(value)
     return value
