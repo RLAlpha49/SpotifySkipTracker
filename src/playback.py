@@ -10,6 +10,8 @@ import logging
 import threading
 from typing import Any, Optional, Dict, List, Callable
 from dataclasses import dataclass, field
+import json
+import requests
 
 from utils import (  # pylint: disable=import-error
     get_user_id,
@@ -54,6 +56,7 @@ class PlaybackMonitor:
         self,
         stop_flag: threading.Event,
         update_callback: Callable[[Optional[Dict[str, Any]]], None],
+        critical_error_event: threading.Event,
     ) -> None:
         """
         Initialize the PlaybackMonitor.
@@ -62,11 +65,13 @@ class PlaybackMonitor:
             stop_flag (threading.Event): A flag to stop the monitoring loop.
             update_callback (Callable[[Optional[Dict[str, Any]]], None]):
                 A callback function to update the GUI with playback info.
+            critical_error_event (threading.Event): An event to signal critical errors.
         """
         self.stop_flag: threading.Event = stop_flag
         self.update_callback: Callable[[Optional[Dict[str, Any]]], None] = (
             update_callback
         )
+        self.critical_error_event = critical_error_event
 
         # Initialize playback state
         self.state: PlaybackState = PlaybackState()
@@ -77,28 +82,77 @@ class PlaybackMonitor:
         Start the playback monitoring loop.
         """
         logger.info("Starting playback monitoring...")
-        self.user_id = get_user_id()
+        try:
+            self.user_id = get_user_id()
+        except requests.exceptions.RequestException as e:
+            logger.critical("Network error while fetching user ID: %s", e)
+            raise  # Critical failure; re-raise to crash the application
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.critical("Unexpected error while fetching user ID: %s", e)
+            raise  # Critical failure; re-raise to crash the application
+
         if not self.user_id:
-            logger.error("Unable to retrieve user ID. Stopping playback monitoring.")
-            return
+            logger.critical("Unable to retrieve user ID. Stopping playback monitoring.")
+            raise RuntimeError("User ID retrieval failed.")  # Critical failure
 
-        self.state.skip_count = load_skip_count()
+        try:
+            self.state.skip_count = load_skip_count()
+        except FileNotFoundError:
+            logger.warning(
+                "Skip count file not found. Initializing with empty skip counts."
+            )
+            self.state.skip_count = {}
+        except json.JSONDecodeError as e:
+            logger.critical("Error decoding skip count file: %s", e)
+            raise  # Critical failure; re-raise to crash the application
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.critical("Unexpected error while loading skip counts: %s", e)
+            raise  # Critical failure; re-raise to crash the application
 
-        while not self.stop_flag.is_set():
-            playback: Optional[Dict[str, Any]] = get_current_playback()
-            self.update_callback(playback)
+        try:
+            while not self.stop_flag.is_set():
+                try:
+                    playback: Optional[Dict[str, Any]] = get_current_playback()
+                except requests.exceptions.RequestException as e:
+                    logger.error("Network error while fetching current playback: %s", e)
+                    time.sleep(5)  # Wait before retrying
+                    continue
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    logger.critical(
+                        "Unexpected error while fetching current playback: %s", e
+                    )
+                    raise  # Critical failure; re-raise to crash the application
 
-            if (
-                playback
-                and playback.get("is_playing")
-                and playback.get("context", {}).get("uri")
-                == f"spotify:user:{self.user_id}:collection"
-            ):
-                self.process_playback(playback)
+                try:
+                    self.update_callback(playback)
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    logger.error("Error in update_callback: %s", e)
 
-            time.sleep(1)
+                if (
+                    playback
+                    and playback.get("is_playing")
+                    and playback.get("context", {}).get("uri")
+                    == f"spotify:user:{self.user_id}:collection"
+                ):
+                    try:
+                        self.process_playback(playback)
+                    except KeyError as e:
+                        logger.error("Missing key in playback data: %s", e)
+                        continue  # Skip processing this playback
+                    except Exception as e:  # pylint: disable=broad-exception-caught
+                        logger.critical(
+                            "Unexpected error while processing playback: %s", e
+                        )
+                        raise  # Critical failure; re-raise to crash the application
 
-        logger.info("Playback monitoring stopped.")
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logger.info("Playback monitoring interrupted by user.")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.critical("PlaybackMonitor encountered a critical error: %s", e)
+            raise  # Critical failure; re-raise to crash the application
+        finally:
+            logger.info("Playback monitoring stopped.")
 
     def process_playback(self, playback: Dict[str, Any]) -> None:
         """
@@ -107,14 +161,21 @@ class PlaybackMonitor:
         Args:
             playback (Dict[str, Any]): Current playback information.
         """
-        item: Dict[str, Any] = playback.get("item", {})
-        track_id: str = item.get("id", "")
-        track_name: str = item.get("name", "")
-        artist_names: str = ", ".join(
-            [artist.get("name", "") for artist in item.get("artists", [])]
-        )
-        progress_ms: int = playback.get("progress_ms", 0)
-        duration_ms: int = item.get("duration_ms", 0)
+        try:
+            item: Dict[str, Any] = playback.get("item", {})
+            track_id: str = item.get("id", "")
+            track_name: str = item.get("name", "")
+            artist_names: str = ", ".join(
+                [artist.get("name", "") for artist in item.get("artists", [])]
+            )
+            progress_ms: int = playback.get("progress_ms", 0)
+            duration_ms: int = item.get("duration_ms", 0)
+        except AttributeError as e:
+            logger.error("Playback data structure error: %s", e)
+            return  # Skip processing due to malformed data
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Unexpected error while extracting playback data: %s", e)
+            return  # Skip processing due to unforeseen error
 
         # Check if it's a new song
         if track_id != self.state.last_track_info.track_id:
@@ -129,7 +190,11 @@ class PlaybackMonitor:
 
             # Check if the track is a forward skip
             if track_id not in self.state.track_order:
-                recently_played: List[str] = self.fetch_recently_played_tracks()
+                try:
+                    recently_played: List[str] = self.fetch_recently_played_tracks()
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    logger.error("Error fetching recently played tracks: %s", e)
+                    recently_played = []
 
                 # Track is not in the order and not recently played, it's a forward skip
                 if track_id not in recently_played:
@@ -143,12 +208,15 @@ class PlaybackMonitor:
                         self.state.last_progress, self.state.last_track_info.duration_ms
                     ):
                         logger.debug(
-                            "Track is a skipped early: %s by %s (%s)",
+                            "Track is skipped early: %s by %s (%s)",
                             track_name,
                             artist_names,
                             track_id,
                         )
-                        self.handle_skipped_track()
+                        try:
+                            self.handle_skipped_track()
+                        except Exception as e:  # pylint: disable=broad-exception-caught
+                            logger.error("Error handling skipped track: %s", e)
                     else:
                         self.state.skip_count[track_id]["not_skipped"] += 1
                         logger.debug(
@@ -157,7 +225,10 @@ class PlaybackMonitor:
                             artist_names,
                             track_id,
                         )
-                        save_skip_count(self.state.skip_count)
+                        try:
+                            save_skip_count(self.state.skip_count)
+                        except Exception as e:  # pylint: disable=broad-exception-caught
+                            logger.error("Error saving skip count: %s", e)
                 else:
                     logger.debug(
                         "Track in recently played: %s by %s (%s)",
@@ -174,10 +245,17 @@ class PlaybackMonitor:
                 )
 
             # Update track order and last track details
-            self.update_track_order(track_id)
-            self.update_last_track_details(
-                track_id, track_name, artist_names, duration_ms
-            )
+            try:
+                self.update_track_order(track_id)
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logger.error("Error updating track order: %s", e)
+
+            try:
+                self.update_last_track_details(
+                    track_id, track_name, artist_names, duration_ms
+                )
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logger.error("Error updating last track details: %s", e)
 
         self.state.last_progress = progress_ms
 
@@ -188,47 +266,96 @@ class PlaybackMonitor:
         Returns:
             List[str]: List of recently played track IDs.
         """
-        recently_played_data: Dict[str, Any] = get_recently_played_tracks()
-        return [track["track"]["id"] for track in recently_played_data.get("items", [])]
+        try:
+            recently_played_data: Dict[str, Any] = get_recently_played_tracks()
+            return [
+                track["track"]["id"] for track in recently_played_data.get("items", [])
+            ]
+        except requests.exceptions.RequestException as e:
+            logger.error("Network error while fetching recently played tracks: %s", e)
+            return []
+        except KeyError as e:
+            logger.error("Missing key while fetching recently played tracks: %s", e)
+            return []
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error(
+                "Unexpected error while fetching recently played tracks: %s", e
+            )
+            return []
 
     def handle_skipped_track(self) -> None:
         """
         Handle the logic when a track is identified as skipped early.
         """
-        current_time: str = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
-        if self.state.last_track_info.track_id:
-            self.state.skip_count[self.state.last_track_info.track_id].setdefault(
-                "skipped_dates", []
-            ).append(current_time)
-            self.state.skip_count[self.state.last_track_info.track_id]["skipped"] += 1
-            self.state.skip_count[self.state.last_track_info.track_id][
-                "last_skipped"
-            ] = current_time
-            logger.info(
-                "Song %s by %s (%s) skipped %d times.",
-                self.state.last_track_info.track_name,
-                self.state.last_track_info.artist_names,
-                self.state.last_track_info.track_id,
-                self.state.skip_count[self.state.last_track_info.track_id]["skipped"],
-            )
+        try:
+            current_time: str = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
+            if self.state.last_track_info.track_id:
+                self.state.skip_count[self.state.last_track_info.track_id].setdefault(
+                    "skipped_dates", []
+                ).append(current_time)
+                self.state.skip_count[self.state.last_track_info.track_id][
+                    "skipped"
+                ] += 1
+                self.state.skip_count[self.state.last_track_info.track_id][
+                    "last_skipped"
+                ] = current_time
+                logger.info(
+                    "Song %s by %s (%s) skipped %d times.",
+                    self.state.last_track_info.track_name,
+                    self.state.last_track_info.artist_names,
+                    self.state.last_track_info.track_id,
+                    self.state.skip_count[self.state.last_track_info.track_id][
+                        "skipped"
+                    ],
+                )
+        except KeyError as e:
+            logger.error("Missing key while handling skipped track: %s", e)
+            return  # Skip further processing
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Unexpected error while handling skipped track: %s", e)
+            return  # Skip further processing
 
-        config: Dict[str, Any] = load_config(decrypt=True)
+        try:
+            config: Dict[str, Any] = load_config(decrypt=True)
+        except FileNotFoundError:
+            logger.critical("Configuration file not found.")
+            raise  # Critical failure; re-raise to crash the application
+        except json.JSONDecodeError as e:
+            logger.critical("Error decoding configuration file: %s", e)
+            raise  # Critical failure; re-raise to crash the application
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.critical("Unexpected error while loading configuration: %s", e)
+            raise  # Critical failure; re-raise to crash the application
+
         skip_threshold: int = config.get("SKIP_THRESHOLD", 5)
         if (
             self.state.last_track_info.track_id
             and self.state.skip_count[self.state.last_track_info.track_id]["skipped"]
             >= skip_threshold
         ):
-            logger.info(
-                "Unliking song: %s by %s (%s)",
-                self.state.last_track_info.track_name,
-                self.state.last_track_info.artist_names,
-                self.state.last_track_info.track_id,
-            )
-            unlike_song(self.state.last_track_info.track_id)
-            del self.state.skip_count[self.state.last_track_info.track_id]
+            try:
+                logger.info(
+                    "Unliking song: %s by %s (%s)",
+                    self.state.last_track_info.track_name,
+                    self.state.last_track_info.artist_names,
+                    self.state.last_track_info.track_id,
+                )
+                unlike_song(self.state.last_track_info.track_id)
+                del self.state.skip_count[self.state.last_track_info.track_id]
+            except requests.exceptions.RequestException as e:
+                logger.error("Network error while unliking song: %s", e)
+                # Decide whether to retry, skip, or escalate
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logger.critical("Unexpected error while unliking song: %s", e)
+                raise  # Critical failure; re-raise to crash the application
 
-        save_skip_count(self.state.skip_count)
+        try:
+            save_skip_count(self.state.skip_count)
+        except IOError as e:
+            logger.error("IO error while saving skip count: %s", e)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.critical("Unexpected error while saving skip count: %s", e)
+            raise  # Critical failure; re-raise to crash the application
 
     def update_track_order(self, track_id: str) -> None:
         """
@@ -237,10 +364,13 @@ class PlaybackMonitor:
         Args:
             track_id (str): The ID of the current track.
         """
-        self.state.track_order.append(track_id)
-        if len(self.state.track_order) > 5:
-            removed_track = self.state.track_order.pop(0)
-            logger.debug("Removed track from order: %s", removed_track)
+        try:
+            self.state.track_order.append(track_id)
+            if len(self.state.track_order) > 5:
+                removed_track = self.state.track_order.pop(0)
+                logger.debug("Removed track from order: %s", removed_track)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Error updating track order: %s", e)
 
     def update_last_track_details(
         self, track_id: str, track_name: str, artist_names: str, duration_ms: int
@@ -254,17 +384,21 @@ class PlaybackMonitor:
             artist_names (str): Comma-separated artist names.
             duration_ms (int): Duration of the current track in milliseconds.
         """
-        self.state.last_track_info = TrackInfo(
-            track_id=track_id,
-            track_name=track_name,
-            artist_names=artist_names,
-            duration_ms=duration_ms,
-        )
+        try:
+            self.state.last_track_info = TrackInfo(
+                track_id=track_id,
+                track_name=track_name,
+                artist_names=artist_names,
+                duration_ms=duration_ms,
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Error updating last track details: %s", e)
 
 
 def main(
     stop_flag: threading.Event,
     update_callback: Callable[[Optional[Dict[str, Any]]], None],
+    critical_error_event: threading.Event,
 ) -> None:
     """
     Monitor the current playback and track the user's song skipping behavior.
@@ -274,5 +408,9 @@ def main(
         update_callback (Callable[[Optional[Dict[str, Any]]], None]):
             A callback function to update the GUI with playback info.
     """
-    monitor = PlaybackMonitor(stop_flag, update_callback)
-    monitor.start_monitoring()
+    try:
+        monitor = PlaybackMonitor(stop_flag, update_callback, critical_error_event)
+        monitor.start_monitoring()
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.critical("PlaybackMonitor encountered a critical error: %s", e)
+        critical_error_event.set()

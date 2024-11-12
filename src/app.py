@@ -4,6 +4,7 @@ It handles user authentication, playback monitoring, and displays logs within th
 """
 
 import os
+import sys
 import threading
 import webbrowser
 import time
@@ -109,44 +110,55 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         """
         super().__init__()
 
-        self.title("Spotify Skip Tracker")
-        self.geometry("730x750")
+        # Initialize the critical error event
+        self.critical_error_event = threading.Event()
+        self.error_message = ""
 
-        # Initialize state groups
-        self.auth = self.AuthState()
-        self.threads = self.ThreadState()
-        self.tabs = self.TabState()
+        try:
+            self.title("Spotify Skip Tracker")
+            self.geometry("730x750")
 
-        # Load configuration
-        self.auth.config = load_config(decrypt=True)
-        self.auth.access_token = self.auth.config.get("SPOTIFY_ACCESS_TOKEN", "")
-        self.auth.refresh_token = self.auth.config.get("SPOTIFY_REFRESH_TOKEN", "")
-        self.auth.user_id = None
+            # Initialize state groups
+            self.auth = self.AuthState()
+            self.threads = self.ThreadState()
+            self.tabs = self.TabState()
 
-        self.stop_event = threading.Event()
+            # Load configuration
+            self.auth.config = load_config(decrypt=True)
+            self.auth.access_token = self.auth.config.get("SPOTIFY_ACCESS_TOKEN", "")
+            self.auth.refresh_token = self.auth.config.get("SPOTIFY_REFRESH_TOKEN", "")
+            self.auth.user_id = None
 
-        # Configure grid
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+            self.stop_event = threading.Event()
 
-        # Create header using HeaderFrame
-        self.create_header()
+            # Configure grid
+            self.grid_columnconfigure(0, weight=1)
+            self.grid_rowconfigure(1, weight=1)
 
-        # Create tab view and tabs
-        self.create_tab_view()
+            self.create_header()
+            self.create_tab_view()
 
-        if self.auth.access_token and is_token_valid():
-            self.auth.user_id = get_user_id()
-            self.start_playback_monitoring()
-        else:
-            logger.info("Access token not found or invalid. Please authenticate.")
+            if self.auth.access_token and is_token_valid():
+                self.auth.user_id = get_user_id()
+                self.start_playback_monitoring()
+            else:
+                logger.info("Access token not found or invalid. Please authenticate.")
 
-        # Start loading log file
-        self.tabs.log.log_file_path = os.path.join("logs", "spotify_app.log")
-        self.tabs.log.update_log_text_box_thread = threading.Thread(
-            target=self.update_log_text_box, daemon=True
-        )
-        self.tabs.log.update_log_text_box_thread.start()
+            # Start loading log file
+            self.tabs.log.log_file_path = os.path.join("logs", "spotify_app.log")
+            self.tabs.log.update_log_text_box_thread = threading.Thread(
+                target=self.update_log_text_box, daemon=True
+            )
+            self.tabs.log.update_log_text_box_thread.start()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.critical("Failed to initialize SpotifySkipTrackerGUI: %s", e)
+            self.error_message = str(e)
+            self.critical_error_event.set()
+            self.terminate_application()
+            raise
+
+        # Start the periodic check for critical errors
+        self.check_for_critical_errors()
 
     class AuthState:  # pylint: disable=too-few-public-methods
         """
@@ -187,7 +199,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             self.home_tab: Optional[HomeTab] = None
             self.skipped_tab: Optional[SkippedTab] = None
             self.settings_tab: Optional[SettingsTab] = None
-            self.log: SpotifySkipTrackerGUI.LogState = self.LogState()
+            self.log = self.LogState()
 
         class LogState:  # pylint: disable=too-few-public-methods
             """
@@ -205,64 +217,90 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         """
         Create the header frame with the login and logout buttons using HeaderFrame class.
         """
-        self.header = HeaderFrame(
-            self, authenticate_callback=self.authenticate, logout_callback=self.logout
-        )
+        try:
+            self.header = HeaderFrame(
+                self,
+                authenticate_callback=self.authenticate,
+                logout_callback=self.logout,
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to create header frame: %s", e)
 
     def create_tab_view(self) -> None:
         """
         Create the tabbed interface with Home, Skipped, and Settings tabs.
         """
-        self.tab_view = ctk.CTkTabview(self, width=850, height=600)
-        self.tab_view.grid(row=1, column=0, padx=20, pady=20, sticky="nsew")
+        try:
+            self.tab_view = ctk.CTkTabview(self, width=850, height=600)
+            self.tab_view.grid(row=1, column=0, padx=20, pady=20, sticky="nsew")
 
-        # Add tabs
-        self.tab_view.add("Home")
-        self.tab_view.add("Skipped")
-        self.tab_view.add("Settings")
+            # Add tabs
+            self.tab_view.add("Home")
+            self.tab_view.add("Skipped")
+            self.tab_view.add("Settings")
 
-        # Configure each tab
-        self.create_home_tab()
-        self.create_skipped_tab()
-        self.create_settings_tab()
+            # Configure each tab
+            self.create_home_tab()
+            self.create_skipped_tab()
+            self.create_settings_tab()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.critical("Failed to create tab view: %s", e)
+            raise
 
     def create_home_tab(self) -> None:
         """
         Create the Home tab by instantiating the HomeTab class.
         """
-        home_frame = self.tab_view.tab("Home")
-        self.tabs.home_tab = HomeTab(home_frame, logger)
+        try:
+            home_frame = self.tab_view.tab("Home")
+            self.tabs.home_tab = HomeTab(home_frame, logger)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.critical("Failed to create Home tab: %s", e)
+            raise
 
     def create_skipped_tab(self) -> None:
         """
         Create the Skipped tab by instantiating the SkippedTab class.
         """
-        skipped_frame = self.tab_view.tab("Skipped")
-        self.tabs.skipped_tab = SkippedTab(skipped_frame, self.auth.config, logger)
+        try:
+            skipped_frame = self.tab_view.tab("Skipped")
+            self.tabs.skipped_tab = SkippedTab(skipped_frame, self.auth.config, logger)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.critical("Failed to create Skipped tab: %s", e)
+            raise
 
     def create_settings_tab(self) -> None:
         """
         Create the Settings tab by instantiating the SettingsTab class.
         """
-        settings_frame = self.tab_view.tab("Settings")
-        self.tabs.settings_tab = SettingsTab(settings_frame, self.auth.config, logger)
+        try:
+            settings_frame = self.tab_view.tab("Settings")
+            self.tabs.settings_tab = SettingsTab(
+                settings_frame, self.auth.config, logger
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.critical("Failed to create Settings tab: %s", e)
+            raise
 
     def authenticate(self) -> None:
         """
         Authenticate the user with Spotify by starting the Flask server and opening the login page.
         """
-        # Check for required configuration variables
-        missing_vars = self.get_missing_config_variables()
-        if missing_vars:
-            self.prompt_for_config_variables(missing_vars)
-            return
+        try:
+            # Check for required configuration variables
+            missing_vars = self.get_missing_config_variables()
+            if missing_vars:
+                self.prompt_for_config_variables(missing_vars)
+                return
 
-        # Start Flask server in a separate thread
-        self.start_flask_server()
+            # Start Flask server in a separate thread
+            self.start_flask_server()
 
-        # Open the browser for Spotify login
-        logger.info("Starting authentication process...")
-        webbrowser.open(f"http://localhost:{self.get_port()}/login")
+            # Open the browser for Spotify login
+            logger.info("Starting authentication process...")
+            webbrowser.open(f"http://localhost:{self.get_port()}/login")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed during authentication process: %s", e)
 
     def get_missing_config_variables(self) -> List[str]:
         """
@@ -271,14 +309,18 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         Returns:
             List[str]: A list of missing configuration keys.
         """
-        required_keys = [
-            "SPOTIFY_CLIENT_ID",
-            "SPOTIFY_CLIENT_SECRET",
-            "SPOTIFY_REDIRECT_URI",
-        ]
-        self.auth.config = load_config(decrypt=True)
-        missing = [key for key in required_keys if not self.auth.config.get(key)]
-        return missing
+        try:
+            required_keys = [
+                "SPOTIFY_CLIENT_ID",
+                "SPOTIFY_CLIENT_SECRET",
+                "SPOTIFY_REDIRECT_URI",
+            ]
+            self.auth.config = load_config(decrypt=True)
+            missing = [key for key in required_keys if not self.auth.config.get(key)]
+            return missing
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to get missing configuration variables: %s", e)
+            return []
 
     def prompt_for_config_variables(self, missing_vars: List[str]) -> None:
         """
@@ -347,59 +389,93 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         """
         Start the Flask server in a separate thread.
         """
-        if not self.threads.flask_thread or not self.threads.flask_thread.is_alive():
-            self.threads.flask_thread = threading.Thread(
-                target=self.run_flask, daemon=True
-            )
-            self.threads.flask_thread.start()
-            # Monitor the Flask thread
-            self.after(100, self.check_flask_thread)
+        try:
+            if (
+                not self.threads.flask_thread
+                or not self.threads.flask_thread.is_alive()
+            ):
+                self.threads.flask_thread = threading.Thread(
+                    target=self.run_flask, daemon=True
+                )
+                self.threads.flask_thread.start()
+                # Monitor the Flask thread
+                self.after(100, self.check_flask_thread)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to start Flask server thread: %s", e)
 
     def run_flask(self) -> None:
         """
         Run the Flask server for handling OAuth callbacks.
         """
-        while not stop_flag.is_set():
-            try:
-                flask_app.run(port=self.get_port(), debug=False, use_reloader=False)
-            except Exception as e:  # pylint: disable=broad-except
-                logger.error("Error running Flask server: %s", e)
-            time.sleep(1)
+        try:
+            while not stop_flag.is_set():
+                try:
+                    flask_app.run(port=self.get_port(), debug=False, use_reloader=False)
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    logger.error("Error running Flask server: %s", e)
+                time.sleep(1)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.critical("Critical failure in run_flask: %s", e)
+            raise
 
     def check_flask_thread(self) -> None:
         """
         Check the status of the Flask thread and start playback monitoring
         if the thread has stopped.
         """
-        if stop_flag.is_set():
-            self.start_playback_monitoring()
-            try:
-                if self.threads.flask_thread and self.threads.flask_thread.is_alive():
-                    self.threads.flask_thread = None
-            except Exception as e:  # pylint: disable=broad-except
-                logger.error("Error joining Flask thread: %s", e)
-        else:
-            # Check again after 100ms
-            self.after(100, self.check_flask_thread)
+        try:
+            if stop_flag.is_set():
+                self.start_playback_monitoring()
+                try:
+                    if (
+                        self.threads.flask_thread
+                        and self.threads.flask_thread.is_alive()
+                    ):
+                        self.threads.flask_thread = None
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    logger.error("Error joining Flask thread: %s", e)
+            else:
+                # Check again after 100ms
+                self.after(100, self.check_flask_thread)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.critical("Critical failure in check_flask_thread: %s", e)
+            raise
 
     def start_playback_monitoring(self) -> None:
         """
         Start the playback monitoring thread.
         """
-        if self.threads.playback_thread and self.threads.playback_thread.is_alive():
-            return
-        self.threads.stop_event.clear()
-        self.threads.playback_thread = threading.Thread(
-            target=self.monitor_playback, daemon=True
-        )
-        self.threads.playback_thread.start()
+        try:
+            if self.threads.playback_thread and self.threads.playback_thread.is_alive():
+                return
+            self.threads.stop_event.clear()
+            self.threads.playback_thread = threading.Thread(
+                target=self.monitor_playback,
+                args=(self.critical_error_event,),
+                daemon=True,
+            )
+            self.threads.playback_thread.start()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.critical("Failed to start playback monitoring thread: %s", e)
+            self.error_message = str(e)
+            self.critical_error_event.set()
+            self.terminate_application()
+            raise
 
-    def monitor_playback(self) -> None:
+    def monitor_playback(self, critical_error_event: threading.Event) -> None:
         """
-        Monitor the playback information and update the playback info text box.
+        Monitor playback by running the PlaybackMonitor.
         """
-        self.auth.user_id = get_user_id()
-        playback_main(self.threads.stop_event, self.update_playback_info)
+        try:
+            self.auth.user_id = get_user_id()
+            playback_main(
+                self.threads.stop_event, self.update_playback_info, critical_error_event
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.critical("Critical failure in monitor_playback: %s", e)
+            self.error_message = str(e)
+            critical_error_event.set()
+            raise
 
     def update_playback_info(self, playback: Optional[Dict[str, Any]]) -> None:
         """
@@ -408,8 +484,11 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         Args:
             playback (Optional[Dict[str, Any]]): The current playback information.
         """
-        if self.tabs.home_tab:
-            self.tabs.home_tab.update_playback_info(playback)
+        try:
+            if self.tabs.home_tab:
+                self.tabs.home_tab.update_playback_info(playback)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to update playback info: %s", e)
 
     def update_log_text_box(self) -> None:
         """
@@ -423,17 +502,22 @@ class SpotifySkipTrackerGUI(ctk.CTk):
                     self.tabs.log.log_file_path, "r", encoding="utf-8"
                 ) as log_file:
                     log_contents = log_file.readlines()
-            except FileNotFoundError:
+            except FileNotFoundError as e:
+                self.logger.error("Log file not found: %s", e)
+                log_contents = []
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                self.logger.error("Failed to read log file: %s", e)
                 log_contents = []
 
             # Get the number of log lines to display
             log_line_count_str = self.auth.config.get("LOG_LINE_COUNT", "500")
             try:
                 log_line_count = int(log_line_count_str)
-            except ValueError:
+            except ValueError as e:
                 logger.error(
-                    "Invalid LOG_LINE_COUNT value '%s'; defaulting to 500.",
+                    "Invalid LOG_LINE_COUNT value '%s'; defaulting to 500. Error: %s",
                     log_line_count_str,
+                    e,
                 )
                 log_line_count = 500
 
@@ -442,9 +526,14 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             display_logs = "".join(recent_logs)
 
             if display_logs != previous_log_contents:
-                if self.tabs.home_tab:
-                    self.tabs.home_tab.update_logs(display_logs)
-                previous_log_contents = display_logs
+                try:
+                    if self.tabs.home_tab:
+                        self.tabs.home_tab.update_logs(display_logs)
+                    previous_log_contents = display_logs
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    self.logger.error(
+                        "Failed to update log text box in Home tab: %s", e
+                    )
 
             time.sleep(1)
 
@@ -472,20 +561,69 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         logger.info("User logged out and tokens cleared.")
 
         # Clear playback info
-        # Assuming `self.playback_info` is defined elsewhere in the class
         if hasattr(self, "playback_info"):
             self.playback_info.configure(state="normal")
             self.playback_info.delete("1.0", "end")
             self.playback_info.configure(state="disabled")
 
         # Clear skipped songs display
-        # Assuming `self.skipped_text` is defined elsewhere in the class
         if hasattr(self, "skipped_text"):
             self.skipped_text.configure(state="normal")
             self.skipped_text.delete("1.0", "end")
             self.skipped_text.configure(state="disabled")
 
+    def terminate_application(self) -> None:
+        """
+        Terminate the application gracefully.
+        """
+        try:
+            logger.info("Terminating application due to a critical error.")
+            self.destroy()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Error while terminating application: %s", e)
+            sys.exit(1)
+
+    def check_for_critical_errors(self) -> None:
+        """
+        Periodically check if a critical error has been signaled and terminate the app if so.
+        """
+        if self.critical_error_event.is_set():
+            if not self.error_message:
+                try:
+                    with open(
+                        "logs/spotify_app.log", "r", encoding="utf-8"
+                    ) as log_file:
+                        lines = log_file.readlines()
+                    for line in reversed(lines):
+                        if (
+                            " - CRITICAL - PlaybackMonitor encountered a critical error: "
+                            in line
+                        ):
+                            # Extract the actual error message after the last colon
+                            error_part = line.split(":")[-1].strip()
+                            self.error_message = error_part
+                            break
+                    if not self.error_message:
+                        self.error_message = "An unknown critical error has occurred."
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    self.error_message = f"Unable to retrieve error message: {e}"
+            # Show an error message to the user before terminating
+            messagebox.showerror(
+                "Critical Error",
+                f"A critical error occurred: {self.error_message}. The application will now close.",
+            )
+            self.terminate_application()
+        else:
+            # Schedule the next check after 1000 ms (1 second)
+            self.after(1000, self.check_for_critical_errors)
+
 
 if __name__ == "__main__":
-    app = SpotifySkipTrackerGUI()
-    app.mainloop()
+    try:
+        app = SpotifySkipTrackerGUI()
+        app.mainloop()
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.critical("Application terminated due to an unexpected error: %s", e)
+        # Show popup to the user before exiting
+        messagebox.showerror("Critical Error", f"An unexpected error occurred:\n{e}")
+        sys.exit(1)
