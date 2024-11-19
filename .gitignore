@@ -7,3 +7,6 @@ skip_count.json
 config.json
 pyinstaller.txt
 output/
+build/
+dist/
+app.spec
