@@ -65,7 +65,7 @@ def get_user_id(retries: int = 3) -> Optional[str]:
                 if response.status_code == 200:
                     return response.json().get("id")
                 if response.status_code == 401:
-                    logger.warning("Access token expired. Refreshing token...")
+                    logger.debug("Access token expired. Refreshing token...")
                     time.sleep(5)
                     refresh_access_token()
                     auth_reload()
@@ -113,7 +113,7 @@ def get_current_playback(retries: int = 3) -> Optional[Dict[str, Any]]:
                 if response.status_code == 200:
                     return response.json()
                 if response.status_code == 401:
-                    logger.warning("Access token expired. Refreshing token...")
+                    logger.debug("Access token expired. Refreshing token...")
                     refresh_access_token()
                     time.sleep(5)
                     auth_reload()
@@ -172,7 +172,7 @@ def get_recently_played_tracks(retries: int = 3) -> Dict[str, Any]:
                 if response.status_code == 200:
                     return response.json()
                 if response.status_code == 401:
-                    logger.warning("Access token expired. Refreshing token...")
+                    logger.debug("Access token expired. Refreshing token...")
                     refresh_access_token()
                     time.sleep(5)
                     auth_reload()

@@ -231,7 +231,7 @@ def refresh_access_token() -> None:
             ACCESS_TOKEN = tokens.get("access_token")
             set_config_variable("SPOTIFY_ACCESS_TOKEN", ACCESS_TOKEN, encrypt=True)
             auth_reload()
-            logger.info("Access Token Refreshed")
+            logger.debug("Access Token Refreshed")
         except requests.exceptions.RequestException as e:
             logger.error("Failed to refresh access token: %s", e)
         except Exception as e:  # pylint: disable=broad-exception-caught

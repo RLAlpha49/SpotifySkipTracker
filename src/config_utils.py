@@ -122,56 +122,72 @@ def load_config(decrypt: bool = False) -> Dict[str, Any]:
         Dict[str, Any]: Configuration data.
     """
     try:
-        if not os.path.exists(CONFIG_FILE):
-            logger.info(
-                "%s not found. Creating a new one with empty values.", CONFIG_FILE
-            )
-            config: Dict[str, Any] = create_default_config()
-        else:
-            try:
-                with open(CONFIG_FILE, "r", encoding="utf-8") as file:
-                    config = json.load(file)
-            except json.JSONDecodeError as e:
-                logger.error("Error decoding %s: %s", CONFIG_FILE, e)
-                config = create_default_config()
-            except (OSError, IOError) as e:
-                logger.critical("Failed to read %s: %s", CONFIG_FILE, e)
-                raise
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                logger.critical("Unexpected error while reading %s: %s", CONFIG_FILE, e)
-                raise
-
-        # Ensure all required keys are present
-        missing_keys: list[str] = [key for key in REQUIRED_KEYS if key not in config]
-        if missing_keys:
-            logger.info(
-                "Missing keys in config: %s. Adding them with empty values.",
-                missing_keys,
-            )
-            for key in missing_keys:
-                config[key] = ""
-            try:
-                save_config(config)
-                logger.debug("Missing keys added to config: %s.", missing_keys)
-            except Exception as e:
-                logger.critical(
-                    "Failed to save config after adding missing keys: %s", e
-                )
-                raise
-
-        # Decrypt values if requested
+        config = load_or_create_config()
+        ensure_required_keys(config)
         if decrypt:
-            for key in REQUIRED_KEYS:
-                if key in config and config[key].startswith(ENCRYPTION_PREFIX):
-                    try:
-                        config[key] = decrypt_data(config[key])
-                    except Exception as e:  # pylint: disable=broad-exception-caught
-                        logger.error("Failed to decrypt key %s: %s", key, e)
-
+            decrypt_config_values(config)
         return config
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.critical("Critical failure in load_config: %s", e)
         raise
+
+
+def load_or_create_config() -> Dict[str, Any]:
+    """
+    Load the configuration from the JSON file, or create a new one if it doesn't exist.
+
+    Returns:
+        Dict[str, Any]: The loaded or newly created configuration data.
+    """
+    if not os.path.exists(CONFIG_FILE):
+        logger.info("%s not found. Creating a new one with empty values.", CONFIG_FILE)
+        return create_default_config()
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as file:
+            return json.load(file)
+    except json.JSONDecodeError as e:
+        logger.error("Error decoding %s: %s", CONFIG_FILE, e)
+        return create_default_config()
+    except (OSError, IOError) as e:
+        logger.critical("Failed to read %s: %s", CONFIG_FILE, e)
+        raise
+
+
+def ensure_required_keys(config: Dict[str, Any]) -> None:
+    """
+    Ensure that all required keys are present in the configuration.
+
+    Args:
+        config (Dict[str, Any]): The configuration data to check and update.
+    """
+    missing_keys: list[str] = [key for key in REQUIRED_KEYS if key not in config]
+    if missing_keys:
+        logger.info(
+            "Missing keys in config: %s. Adding them with empty values.", missing_keys
+        )
+        for key in missing_keys:
+            config[key] = ""
+        try:
+            save_config(config)
+            logger.debug("Missing keys added to config: %s.", missing_keys)
+        except Exception as e:
+            logger.critical("Failed to save config after adding missing keys: %s", e)
+            raise
+
+
+def decrypt_config_values(config: Dict[str, Any]) -> None:
+    """
+    Decrypt encrypted configuration values.
+
+    Args:
+        config (Dict[str, Any]): The configuration data containing potentially encrypted values.
+    """
+    for key in REQUIRED_KEYS:
+        if key in config and config[key].startswith(ENCRYPTION_PREFIX):
+            try:
+                config[key] = decrypt_data(config[key])
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logger.error("Failed to decrypt key %s: %s", key, e)
 
 
 def create_default_config() -> Dict[str, Any]:

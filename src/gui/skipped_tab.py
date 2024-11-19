@@ -169,103 +169,191 @@ class SkippedTab:
         Refresh the skipped songs data and enforce skip threshold settings.
         """
         try:
-            # Load current configuration
-            try:
-                self.config = load_config(decrypt=True)
-            except Exception as e:
-                self.logger.critical(
-                    "Failed to load configuration during refresh: %s", e
-                )
-                raise
+            self.load_configuration()
+            delta = self.calculate_timeframe_delta()
+            now = datetime.now()
+            skip_count = self.load_skip_count_data()
 
-            skip_threshold: int = self.config.get("SKIP_THRESHOLD", 5)
-            timeframe_value: int = self.config.get("TIMEFRAME_VALUE", 1)
-            timeframe_unit: str = self.config.get("TIMEFRAME_UNIT", "weeks")
-
-            # Calculate the timeframe delta
-            if timeframe_unit == "days":
-                delta: timedelta = timedelta(days=timeframe_value)
-            elif timeframe_unit == "weeks":
-                delta = timedelta(weeks=timeframe_value)
-            elif timeframe_unit == "months":
-                delta = timedelta(days=30 * timeframe_value)
-            elif timeframe_unit == "years":
-                delta = timedelta(days=365 * timeframe_value)
-            else:
-                delta = timedelta(days=timeframe_value)  # Default to days
-
-            now: datetime = datetime.now()
-
-            # Load current skip_count
-            try:
-                skip_count: Dict[str, Any] = load_skip_count()
-            except Exception as e:
-                self.logger.critical("Failed to load skip count during refresh: %s", e)
-                raise
-
-            # Identify tracks that exceed the skip threshold within the timeframe
-            tracks_to_unlike: List[str] = []
-            for track_id, data in skip_count.items():
-                skipped_dates: List[str] = data.get("skipped_dates", [])
-                recent_skips: List[datetime] = []
-                for date_str in skipped_dates:
-                    try:
-                        date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S")
-                        if now - date <= delta:
-                            recent_skips.append(date)
-                    except ValueError as ve:
-                        self.logger.error(
-                            "Invalid date format for track %s: %s", track_id, ve
-                        )
-                if len(recent_skips) >= skip_threshold:
-                    tracks_to_unlike.append(track_id)
-
+            tracks_to_unlike = self.identify_tracks_to_unlike(skip_count, delta, now)
             if tracks_to_unlike:
-                for track_id in tracks_to_unlike:
-                    try:
-                        self.logger.info(
-                            "Unliking track %s due to exceeding skip threshold.",
-                            track_id,
-                        )
-                        unlike_song(track_id)
-                        del skip_count[track_id]
-                        self.logger.debug(
-                            "Removed track %s from skip_count after unliking.", track_id
-                        )
-                    except Exception as e:  # pylint: disable=broad-exception-caught
-                        self.logger.error("Failed to unlike track %s: %s", track_id, e)
+                self.unlike_tracks(tracks_to_unlike, skip_count)
+                self.notify_user(tracks_to_unlike)
 
-                # Save the updated skip_count
-                try:
-                    save_skip_count(skip_count)
-                except Exception as e:
-                    self.logger.critical("Failed to save updated skip count: %s", e)
-                    raise
-
-                # Notify the user
-                try:
-                    messagebox.showinfo(
-                        "Tracks Unliked",
-                        (
-                            f"{len(tracks_to_unlike)} track(s) have been unliked "
-                            "based on the new skip threshold."
-                        ),
-                    )
-                except Exception as e:  # pylint: disable=broad-exception-caught
-                    self.logger.error("Failed to show info messagebox: %s", e)
-
-            # Clear existing data
-            try:
-                for item in self.skipped_tree.get_children():
-                    self.skipped_tree.delete(item)
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.error("Failed to clear existing treeview data: %s", e)
-
-            # Reload data
-            try:
-                self.load_skipped_data()
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.error("Failed to reload skipped data after refresh: %s", e)
+            self.clear_existing_data()
+            self.reload_skipped_data()
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.critical("Critical failure in refresh: %s", e)
             raise
+
+    def load_configuration(self) -> None:
+        """
+        Load the configuration settings.
+        """
+        try:
+            self.config = load_config(decrypt=True)
+        except Exception as e:
+            self.logger.critical("Failed to load configuration during refresh: %s", e)
+            raise
+
+    def calculate_timeframe_delta(self) -> timedelta:
+        """
+        Calculate the timeframe delta based on configuration.
+        """
+        timeframe_value = self.config.get("TIMEFRAME_VALUE", 1)
+        timeframe_unit = self.config.get("TIMEFRAME_UNIT", "weeks")
+        if timeframe_unit == "days":
+            return timedelta(days=timeframe_value)
+        if timeframe_unit == "weeks":
+            return timedelta(weeks=timeframe_value)
+        if timeframe_unit == "months":
+            return timedelta(days=30 * timeframe_value)
+        if timeframe_unit == "years":
+            return timedelta(days=365 * timeframe_value)
+        return timedelta(days=timeframe_value)  # Default to days
+
+    def load_skip_count_data(self) -> Dict[str, Any]:
+        """
+        Load the skip count data.
+
+        Returns:
+            Dict[str, Any]: The loaded skip count data.
+        """
+        try:
+            return load_skip_count()
+        except Exception as e:
+            self.logger.critical("Failed to load skip count during refresh: %s", e)
+            raise
+
+    def identify_tracks_to_unlike(
+        self, skip_count: Dict[str, Any], delta: timedelta, now: datetime
+    ) -> List[str]:
+        """
+        Identify tracks that exceed the skip threshold within the timeframe.
+
+        Args:
+            skip_count (Dict[str, Any]): The skip count data.
+            delta (timedelta): The timeframe delta.
+            now (datetime): The current date and time.
+
+        Returns:
+            List[str]: The list of track IDs to unlike.
+        """
+        skip_threshold = self.config.get("SKIP_THRESHOLD", 5)
+        tracks_to_unlike = []
+        for track_id, data in skip_count.items():
+            if self.track_exceeds_threshold(data, delta, now, skip_threshold):
+                tracks_to_unlike.append(track_id)
+        return tracks_to_unlike
+
+    def track_exceeds_threshold(
+        self, data: Dict[str, Any], delta: timedelta, now: datetime, skip_threshold: int
+    ) -> bool:
+        """
+        Check if a track exceeds the skip threshold.
+
+        Args:
+            data (Dict[str, Any]): The skip count data for a track.
+            delta (timedelta): The timeframe delta.
+            now (datetime): The current date and time.
+            skip_threshold (int): The skip threshold.
+
+        Returns:
+            bool: True if the track exceeds the skip threshold, False otherwise.
+        """
+        skipped_dates = data.get("skipped_dates", [])
+        recent_skips = [
+            datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S")
+            for date_str in skipped_dates
+            if self.is_recent_skip(date_str, delta, now)
+        ]
+        return len(recent_skips) >= skip_threshold
+
+    def is_recent_skip(self, date_str: str, delta: timedelta, now: datetime) -> bool:
+        """
+        Determine if a skip is recent based on the delta.
+
+        Args:
+            date_str (str): The date string to check.
+            delta (timedelta): The timeframe delta.
+            now (datetime): The current date and time.
+
+        Returns:
+            bool: True if the skip is recent, False otherwise.
+        """
+        try:
+            date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S")
+            return now - date <= delta
+        except ValueError as ve:
+            self.logger.error("Invalid date format: %s", ve)
+            return False
+
+    def unlike_tracks(
+        self, tracks_to_unlike: List[str], skip_count: Dict[str, Any]
+    ) -> None:
+        """
+        Unlike tracks that exceed the skip threshold.
+
+        Args:
+            tracks_to_unlike (List[str]): The list of track IDs to unlike.
+            skip_count (Dict[str, Any]): The skip count data.
+        """
+        for track_id in tracks_to_unlike:
+            try:
+                self.logger.info(
+                    "Unliking track %s due to exceeding skip threshold.", track_id
+                )
+                unlike_song(track_id)
+                del skip_count[track_id]
+                self.logger.debug(
+                    "Removed track %s from skip_count after unliking.", track_id
+                )
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                self.logger.error("Failed to unlike track %s: %s", track_id, e)
+        self.save_updated_skip_count(skip_count)
+
+    def save_updated_skip_count(self, skip_count: Dict[str, Any]) -> None:
+        """
+        Save the updated skip count data.
+
+        Args:
+            skip_count (Dict[str, Any]): The skip count data.
+        """
+        try:
+            save_skip_count(skip_count)
+        except Exception as e:
+            self.logger.critical("Failed to save updated skip count: %s", e)
+            raise
+
+    def notify_user(self, tracks_to_unlike: List[str]) -> None:
+        """
+        Notify the user about the tracks that have been unliked.
+
+        Args:
+            tracks_to_unlike (List[str]): The list of track IDs that have been unliked.
+        """
+        try:
+            messagebox.showinfo(
+                "Tracks Unliked",
+                f"{len(tracks_to_unlike)} track(s) have been unliked based on the new skip threshold.",
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to show info messagebox: %s", e)
+
+    def clear_existing_data(self) -> None:
+        """
+        Clear existing data from the treeview.
+        """
+        try:
+            for item in self.skipped_tree.get_children():
+                self.skipped_tree.delete(item)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to clear existing treeview data: %s", e)
+
+    def reload_skipped_data(self) -> None:
+        """
+        Reload the skipped data into the treeview.
+        """
+        try:
+            self.load_skipped_data()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to reload skipped data after refresh: %s", e)

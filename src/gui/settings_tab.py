@@ -35,141 +35,162 @@ class SettingsTab:
             self.config: Dict[str, Any] = app_config
             self.logger: Any = app_logger
 
-            # Configure grid layout
-            try:
-                self.parent.grid_rowconfigure(1, weight=1)
-                self.parent.grid_columnconfigure(0, weight=1)
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.error("Failed to configure grid layout: %s", e)
+            self.widgets: Dict[str, Any] = {}
 
-            # Title Label
-            try:
-                ctk.CTkLabel(
-                    parent, text="Application Settings", font=("Arial", 16)
-                ).grid(row=0, column=0, pady=10, sticky="n")
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.error("Failed to create title label: %s", e)
-
-            # Create a scrollable frame for settings
-            try:
-                self.scrollable_frame: ctk.CTkScrollableFrame = ctk.CTkScrollableFrame(
-                    parent, width=600, height=460
-                )
-                self.scrollable_frame.grid(
-                    row=1, column=0, pady=10, padx=20, sticky="n"
-                )
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.critical("Failed to create scrollable frame: %s", e)
-                raise
-
-            # Configuration Variables
-            try:
-                self.settings_entries: Dict[str, ctk.CTkEntry] = {}
-                required_keys: list[str] = [
-                    "SPOTIFY_CLIENT_ID",
-                    "SPOTIFY_CLIENT_SECRET",
-                    "SPOTIFY_REDIRECT_URI",
-                ]
-
-                for key in required_keys:
-                    try:
-                        frame: ctk.CTkFrame = ctk.CTkFrame(self.scrollable_frame)
-                        frame.pack(pady=3, padx=20, fill="x")
-                    except Exception as e:  # pylint: disable=broad-exception-caught
-                        self.logger.error(
-                            "Failed to create frame for key '%s': %s", key, e
-                        )
-                        continue  # Skip to the next key
-
-                    try:
-                        formatted_key: str = " ".join(
-                            word.capitalize() for word in key.lower().split("_")
-                        )
-                        label = ctk.CTkLabel(
-                            frame, text=f"{formatted_key}:", width=160, anchor="w"
-                        )
-                        label.pack(side="left", padx=5, pady=3)
-                    except Exception as e:  # pylint: disable=broad-exception-caught
-                        self.logger.error(
-                            "Failed to create label for key '%s': %s", key, e
-                        )
-                        continue  # Skip to the next key
-
-                    try:
-                        entry: ctk.CTkEntry = ctk.CTkEntry(frame, width=500)
-                        entry.pack(side="left", padx=5, pady=3)
-                        entry.insert(0, self.config.get(key, ""))
-                        self.settings_entries[key] = entry
-                    except Exception as e:  # pylint: disable=broad-exception-caught
-                        self.logger.error(
-                            "Failed to create entry for key '%s': %s", key, e
-                        )
-                        continue  # Skip to the next key
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.critical(
-                    "Critical failure while setting up configuration variables: %s", e
-                )
-                raise
-
-            # Variables Dictionary
-            try:
-                self.variables: Dict[str, Any] = {
-                    "log_level": ctk.StringVar(
-                        value=self.config.get("LOG_LEVEL", "INFO")
-                    ),
-                    "log_line_count": ctk.StringVar(
-                        value=self.config.get("LOG_LINE_COUNT", "500")
-                    ),
-                    "appearance_mode": ctk.StringVar(
-                        value=self.config.get("APPEARANCE_MODE", "System")
-                    ),
-                    "color_theme": ctk.StringVar(
-                        value=self.config.get("COLOR_THEME", "blue")
-                    ),
-                    "skip_threshold": ctk.IntVar(
-                        value=self.config.get("SKIP_THRESHOLD", 5)
-                    ),
-                    "skip_progress": ctk.DoubleVar(
-                        value=self.config.get("SKIP_PROGRESS_THRESHOLD", 0.42)
-                    ),
-                    "timeframe_value": ctk.IntVar(
-                        value=self.config.get("TIMEFRAME_VALUE", 1)
-                    ),
-                    "timeframe_unit": ctk.StringVar(
-                        value=self.config.get("TIMEFRAME_UNIT", "weeks")
-                    ),
-                }
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.error("Failed to initialize variables dictionary: %s", e)
-
-            # Initialize skip progress widgets dictionary
-            try:
-                self.skip_progress_widgets: Dict[str, Any] = {}
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.error(
-                    "Failed to initialize skip progress widgets dictionary: %s", e
-                )
-
-            # Create Settings Widgets
-            try:
-                self._create_settings_widgets(self.scrollable_frame)
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.critical(
-                    "Critical failure in creating settings widgets: %s", e
-                )
-                raise
-
-            # Save Button
-            try:
-                self.save_button: ctk.CTkButton = ctk.CTkButton(
-                    parent, text="Save Settings", command=self.save_settings
-                )
-                self.save_button.grid(row=2, column=0, pady=20, sticky="s")
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.error("Failed to create save button: %s", e)
+            self._configure_grid_layout()
+            self._create_title_label()
+            self._create_scrollable_frame()
+            self._create_config_variables()
+            self._initialize_variables()
+            self._initialize_skip_progress_widgets()
+            self._create_settings_widgets(self.widgets["scrollable_frame"])
+            self._create_save_button()
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.critical("Critical failure in SettingsTab __init__: %s", e)
             raise
+
+    def _configure_grid_layout(self) -> None:
+        """
+        Configure the grid layout for the parent frame.
+        """
+        try:
+            self.parent.grid_rowconfigure(1, weight=1)
+            self.parent.grid_columnconfigure(0, weight=1)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to configure grid layout: %s", e)
+
+    def _create_title_label(self) -> None:
+        """
+        Create and place the title label in the parent frame.
+        """
+        try:
+            ctk.CTkLabel(
+                self.parent, text="Application Settings", font=("Arial", 16)
+            ).grid(row=0, column=0, pady=10, sticky="n")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to create title label: %s", e)
+
+    def _create_scrollable_frame(self) -> None:
+        """
+        Create and place the scrollable frame in the parent frame.
+        """
+        try:
+            self.widgets["scrollable_frame"] = ctk.CTkScrollableFrame(
+                self.parent, width=600, height=460
+            )
+            self.widgets["scrollable_frame"].grid(
+                row=1, column=0, pady=10, padx=20, sticky="n"
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.critical("Failed to create scrollable frame: %s", e)
+            raise
+
+    def _create_config_variables(self) -> None:
+        """
+        Create and initialize the configuration variables.
+        """
+        try:
+            self.settings_entries: Dict[str, ctk.CTkEntry] = {}
+            required_keys: list[str] = [
+                "SPOTIFY_CLIENT_ID",
+                "SPOTIFY_CLIENT_SECRET",
+                "SPOTIFY_REDIRECT_URI",
+            ]
+
+            for key in required_keys:
+                self._create_config_variable_entry(key)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.critical(
+                "Critical failure while setting up configuration variables: %s", e
+            )
+            raise
+
+    def _create_config_variable_entry(self, key: str) -> None:
+        """
+        Create a frame for a configuration variable entry.
+
+        Args:
+            key (str): The key for the configuration variable.
+        """
+        try:
+            frame: ctk.CTkFrame = ctk.CTkFrame(self.widgets["scrollable_frame"])
+            frame.pack(pady=3, padx=20, fill="x")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to create frame for key '%s': %s", key, e)
+            return
+
+        try:
+            formatted_key: str = " ".join(
+                word.capitalize() for word in key.lower().split("_")
+            )
+            label = ctk.CTkLabel(frame, text=f"{formatted_key}:", width=160, anchor="w")
+            label.pack(side="left", padx=5, pady=3)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to create label for key '%s': %s", key, e)
+            return
+
+        try:
+            entry: ctk.CTkEntry = ctk.CTkEntry(frame, width=500)
+            entry.pack(side="left", padx=5, pady=3)
+            entry.insert(0, self.config.get(key, ""))
+            self.settings_entries[key] = entry
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to create entry for key '%s': %s", key, e)
+
+    def _initialize_variables(self) -> None:
+        """
+        Initialize the variables dictionary.
+        """
+        try:
+            self.variables: Dict[str, Any] = {
+                "log_level": ctk.StringVar(value=self.config.get("LOG_LEVEL", "INFO")),
+                "log_line_count": ctk.StringVar(
+                    value=self.config.get("LOG_LINE_COUNT", "500")
+                ),
+                "appearance_mode": ctk.StringVar(
+                    value=self.config.get("APPEARANCE_MODE", "System")
+                ),
+                "color_theme": ctk.StringVar(
+                    value=self.config.get("COLOR_THEME", "blue")
+                ),
+                "skip_threshold": ctk.IntVar(
+                    value=self.config.get("SKIP_THRESHOLD", 5)
+                ),
+                "skip_progress": ctk.DoubleVar(
+                    value=self.config.get("SKIP_PROGRESS_THRESHOLD", 0.42)
+                ),
+                "timeframe_value": ctk.IntVar(
+                    value=self.config.get("TIMEFRAME_VALUE", 1)
+                ),
+                "timeframe_unit": ctk.StringVar(
+                    value=self.config.get("TIMEFRAME_UNIT", "weeks")
+                ),
+            }
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to initialize variables dictionary: %s", e)
+
+    def _initialize_skip_progress_widgets(self) -> None:
+        """
+        Initialize the skip progress widgets dictionary.
+        """
+        try:
+            self.widgets["skip_progress_widgets"] = {}
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error(
+                "Failed to initialize skip progress widgets dictionary: %s", e
+            )
+
+    def _create_save_button(self) -> None:
+        """
+        Create and place the save button in the parent frame.
+        """
+        try:
+            self.widgets["save_button"] = ctk.CTkButton(
+                self.parent, text="Save Settings", command=self.save_settings
+            )
+            self.widgets["save_button"].grid(row=2, column=0, pady=20, sticky="s")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to create save button: %s", e)
 
     def _create_settings_widgets(self, parent: ctk.CTkScrollableFrame) -> None:
         """
@@ -411,7 +432,7 @@ class SettingsTab:
 
         try:
             # Store references in a dictionary to avoid multiple instance attributes
-            self.skip_progress_widgets = {
+            self.widgets["skip_progress_widgets"] = {
                 "slider": slider,
                 "percentage_label": percentage_label,
                 "entry": skip_progress_entry,
@@ -439,7 +460,7 @@ class SettingsTab:
             raise
 
         try:
-            self.skip_progress_widgets["percentage_label"].configure(
+            self.widgets["skip_progress_widgets"]["percentage_label"].configure(
                 text=f"{percentage:.0f}%"
             )
         except KeyError as e:
@@ -449,7 +470,7 @@ class SettingsTab:
 
         try:
             # Update the tooltip message
-            self.skip_progress_widgets["tooltip"].configure(
+            self.widgets["skip_progress_widgets"]["tooltip"].configure(
                 message=f"{percentage:.0f}%"
             )
         except KeyError as e:
@@ -505,138 +526,212 @@ class SettingsTab:
         Save the settings entered in the Settings tab.
         """
         try:
-            # Save configuration entries
-            try:
-                for key, entry in self.settings_entries.items():
-                    try:
-                        value: str = entry.get().strip()
-                        if not value:
-                            messagebox.showerror(
-                                "Input Error", f"{key} cannot be empty."
-                            )
-                            return
-                        encrypt: bool = key in {
-                            "SPOTIFY_CLIENT_ID",
-                            "SPOTIFY_CLIENT_SECRET",
-                        }
-                        set_config_variable(key, value, encrypt=encrypt)
-                        self.config[key] = value
-                    except Exception as e:  # pylint: disable=broad-exception-caught
-                        self.logger.error("Failed to process setting '%s': %s", key, e)
-            except AttributeError as ae:
-                self.logger.error("Settings entries not found: %s", ae)
-                messagebox.showerror(
-                    "Internal Error", "Settings entries are not properly initialized."
-                )
-                return
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.critical(
-                    "Unexpected error while saving configuration entries: %s", e
-                )
-                messagebox.showerror(
-                    "Internal Error",
-                    "An unexpected error occurred while saving settings.",
-                )
-                raise
-
-            # Save and apply log level
-            try:
-                log_level: str = self.variables["log_level"].get()
-                set_config_variable("LOG_LEVEL", log_level)
-                self.config["LOG_LEVEL"] = log_level
-                self.logger.setLevel(log_level)
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.error("Failed to set log level: %s", e)
-
-            # Save and validate log line count
-            try:
-                log_line_count: str = self.variables["log_line_count"].get().strip()
-                if not log_line_count.isdigit():
-                    messagebox.showerror("Input Error", "Log Lines must be an integer.")
-                    return
-                set_config_variable("LOG_LINE_COUNT", log_line_count)
-                self.config["LOG_LINE_COUNT"] = log_line_count
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.error("Failed to set log line count: %s", e)
-
-            # Save and apply appearance mode
-            try:
-                appearance_mode: str = self.variables["appearance_mode"].get()
-                set_config_variable("APPEARANCE_MODE", appearance_mode)
-                self.config["APPEARANCE_MODE"] = appearance_mode
-                ctk.set_appearance_mode(appearance_mode)
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.error("Failed to set appearance mode: %s", e)
-
-            # Save and apply color theme
-            try:
-                color_theme: str = self.variables["color_theme"].get()
-                previous_color_theme: str = self.config.get("COLOR_THEME", "blue")
-                if color_theme != previous_color_theme:
-                    set_config_variable("COLOR_THEME", color_theme)
-                    self.config["COLOR_THEME"] = color_theme
-                    message: str = (
-                        "Settings have been saved successfully. A restart is required "
-                        "for Color Theme setting to take effect."
-                        if color_theme != previous_color_theme
-                        else "Settings have been saved successfully."
-                    )
-                    messagebox.showinfo("Settings Saved", message)
-                else:
-                    messagebox.showinfo(
-                        "Settings Saved", "Settings have been saved successfully."
-                    )
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.error("Failed to set color theme: %s", e)
-
-            # Apply default color theme
-            try:
-                if self.config["COLOR_THEME"] == "NightTrain":
-                    ctk.set_default_color_theme("assets/themes/night_train.json")
-                else:
-                    ctk.set_default_color_theme(self.config["COLOR_THEME"])
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.error("Failed to apply color theme: %s", e)
-
-            # Save and validate skip threshold
-            try:
-                skip_threshold: int = self.variables["skip_threshold"].get()
-                if not isinstance(skip_threshold, int):
-                    messagebox.showerror(
-                        "Input Error", "Skip Threshold must be an integer."
-                    )
-                    return
-                set_config_variable("SKIP_THRESHOLD", skip_threshold)
-                self.config["SKIP_THRESHOLD"] = skip_threshold
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.error("Failed to set skip threshold: %s", e)
-
-            # Save and validate skip progress threshold
-            try:
-                skip_progress_threshold: float = self.variables["skip_progress"].get()
-                if not 0.01 <= skip_progress_threshold <= 0.99:
-                    messagebox.showerror(
-                        "Input Error",
-                        "Skip Progress Threshold must be between 0.01 and 0.99.",
-                    )
-                    return
-                set_config_variable("SKIP_PROGRESS_THRESHOLD", skip_progress_threshold)
-                self.config["SKIP_PROGRESS_THRESHOLD"] = skip_progress_threshold
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.error("Failed to set skip progress threshold: %s", e)
-
-            # Save and validate timeframe settings
-            try:
-                timeframe_value: int = self.variables["timeframe_value"].get()
-                timeframe_unit: str = self.variables["timeframe_unit"].get()
-                set_config_variable("TIMEFRAME_VALUE", timeframe_value)
-                set_config_variable("TIMEFRAME_UNIT", timeframe_unit)
-                self.config["TIMEFRAME_VALUE"] = timeframe_value
-                self.config["TIMEFRAME_UNIT"] = timeframe_unit
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                self.logger.error("Failed to set timeframe settings: %s", e)
-
+            self._save_configuration_entries()
+            self._save_log_level()
+            self._save_log_line_count()
+            self._save_appearance_mode()
+            self._apply_default_color_theme()
+            self._save_skip_threshold()
+            self._save_skip_progress_threshold()
+            self._save_timeframe_settings()
+            self._save_color_theme()
             self.logger.info("Settings saved by the user.")
+            messagebox.showinfo(
+                "Settings Saved", "Settings have been saved successfully."
+            )
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.critical("Critical failure in save_settings: %s", e)
+            raise
+
+    def _save_configuration_entries(self) -> None:
+        """
+        Save the configuration entries.
+        """
+        try:
+            for key, entry in self.settings_entries.items():
+                self._process_setting_entry(key, entry)
+        except AttributeError as ae:
+            self.logger.error("Settings entries not found: %s", ae)
+            messagebox.showerror(
+                "Internal Error", "Settings entries are not properly initialized."
+            )
+            raise
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.critical(
+                "Unexpected error while saving configuration entries: %s", e
+            )
+            messagebox.showerror(
+                "Internal Error",
+                "An unexpected error occurred while saving settings.",
+            )
+            raise
+
+    def _process_setting_entry(self, key: str, entry: Any) -> None:
+        """
+        Process a setting entry and save the value to the configuration.
+
+        Args:
+            key (str): The key for the configuration variable.
+            entry (Any): The entry widget for the configuration variable.
+        """
+        try:
+            value: str = entry.get().strip()
+            if not value:
+                messagebox.showerror("Input Error", f"{key} cannot be empty.")
+                raise ValueError(f"{key} cannot be empty.")
+            encrypt: bool = key in {"SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"}
+            set_config_variable(key, value, encrypt=encrypt)
+            self.config[key] = value
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to process setting '%s': %s", key, e)
+            raise
+
+    def _save_log_level(self) -> None:
+        """
+        Save the log level.
+        """
+        try:
+            log_level: str = self.variables["log_level"].get()
+            set_config_variable("LOG_LEVEL", log_level)
+            self.config["LOG_LEVEL"] = log_level
+            self.logger.setLevel(log_level)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to set log level: %s", e)
+            messagebox.showerror(
+                "Internal Error",
+                f"An unexpected error occurred while saving the Log Level: {e}",
+            )
+            raise
+
+    def _save_log_line_count(self) -> None:
+        """
+        Save the log line count.
+        """
+        try:
+            log_line_count: str = self.variables["log_line_count"].get().strip()
+            if not log_line_count.isdigit():
+                messagebox.showerror("Input Error", "Log Lines must be an integer.")
+                raise ValueError("Log Lines must be an integer.")
+            set_config_variable("LOG_LINE_COUNT", log_line_count)
+            self.config["LOG_LINE_COUNT"] = log_line_count
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to set log line count: %s", e)
+            messagebox.showerror(
+                "Internal Error",
+                f"An unexpected error occurred while saving the Log Line Count: {e}",
+            )
+            raise
+
+    def _save_appearance_mode(self) -> None:
+        """
+        Save the appearance mode.
+        """
+        try:
+            appearance_mode: str = self.variables["appearance_mode"].get()
+            set_config_variable("APPEARANCE_MODE", appearance_mode)
+            self.config["APPEARANCE_MODE"] = appearance_mode
+            ctk.set_appearance_mode(appearance_mode)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to set appearance mode: %s", e)
+            messagebox.showerror(
+                "Internal Error",
+                f"An unexpected error occurred while saving the Appearance Mode: {e}",
+            )
+            raise
+
+    def _save_color_theme(self) -> None:
+        """
+        Save the color theme.
+        """
+        try:
+            color_theme: str = self.variables["color_theme"].get()
+            previous_color_theme: str = self.config.get("COLOR_THEME", "blue")
+            if color_theme != previous_color_theme:
+                set_config_variable("COLOR_THEME", color_theme)
+                self.config["COLOR_THEME"] = color_theme
+                messagebox.showinfo(
+                    "Restart Required",
+                    "A restart is required for Color Theme setting to take effect.",
+                )
+            else:
+                set_config_variable("COLOR_THEME", color_theme)
+                self.config["COLOR_THEME"] = color_theme
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to set color theme: %s", e)
+            messagebox.showerror(
+                "Internal Error",
+                f"An unexpected error occurred while saving the Color Theme: {e}",
+            )
+            raise
+
+    def _apply_default_color_theme(self) -> None:
+        """
+        Apply the default color theme.
+        """
+        try:
+            if self.config["COLOR_THEME"] == "NightTrain":
+                ctk.set_default_color_theme("assets/themes/night_train.json")
+            else:
+                ctk.set_default_color_theme(self.config["COLOR_THEME"])
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to apply color theme: %s", e)
+            raise
+
+    def _save_skip_threshold(self) -> None:
+        """
+        Save the skip threshold.
+        """
+        try:
+            skip_threshold: int = self.variables["skip_threshold"].get()
+            set_config_variable("SKIP_THRESHOLD", skip_threshold)
+            self.config["SKIP_THRESHOLD"] = skip_threshold
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to set skip threshold: %s", e)
+            messagebox.showerror(
+                "Internal Error",
+                f"An unexpected error occurred while saving the Skip Threshold: {e}",
+            )
+            raise
+
+    def _save_skip_progress_threshold(self) -> None:
+        """
+        Save the skip progress threshold.
+        """
+        try:
+            skip_progress_threshold: float = self.variables["skip_progress"].get()
+            if not 0.01 <= skip_progress_threshold <= 0.99:
+                messagebox.showerror(
+                    "Input Error",
+                    "Skip Progress Threshold must be between 0.01 and 0.99.",
+                )
+                raise ValueError(
+                    "Skip Progress Threshold must be between 0.01 and 0.99."
+                )
+            set_config_variable("SKIP_PROGRESS_THRESHOLD", skip_progress_threshold)
+            self.config["SKIP_PROGRESS_THRESHOLD"] = skip_progress_threshold
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to set skip progress threshold: %s", e)
+            messagebox.showerror(
+                "Internal Error",
+                f"An unexpected error occurred while saving the Skip Progress Threshold: {e}",
+            )
+            raise
+
+    def _save_timeframe_settings(self) -> None:
+        """
+        Save the timeframe settings.
+        """
+        try:
+            timeframe_value: int = self.variables["timeframe_value"].get()
+            timeframe_unit: str = self.variables["timeframe_unit"].get()
+            set_config_variable("TIMEFRAME_VALUE", timeframe_value)
+            set_config_variable("TIMEFRAME_UNIT", timeframe_unit)
+            self.config["TIMEFRAME_VALUE"] = timeframe_value
+            self.config["TIMEFRAME_UNIT"] = timeframe_unit
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.logger.error("Failed to set timeframe settings: %s", e)
+            messagebox.showerror(
+                "Internal Error",
+                f"An unexpected error occurred while saving the Timeframe Settings: {e}",
+            )
             raise
