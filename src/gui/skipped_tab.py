@@ -169,23 +169,23 @@ class SkippedTab:
         Refresh the skipped songs data and enforce skip threshold settings.
         """
         try:
-            self.load_configuration()
-            delta = self.calculate_timeframe_delta()
+            self._load_configuration()
+            delta = self._calculate_timeframe_delta()
             now = datetime.now()
-            skip_count = self.load_skip_count_data()
+            skip_count = self._load_skip_count_data()
 
-            tracks_to_unlike = self.identify_tracks_to_unlike(skip_count, delta, now)
+            tracks_to_unlike = self._identify_tracks_to_unlike(skip_count, delta, now)
             if tracks_to_unlike:
-                self.unlike_tracks(tracks_to_unlike, skip_count)
-                self.notify_user(tracks_to_unlike)
+                self._unlike_tracks(tracks_to_unlike, skip_count)
+                self._notify_user(tracks_to_unlike)
 
-            self.clear_existing_data()
-            self.reload_skipped_data()
+            self._clear_existing_data()
+            self._reload_skipped_data()
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.critical("Critical failure in refresh: %s", e)
             raise
 
-    def load_configuration(self) -> None:
+    def _load_configuration(self) -> None:
         """
         Load the configuration settings.
         """
@@ -195,7 +195,7 @@ class SkippedTab:
             self.logger.critical("Failed to load configuration during refresh: %s", e)
             raise
 
-    def calculate_timeframe_delta(self) -> timedelta:
+    def _calculate_timeframe_delta(self) -> timedelta:
         """
         Calculate the timeframe delta based on configuration.
         """
@@ -211,7 +211,7 @@ class SkippedTab:
             return timedelta(days=365 * timeframe_value)
         return timedelta(days=timeframe_value)  # Default to days
 
-    def load_skip_count_data(self) -> Dict[str, Any]:
+    def _load_skip_count_data(self) -> Dict[str, Any]:
         """
         Load the skip count data.
 
@@ -224,7 +224,7 @@ class SkippedTab:
             self.logger.critical("Failed to load skip count during refresh: %s", e)
             raise
 
-    def identify_tracks_to_unlike(
+    def _identify_tracks_to_unlike(
         self, skip_count: Dict[str, Any], delta: timedelta, now: datetime
     ) -> List[str]:
         """
@@ -241,11 +241,11 @@ class SkippedTab:
         skip_threshold = self.config.get("SKIP_THRESHOLD", 5)
         tracks_to_unlike = []
         for track_id, data in skip_count.items():
-            if self.track_exceeds_threshold(data, delta, now, skip_threshold):
+            if self._track_exceeds_threshold(data, delta, now, skip_threshold):
                 tracks_to_unlike.append(track_id)
         return tracks_to_unlike
 
-    def track_exceeds_threshold(
+    def _track_exceeds_threshold(
         self, data: Dict[str, Any], delta: timedelta, now: datetime, skip_threshold: int
     ) -> bool:
         """
@@ -264,11 +264,11 @@ class SkippedTab:
         recent_skips = [
             datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S")
             for date_str in skipped_dates
-            if self.is_recent_skip(date_str, delta, now)
+            if self._is_recent_skip(date_str, delta, now)
         ]
         return len(recent_skips) >= skip_threshold
 
-    def is_recent_skip(self, date_str: str, delta: timedelta, now: datetime) -> bool:
+    def _is_recent_skip(self, date_str: str, delta: timedelta, now: datetime) -> bool:
         """
         Determine if a skip is recent based on the delta.
 
@@ -287,7 +287,7 @@ class SkippedTab:
             self.logger.error("Invalid date format: %s", ve)
             return False
 
-    def unlike_tracks(
+    def _unlike_tracks(
         self, tracks_to_unlike: List[str], skip_count: Dict[str, Any]
     ) -> None:
         """
@@ -309,9 +309,9 @@ class SkippedTab:
                 )
             except Exception as e:  # pylint: disable=broad-exception-caught
                 self.logger.error("Failed to unlike track %s: %s", track_id, e)
-        self.save_updated_skip_count(skip_count)
+        self._save_updated_skip_count(skip_count)
 
-    def save_updated_skip_count(self, skip_count: Dict[str, Any]) -> None:
+    def _save_updated_skip_count(self, skip_count: Dict[str, Any]) -> None:
         """
         Save the updated skip count data.
 
@@ -324,7 +324,7 @@ class SkippedTab:
             self.logger.critical("Failed to save updated skip count: %s", e)
             raise
 
-    def notify_user(self, tracks_to_unlike: List[str]) -> None:
+    def _notify_user(self, tracks_to_unlike: List[str]) -> None:
         """
         Notify the user about the tracks that have been unliked.
 
@@ -339,7 +339,7 @@ class SkippedTab:
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Failed to show info messagebox: %s", e)
 
-    def clear_existing_data(self) -> None:
+    def _clear_existing_data(self) -> None:
         """
         Clear existing data from the treeview.
         """
@@ -349,7 +349,7 @@ class SkippedTab:
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Failed to clear existing treeview data: %s", e)
 
-    def reload_skipped_data(self) -> None:
+    def _reload_skipped_data(self) -> None:
         """
         Reload the skipped data into the treeview.
         """

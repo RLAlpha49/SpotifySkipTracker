@@ -13,29 +13,29 @@ import requests
 from auth import refresh_access_token
 from config_utils import get_config_variable, load_config
 
-SPOTIFY_ACCESS_TOKEN: Optional[str] = get_config_variable(
+_SPOTIFY_ACCESS_TOKEN: Optional[str] = get_config_variable(
     "SPOTIFY_ACCESS_TOKEN", "", decrypt=True
 )
-logger: logging.Logger = logging.getLogger("SpotifySkipTracker")
+_logger: logging.Logger = logging.getLogger("SpotifySkipTracker")
 
 
-def auth_reload() -> None:
+def _auth_reload() -> None:
     """
     Reload the authentication configuration variables from the config file.
     """
-    global SPOTIFY_ACCESS_TOKEN  # pylint: disable=global-statement
+    global _SPOTIFY_ACCESS_TOKEN  # pylint: disable=global-statement
     try:
-        SPOTIFY_ACCESS_TOKEN = get_config_variable(
+        _SPOTIFY_ACCESS_TOKEN = get_config_variable(
             "SPOTIFY_ACCESS_TOKEN", "", decrypt=True
         )
     except FileNotFoundError as e:
-        logger.critical("Configuration file not found while reloading auth: %s", e)
+        _logger.critical("Configuration file not found while reloading auth: %s", e)
         raise
     except json.JSONDecodeError as e:
-        logger.critical("JSON decode error while reloading auth: %s", e)
+        _logger.critical("JSON decode error while reloading auth: %s", e)
         raise
     except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.critical("Unexpected error while reloading auth: %s", e)
+        _logger.critical("Unexpected error while reloading auth: %s", e)
         raise
 
 
@@ -52,10 +52,10 @@ def get_user_id(retries: int = 3) -> Optional[str]:
     try:
         for attempt in range(retries):
             try:
-                auth_reload()
-                access_token: Optional[str] = SPOTIFY_ACCESS_TOKEN
+                _auth_reload()
+                access_token: Optional[str] = _SPOTIFY_ACCESS_TOKEN
                 if not access_token:
-                    logger.error("Access token is not available.")
+                    _logger.error("Access token is not available.")
                     return None
                 headers: Dict[str, str] = {"Authorization": f"Bearer {access_token}"}
                 url: str = "https://api.spotify.com/v1/me"
@@ -65,23 +65,23 @@ def get_user_id(retries: int = 3) -> Optional[str]:
                 if response.status_code == 200:
                     return response.json().get("id")
                 if response.status_code == 401:
-                    logger.debug("Access token expired. Refreshing token...")
+                    _logger.debug("Access token expired. Refreshing token...")
                     time.sleep(5)
                     refresh_access_token()
-                    auth_reload()
+                    _auth_reload()
                 else:
-                    logger.error(
+                    _logger.error(
                         "Failed to fetch user ID, attempt %d/%d", attempt + 1, retries
                     )
                     time.sleep(2)
             except requests.exceptions.RequestException as e:
-                logger.error("Request exception while fetching user ID: %s", e)
+                _logger.error("Request exception while fetching user ID: %s", e)
                 time.sleep(2)
             except Exception as e:  # pylint: disable=broad-exception-caught
-                logger.critical("Unexpected error while fetching user ID: %s", e)
+                _logger.critical("Unexpected error while fetching user ID: %s", e)
                 raise
     except Exception as e:  # Catching potential exceptions from re-raising
-        logger.critical("Critical failure in get_user_id: %s", e)
+        _logger.critical("Critical failure in get_user_id: %s", e)
         raise
     return None
 
@@ -101,9 +101,9 @@ def get_current_playback(retries: int = 3) -> Optional[Dict[str, Any]]:
     try:
         for _ in range(retries):
             try:
-                auth_reload()
+                _auth_reload()
                 headers: Dict[str, str] = {
-                    "Authorization": f"Bearer {SPOTIFY_ACCESS_TOKEN}"
+                    "Authorization": f"Bearer {_SPOTIFY_ACCESS_TOKEN}"
                 }
                 url: str = "https://api.spotify.com/v1/me/player"
 
@@ -113,33 +113,35 @@ def get_current_playback(retries: int = 3) -> Optional[Dict[str, Any]]:
                 if response.status_code == 200:
                     return response.json()
                 if response.status_code == 401:
-                    logger.debug("Access token expired. Refreshing token...")
+                    _logger.debug("Access token expired. Refreshing token...")
                     refresh_access_token()
                     time.sleep(5)
-                    auth_reload()
-                    headers["Authorization"] = f"Bearer {SPOTIFY_ACCESS_TOKEN}"
+                    _auth_reload()
+                    headers["Authorization"] = f"Bearer {_SPOTIFY_ACCESS_TOKEN}"
                     continue
                 if response.status_code == 429:
                     retry_after: int = int(response.headers.get("Retry-After", "10"))
-                    logger.error(
+                    _logger.error(
                         "Rate limit exceeded, waiting for %d seconds", retry_after
                     )
                     time.sleep(retry_after)
                     continue
                 if response.status_code == 204:
                     return None
-                logger.error("Failed to fetch current playback")
+                _logger.error("Failed to fetch current playback")
                 time.sleep(2)
             except requests.exceptions.RequestException as e:
-                logger.error("Request exception while fetching current playback: %s", e)
+                _logger.error(
+                    "Request exception while fetching current playback: %s", e
+                )
                 time.sleep(2)
             except Exception as e:  # pylint: disable=broad-exception-caught
-                logger.critical(
+                _logger.critical(
                     "Unexpected error while fetching current playback: %s", e
                 )
                 raise
     except Exception as e:
-        logger.critical("Critical failure in get_current_playback: %s", e)
+        _logger.critical("Critical failure in get_current_playback: %s", e)
         raise
     return None
 
@@ -158,9 +160,9 @@ def get_recently_played_tracks(retries: int = 3) -> Dict[str, Any]:
     try:
         for attempt in range(retries):
             try:
-                auth_reload()
+                _auth_reload()
                 headers: Dict[str, str] = {
-                    "Authorization": f"Bearer {SPOTIFY_ACCESS_TOKEN}"
+                    "Authorization": f"Bearer {_SPOTIFY_ACCESS_TOKEN}"
                 }
                 url: str = (
                     "https://api.spotify.com/v1/me/player/recently-played?limit=5"
@@ -172,37 +174,37 @@ def get_recently_played_tracks(retries: int = 3) -> Dict[str, Any]:
                 if response.status_code == 200:
                     return response.json()
                 if response.status_code == 401:
-                    logger.debug("Access token expired. Refreshing token...")
+                    _logger.debug("Access token expired. Refreshing token...")
                     refresh_access_token()
                     time.sleep(5)
-                    auth_reload()
-                    headers["Authorization"] = f"Bearer {SPOTIFY_ACCESS_TOKEN}"
+                    _auth_reload()
+                    headers["Authorization"] = f"Bearer {_SPOTIFY_ACCESS_TOKEN}"
                     continue
                 if response.status_code == 429:
                     retry_after: int = int(response.headers.get("Retry-After", "10"))
-                    logger.error(
+                    _logger.error(
                         "Rate limit exceeded, waiting for %d seconds", retry_after
                     )
                     time.sleep(retry_after)
                     continue
-                logger.error(
+                _logger.error(
                     "Failed to fetch recently played tracks, attempt %d/%d",
                     attempt + 1,
                     retries,
                 )
                 time.sleep(2)
             except requests.exceptions.RequestException as e:
-                logger.error(
+                _logger.error(
                     "Request exception while fetching recently played tracks: %s", e
                 )
                 time.sleep(2)
             except Exception as e:  # pylint: disable=broad-exception-caught
-                logger.critical(
+                _logger.critical(
                     "Unexpected error while fetching recently played tracks: %s", e
                 )
                 raise
     except Exception as e:
-        logger.critical("Critical failure in get_recently_played_tracks: %s", e)
+        _logger.critical("Critical failure in get_recently_played_tracks: %s", e)
         raise
     return recently_played_tracks
 
@@ -236,13 +238,13 @@ def load_skip_count() -> Dict[str, Dict[str, Any]]:
             save_skip_count(sorted_skip_count)
         return sorted_skip_count
     except FileNotFoundError:
-        logger.info("skip_count.json not found. Returning empty skip count.")
+        _logger.info("skip_count.json not found. Returning empty skip count.")
         return {}
     except json.JSONDecodeError as e:
-        logger.critical("JSON decode error while loading skip count: %s", e)
+        _logger.critical("JSON decode error while loading skip count: %s", e)
         raise
     except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.critical("Unexpected error while loading skip count: %s", e)
+        _logger.critical("Unexpected error while loading skip count: %s", e)
         raise
 
 
@@ -256,11 +258,11 @@ def save_skip_count(skip_count: Dict[str, Dict[str, Any]]) -> None:
     try:
         with open("skip_count.json", "w", encoding="utf-8") as file:
             json.dump(skip_count, file, indent=4)
-        logger.debug("Skip count saved successfully.")
+        _logger.debug("Skip count saved successfully.")
     except (OSError, IOError) as e:
-        logger.error("Failed to save skip count: %s", e)
+        _logger.error("Failed to save skip count: %s", e)
     except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.critical("Unexpected error while saving skip count: %s", e)
+        _logger.critical("Unexpected error while saving skip count: %s", e)
         raise
 
 
@@ -278,15 +280,15 @@ def check_if_skipped_early(progress_ms: int, duration_ms: int) -> bool:
     try:
         config: Dict[str, Any] = load_config(decrypt=True)
     except FileNotFoundError:
-        logger.critical("Configuration file not found while checking skip threshold.")
+        _logger.critical("Configuration file not found while checking skip threshold.")
         raise
     except json.JSONDecodeError as e:
-        logger.critical(
+        _logger.critical(
             "JSON decode error while loading config for skip threshold: %s", e
         )
         raise
     except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.critical(
+        _logger.critical(
             "Unexpected error while loading config for skip threshold: %s", e
         )
         raise
@@ -296,10 +298,10 @@ def check_if_skipped_early(progress_ms: int, duration_ms: int) -> bool:
             config.get("SKIP_PROGRESS_THRESHOLD", 0.42)
         )
     except (TypeError, ValueError) as e:
-        logger.error("Invalid SKIP_PROGRESS_THRESHOLD in config: %s", e)
+        _logger.error("Invalid SKIP_PROGRESS_THRESHOLD in config: %s", e)
         skip_progress_threshold = 0.42  # Default value
     except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error("Unexpected error while parsing skip progress threshold: %s", e)
+        _logger.error("Unexpected error while parsing skip progress threshold: %s", e)
         skip_progress_threshold = 0.42  # Default value
 
     try:
@@ -307,7 +309,7 @@ def check_if_skipped_early(progress_ms: int, duration_ms: int) -> bool:
             return progress_ms < duration_ms * skip_progress_threshold
         return progress_ms < duration_ms * skip_progress_threshold
     except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error("Error while checking if skipped early: %s", e)
+        _logger.error("Error while checking if skipped early: %s", e)
         return False
 
 
@@ -322,9 +324,9 @@ def unlike_song(track_id: str, retries: int = 3) -> None:
     try:
         for attempt in range(retries):
             try:
-                auth_reload()
+                _auth_reload()
                 headers: Dict[str, str] = {
-                    "Authorization": f"Bearer {SPOTIFY_ACCESS_TOKEN}"
+                    "Authorization": f"Bearer {_SPOTIFY_ACCESS_TOKEN}"
                 }
                 url: str = f"https://api.spotify.com/v1/me/tracks?ids={track_id}"
 
@@ -332,9 +334,9 @@ def unlike_song(track_id: str, retries: int = 3) -> None:
                     url, headers=headers, timeout=10
                 )
                 if response.status_code == 200:
-                    logger.debug("Unliked song: %s", track_id)
+                    _logger.debug("Unliked song: %s", track_id)
                     return
-                logger.error(
+                _logger.error(
                     "Failed to unlike song: %s (Attempt %d/%d)",
                     track_id,
                     attempt + 1,
@@ -342,18 +344,18 @@ def unlike_song(track_id: str, retries: int = 3) -> None:
                 )
                 time.sleep(2)
             except requests.exceptions.RequestException as e:
-                logger.error(
+                _logger.error(
                     "Request exception while unliking song '%s': %s", track_id, e
                 )
                 time.sleep(2)
             except Exception as e:  # pylint: disable=broad-exception-caught
-                logger.critical(
+                _logger.critical(
                     "Unexpected error while unliking song '%s': %s", track_id, e
                 )
                 raise
-        logger.error("Failed to unlike song after %d attempts: %s", retries, track_id)
+        _logger.error("Failed to unlike song after %d attempts: %s", retries, track_id)
     except Exception as e:
-        logger.critical(
+        _logger.critical(
             "Critical failure in unlike_song for track '%s': %s", track_id, e
         )
         raise

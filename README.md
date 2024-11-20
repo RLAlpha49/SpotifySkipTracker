@@ -32,7 +32,7 @@
 
 ### Prerequisites
 
-- **Spotify Developer Account:** Required to obtain API credentials (Client ID and Client Secret) for accessing Spotify's API.
+- **Spotify Developer Account(Free):** Required to obtain API credentials (Client ID and Client Secret) for accessing Spotify's API.
 - **Python 3.10 or higher:** Ensure you have the appropriate version of Python installed.
 
 ### Setup

@@ -24,41 +24,41 @@ def setup_logger() -> Logger:
         if not logger.hasHandlers():
             try:
                 # Create logs directory if it doesn't exist
-                logs_directory: str = "logs"
-                if not os.path.exists(logs_directory):
-                    os.makedirs(logs_directory)
-                    logger.debug("Created logs directory at %s", logs_directory)
+                _logs_directory: str = "logs"
+                if not os.path.exists(_logs_directory):
+                    os.makedirs(_logs_directory)
+                    logger.debug("Created logs directory at %s", _logs_directory)
             except OSError as e:
                 logger.critical(
-                    "Failed to create logs directory '%s': %s", logs_directory, e
+                    "Failed to create logs directory '%s': %s", _logs_directory, e
                 )
                 raise
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.critical(
                     "Unexpected error while creating logs directory '%s': %s",
-                    logs_directory,
+                    _logs_directory,
                     e,
                 )
                 raise
 
             try:
                 # File handler with rotation
-                log_file_path: str = os.path.join(logs_directory, "spotify_app.log")
-                file_handler: RotatingFileHandler = RotatingFileHandler(
-                    log_file_path,
+                _log_file_path: str = os.path.join(_logs_directory, "spotify_app.log")
+                _file_handler: RotatingFileHandler = RotatingFileHandler(
+                    _log_file_path,
                     maxBytes=10 * 1024 * 1024,  # 10 MB
                     backupCount=10,
                     encoding="utf-8",
                 )
-                file_formatter: logging.Formatter = logging.Formatter(
+                _file_formatter: logging.Formatter = logging.Formatter(
                     "%(asctime)s - %(levelname)s - %(message)s"
                 )
-                file_handler.setFormatter(file_formatter)
-                file_handler.setLevel(logging.DEBUG)  # Capture all levels to file
+                _file_handler.setFormatter(_file_formatter)
+                _file_handler.setLevel(logging.DEBUG)  # Capture all levels to file
 
                 # Add file handler to the logger
-                logger.addHandler(file_handler)
-                logger.debug("File handler added with path %s", log_file_path)
+                logger.addHandler(_file_handler)
+                logger.debug("File handler added with path %s", _log_file_path)
             except (OSError, IOError) as e:
                 logger.error("Failed to set up file handler: %s", e)
             except Exception as e:  # pylint: disable=broad-exception-caught
@@ -67,17 +67,17 @@ def setup_logger() -> Logger:
 
             try:
                 # Stream handler for console
-                stream_handler: logging.StreamHandler = logging.StreamHandler()
-                stream_formatter: logging.Formatter = logging.Formatter(
+                _stream_handler: logging.StreamHandler = logging.StreamHandler()
+                _stream_formatter: logging.Formatter = logging.Formatter(
                     "%(levelname)s - %(message)s"
                 )
-                stream_handler.setFormatter(stream_formatter)
-                stream_handler.setLevel(
+                _stream_handler.setFormatter(_stream_formatter)
+                _stream_handler.setLevel(
                     logging.INFO
                 )  # Capture INFO and above to console
 
                 # Add stream handler to the logger
-                logger.addHandler(stream_handler)
+                logger.addHandler(_stream_handler)
                 logger.debug("Stream handler added for console output.")
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.critical("Failed to set up stream handler: %s", e)

@@ -142,13 +142,12 @@ class PlaybackMonitor:
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Error in update_callback: %s", e)
 
-        if self._is_valid_playback(playback):
+        if playback and self._is_valid_playback(playback):
             self._process_playback_safe(playback)
 
     def _is_valid_playback(self, playback: Optional[Dict[str, Any]]) -> bool:
-        return (
-            playback
-            and playback.get("is_playing")
+        return bool(
+            playback.get("is_playing")
             and playback.get("context", {}).get("uri")
             == f"spotify:user:{self.user_id}:collection"
         )
@@ -222,7 +221,7 @@ class PlaybackMonitor:
 
     def _get_recently_played_tracks(self) -> List[str]:
         try:
-            return self.fetch_recently_played_tracks()
+            return self._fetch_recently_played_tracks()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Error fetching recently played tracks: %s", e)
             return []
@@ -277,15 +276,6 @@ class PlaybackMonitor:
                 track_id,
             )
 
-    def _handle_skipped_track(self) -> None:
-        """
-        Handle the logic when a track is identified as skipped early.
-        """
-        try:
-            self.handle_skipped_track()
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error("Error handling skipped track: %s", e)
-
     def _save_skip_count(self) -> None:
         try:
             save_skip_count(self.state.skip_count)
@@ -305,18 +295,18 @@ class PlaybackMonitor:
             duration_ms (int): Duration of the current track in milliseconds.
         """
         try:
-            self.update_track_order(track_id)
+            self._update_track_order(track_id)
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Error updating track order: %s", e)
 
         try:
-            self.update_last_track_details(
+            self._update_last_track_details(
                 track_id, track_name, artist_names, duration_ms
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Error updating last track details: %s", e)
 
-    def fetch_recently_played_tracks(self) -> List[str]:
+    def _fetch_recently_played_tracks(self) -> List[str]:
         """
         Fetch the list of recently played track IDs.
 
@@ -340,7 +330,7 @@ class PlaybackMonitor:
             )
             return []
 
-    def handle_skipped_track(self) -> None:
+    def _handle_skipped_track(self) -> None:
         """
         Handle the logic when a track is identified as skipped early.
         """
@@ -414,7 +404,7 @@ class PlaybackMonitor:
             logger.critical("Unexpected error while saving skip count: %s", e)
             raise
 
-    def update_track_order(self, track_id: str) -> None:
+    def _update_track_order(self, track_id: str) -> None:
         """
         Update the track order list.
 
@@ -429,7 +419,7 @@ class PlaybackMonitor:
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Error updating track order: %s", e)
 
-    def update_last_track_details(
+    def _update_last_track_details(
         self, track_id: str, track_name: str, artist_names: str, duration_ms: int
     ) -> None:
         """

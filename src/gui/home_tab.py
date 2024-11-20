@@ -67,7 +67,7 @@ class HomeTab:
     def _initialize_placeholder_image(self) -> None:
         """Initialize the placeholder image."""
         try:
-            self.placeholder_image: CTkImage = ctk.CTkImage(
+            self._placeholder_image: CTkImage = ctk.CTkImage(
                 light_image=Image.open(resource_path("assets/images/black.jpg")),
                 dark_image=Image.open(resource_path("assets/images/white.jpg")),
                 size=(200, 200),
@@ -83,11 +83,11 @@ class HomeTab:
             self.parent.grid_rowconfigure(1, weight=1)
             self.parent.grid_columnconfigure(0, weight=1)
 
-            self.playback_frame: ctk.CTkFrame = ctk.CTkFrame(
+            self._playback_frame: ctk.CTkFrame = ctk.CTkFrame(
                 self.parent, fg_color="transparent"
             )
-            self.playback_frame.grid(row=0, column=0, pady=10, padx=10, sticky="nsew")
-            self.playback_frame.grid_columnconfigure(1, weight=1)
+            self._playback_frame.grid(row=0, column=0, pady=10, padx=10, sticky="nsew")
+            self._playback_frame.grid_columnconfigure(1, weight=1)
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.critical(
                 "Failed to set up grid layout or playback frame: %s", e
@@ -96,7 +96,7 @@ class HomeTab:
 
     def _create_ui_elements(self) -> None:
         """Create UI elements for the HomeTab."""
-        self.ui_elements: Dict[str, Any] = {}
+        self._ui_elements: Dict[str, Any] = {}
         self._create_album_art_label()
         self._create_track_info_frame()
         self._create_progress_frame()
@@ -105,15 +105,15 @@ class HomeTab:
     def _create_album_art_label(self) -> None:
         """Create the album art label."""
         try:
-            self.ui_elements["album_art_label"] = ctk.CTkLabel(
-                self.playback_frame,
+            self._ui_elements["album_art_label"] = ctk.CTkLabel(
+                self._playback_frame,
                 text="No Playback",
-                image=self.placeholder_image,
+                image=self._placeholder_image,
                 width=200,
                 height=200,
                 text_color=get_text_color(),
             )
-            self.ui_elements["album_art_label"].grid(
+            self._ui_elements["album_art_label"].grid(
                 row=0, column=0, rowspan=3, padx=10, pady=10
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -122,33 +122,33 @@ class HomeTab:
     def _create_track_info_frame(self) -> None:
         """Create the track information frame and labels."""
         try:
-            self.ui_elements["track_info_frame"] = ctk.CTkFrame(self.playback_frame)
-            self.ui_elements["track_info_frame"].grid(
+            self._ui_elements["track_info_frame"] = ctk.CTkFrame(self._playback_frame)
+            self._ui_elements["track_info_frame"].grid(
                 row=0, column=1, columnspan=6, sticky="nsew", padx=10, pady=10
             )
 
-            self.ui_elements["track_info_labels"]: Dict[str, ctk.CTkLabel] = {  # type: ignore
+            self._ui_elements["track_info_labels"]: Dict[str, ctk.CTkLabel] = {  # type: ignore
                 "track_name": ctk.CTkLabel(
-                    self.ui_elements["track_info_frame"],
+                    self._ui_elements["track_info_frame"],
                     text="Track: ",
                     font=("Arial", 16, "bold"),
                     anchor="w",
                 ),
                 "artists": ctk.CTkLabel(
-                    self.ui_elements["track_info_frame"],
+                    self._ui_elements["track_info_frame"],
                     text="Artists: ",
                     font=("Arial", 14),
                     anchor="w",
                 ),
                 "status": ctk.CTkLabel(
-                    self.ui_elements["track_info_frame"],
+                    self._ui_elements["track_info_frame"],
                     text="Status: ",
                     font=("Arial", 14),
                     anchor="w",
                 ),
             }
 
-            for label in self.ui_elements["track_info_labels"].values():
+            for label in self._ui_elements["track_info_labels"].values():
                 label.pack(fill="both", pady=2, expand=True)
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Failed to create track information labels: %s", e)
@@ -156,32 +156,32 @@ class HomeTab:
     def _create_progress_frame(self) -> None:
         """Create the progress bar frame and its elements."""
         try:
-            self.ui_elements["progress_frame"] = ctk.CTkFrame(
-                self.playback_frame, fg_color="transparent"
+            self._ui_elements["progress_frame"] = ctk.CTkFrame(
+                self._playback_frame, fg_color="transparent"
             )
-            self.ui_elements["progress_frame"].grid(
+            self._ui_elements["progress_frame"].grid(
                 row=1, column=1, sticky="nsew", padx=5, pady=10
             )
-            self.ui_elements["progress_frame"].grid_columnconfigure(0, weight=1)
+            self._ui_elements["progress_frame"].grid_columnconfigure(0, weight=1)
 
-            progress_var: ctk.DoubleVar = ctk.DoubleVar(value=0)
-            self.ui_elements["progress"] = {
-                "var": progress_var,
+            _progress_var: ctk.DoubleVar = ctk.DoubleVar(value=0)
+            self._ui_elements["progress"] = {
+                "var": _progress_var,
                 "bar": ctk.CTkProgressBar(
-                    self.ui_elements["progress_frame"], variable=progress_var
+                    self._ui_elements["progress_frame"], variable=_progress_var
                 ),
                 "time_label": ctk.CTkLabel(
-                    self.ui_elements["progress_frame"],
+                    self._ui_elements["progress_frame"],
                     text="0s / 0s",
                     font=("Arial", 12),
                     anchor="w",
                 ),
             }
 
-            self.ui_elements["progress"]["bar"].grid(
+            self._ui_elements["progress"]["bar"].grid(
                 row=0, column=0, pady=5, padx=(0, 5), sticky="ew"
             )
-            self.ui_elements["progress"]["time_label"].grid(
+            self._ui_elements["progress"]["time_label"].grid(
                 row=1, column=0, pady=5, sticky="ew"
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -190,18 +190,18 @@ class HomeTab:
     def _create_log_text_box(self) -> None:
         """Create the log text box."""
         try:
-            self.log_text: ctk.CTkTextbox = ctk.CTkTextbox(  # pylint: disable=attribute-defined-outside-init
+            self._log_text: ctk.CTkTextbox = ctk.CTkTextbox(  # pylint: disable=attribute-defined-outside-init
                 self.parent, width=800, height=250
             )
-            self.log_text.grid(row=1, column=0, pady=10, padx=10, sticky="nsew")
-            self.log_text.configure(state="disabled")
+            self._log_text.grid(row=1, column=0, pady=10, padx=10, sticky="nsew")
+            self._log_text.configure(state="disabled")
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Failed to create log text box: %s", e)
 
     def _initialize_dynamic_vars(self) -> None:
         """Initialize dynamic variables."""
         try:
-            self.dynamic_vars: Dict[str, Optional[Any]] = {
+            self._dynamic_vars: Dict[str, Optional[Any]] = {
                 "album_art_image": None,
                 "current_album_art_url": None,
             }
@@ -257,13 +257,13 @@ class HomeTab:
             truncated_track_name = self._truncate_text(track_name)
             truncated_artists = self._truncate_text(artists)
 
-            self.ui_elements["track_info_labels"]["track_name"].configure(
+            self._ui_elements["track_info_labels"]["track_name"].configure(
                 text=f"Track: {truncated_track_name}"
             )
-            self.ui_elements["track_info_labels"]["artists"].configure(
+            self._ui_elements["track_info_labels"]["artists"].configure(
                 text=f"Artists: {truncated_artists}"
             )
-            self.ui_elements["track_info_labels"]["status"].configure(
+            self._ui_elements["track_info_labels"]["status"].configure(
                 text=f"Status: {status}"
             )
         except KeyError as e:
@@ -282,8 +282,8 @@ class HomeTab:
             progress: int = playback["progress_ms"] // 1000
             duration: int = playback["item"]["duration_ms"] // 1000
             progress_percentage: float = (progress / duration) if duration > 0 else 0.0
-            self.ui_elements["progress"]["var"].set(progress_percentage)
-            self.ui_elements["progress"]["time_label"].configure(
+            self._ui_elements["progress"]["var"].set(progress_percentage)
+            self._ui_elements["progress"]["time_label"].configure(
                 text=f"{progress}s / {duration}s"
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -299,10 +299,10 @@ class HomeTab:
         try:
             album_art_url: str = playback["item"]["album"]["images"][0]["url"]
             if (
-                not self.dynamic_vars["current_album_art_url"]
-                or self.dynamic_vars["current_album_art_url"] != album_art_url
+                not self._dynamic_vars["current_album_art_url"]
+                or self._dynamic_vars["current_album_art_url"] != album_art_url
             ):
-                self.dynamic_vars["current_album_art_url"] = album_art_url
+                self._dynamic_vars["current_album_art_url"] = album_art_url
                 self.load_album_art_async(album_art_url)
         except KeyError as e:
             self.logger.error("Album art URL not found in playback data: %s", e)
@@ -314,19 +314,21 @@ class HomeTab:
         Clear the playback information in the Home tab.
         """
         try:
-            self.ui_elements["track_info_labels"]["track_name"].configure(
+            self._ui_elements["track_info_labels"]["track_name"].configure(
                 text="Track: "
             )
-            self.ui_elements["track_info_labels"]["artists"].configure(text="Artists: ")
-            self.ui_elements["track_info_labels"]["status"].configure(text="Status: ")
-            self.ui_elements["progress"]["var"].set(0.0)
-            self.ui_elements["progress"]["time_label"].configure(text="0s / 0s")
-            self.ui_elements["album_art_label"].configure(
+            self._ui_elements["track_info_labels"]["artists"].configure(
+                text="Artists: "
+            )
+            self._ui_elements["track_info_labels"]["status"].configure(text="Status: ")
+            self._ui_elements["progress"]["var"].set(0.0)
+            self._ui_elements["progress"]["time_label"].configure(text="0s / 0s")
+            self._ui_elements["album_art_label"].configure(
                 text="No Playback",
-                image=self.placeholder_image,
+                image=self._placeholder_image,
                 text_color=get_text_color(),
             )
-            self.dynamic_vars["current_album_art_url"] = None
+            self._dynamic_vars["current_album_art_url"] = None
         except KeyError as e:
             self.logger.error("Playback UI element not found: %s", e)
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -340,15 +342,15 @@ class HomeTab:
             log_contents (str): The contents of the log file.
         """
         try:
-            self.log_text.configure(state="normal")
-            self.log_text.delete("1.0", "end")
-            self.log_text.insert("1.0", log_contents)
-            self.log_text.yview_moveto(1.0)
-            self.log_text.configure(state="disabled")
+            self._log_text.configure(state="normal")
+            self._log_text.delete("1.0", "end")
+            self._log_text.insert("1.0", log_contents)
+            self._log_text.yview_moveto(1.0)
+            self._log_text.configure(state="disabled")
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Failed to update logs: %s", e)
 
-    def load_album_art(self, url: str) -> None:
+    def _load_album_art(self, url: str) -> None:
         """
         Load and display album art from a URL.
 
@@ -369,21 +371,21 @@ class HomeTab:
             rounded_image = ImageOps.fit(image, mask.size, centering=(0.5, 0.5))
             rounded_image.putalpha(mask)
 
-            self.dynamic_vars["album_art_image"] = CTkImage(
+            self._dynamic_vars["album_art_image"] = CTkImage(
                 rounded_image, size=(200, 200)
             )
-            self.ui_elements["album_art_label"].configure(
-                text="", image=self.dynamic_vars["album_art_image"]
+            self._ui_elements["album_art_label"].configure(
+                text="", image=self._dynamic_vars["album_art_image"]
             )
         except requests.exceptions.RequestException as e:
             self.logger.error("Request failed while loading album art: %s", e)
-            self.ui_elements["album_art_label"].configure(image=None)
+            self._ui_elements["album_art_label"].configure(image=None)
         except IOError as e:
             self.logger.error("IO error while processing album art image: %s", e)
-            self.ui_elements["album_art_label"].configure(image=None)
+            self._ui_elements["album_art_label"].configure(image=None)
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Failed to load album art: %s", e)
-            self.ui_elements["album_art_label"].configure(image=None)
+            self._ui_elements["album_art_label"].configure(image=None)
 
     def load_album_art_async(self, url: str) -> None:
         """
@@ -394,7 +396,7 @@ class HomeTab:
         """
         try:
             threading.Thread(
-                target=self.load_album_art, args=(url,), daemon=True
+                target=self._load_album_art, args=(url,), daemon=True
             ).start()
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Failed to start thread for loading album art: %s", e)

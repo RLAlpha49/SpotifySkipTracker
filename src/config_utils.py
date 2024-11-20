@@ -9,12 +9,12 @@ from typing import Any, Dict, Optional, Union
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv, set_key
 
-CONFIG_FILE: str = "config.json"
-ENV_FILE: str = ".env"
+_CONFIG_FILE: str = "config.json"
+_ENV_FILE: str = ".env"
 logger: logging.Logger = logging.getLogger("SpotifySkipTracker")
 
 # Define required configuration keys
-REQUIRED_KEYS: list[str] = [
+_REQUIRED_KEYS: list[str] = [
     "SPOTIFY_CLIENT_ID",
     "SPOTIFY_CLIENT_SECRET",
     "SPOTIFY_REDIRECT_URI",
@@ -23,11 +23,11 @@ REQUIRED_KEYS: list[str] = [
 ]
 
 # Load environment variables
-load_dotenv(ENV_FILE)
+load_dotenv(_ENV_FILE)
 
 
 # Retrieve or generate the encryption key
-def get_encryption_key() -> bytes:
+def _get_encryption_key() -> bytes:
     """
     Retrieve the encryption key from the environment or generate a new one if it does not exist.
 
@@ -39,15 +39,15 @@ def get_encryption_key() -> bytes:
         if not key:
             key = Fernet.generate_key().decode()
             try:
-                set_key(ENV_FILE, "ENCRYPTION_KEY", key)
+                set_key(_ENV_FILE, "ENCRYPTION_KEY", key)
                 logger.info("Generated new encryption key and saved to .env")
             except (OSError, IOError) as e:
-                logger.critical("Failed to save encryption key to %s: %s", ENV_FILE, e)
+                logger.critical("Failed to save encryption key to %s: %s", _ENV_FILE, e)
                 raise
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.critical(
                     "Unexpected error while saving encryption key to %s: %s",
-                    ENV_FILE,
+                    _ENV_FILE,
                     e,
                 )
                 raise
@@ -57,11 +57,11 @@ def get_encryption_key() -> bytes:
         raise
 
 
-ENCRYPTION_KEY: bytes = get_encryption_key()
-ENCRYPTION_PREFIX: str = "enc:"
+_ENCRYPTION_KEY: bytes = _get_encryption_key()
+_ENCRYPTION_PREFIX: str = "enc:"
 
 
-def encrypt_data(data: Union[str, int, float, None]) -> str:
+def _encrypt_data(data: Union[str, int, float, None]) -> str:
     """
     Encrypt data using Fernet symmetric encryption.
 
@@ -76,15 +76,15 @@ def encrypt_data(data: Union[str, int, float, None]) -> str:
             return ""
         if isinstance(data, (int, float)):
             data = str(data)
-        fernet: Fernet = Fernet(ENCRYPTION_KEY)
+        fernet: Fernet = Fernet(_ENCRYPTION_KEY)
         encrypted_data: bytes = fernet.encrypt(data.encode())
-        return ENCRYPTION_PREFIX + encrypted_data.decode()
+        return _ENCRYPTION_PREFIX + encrypted_data.decode()
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.critical("Failed to encrypt data: %s", e)
         raise
 
 
-def decrypt_data(encrypted_data: str) -> str:
+def _decrypt_data(encrypted_data: str) -> str:
     """
     Decrypt data using Fernet symmetric encryption.
 
@@ -95,10 +95,10 @@ def decrypt_data(encrypted_data: str) -> str:
         str: Decrypted data.
     """
     try:
-        if not encrypted_data.startswith(ENCRYPTION_PREFIX):
+        if not encrypted_data.startswith(_ENCRYPTION_PREFIX):
             return encrypted_data
-        encrypted_data = encrypted_data[len(ENCRYPTION_PREFIX) :]
-        fernet: Fernet = Fernet(ENCRYPTION_KEY)
+        encrypted_data = encrypted_data[len(_ENCRYPTION_PREFIX) :]
+        fernet: Fernet = Fernet(_ENCRYPTION_KEY)
         decrypted_data: bytes = fernet.decrypt(encrypted_data.encode())
         return decrypted_data.decode()
     except (ValueError, TypeError) as e:
@@ -122,45 +122,45 @@ def load_config(decrypt: bool = False) -> Dict[str, Any]:
         Dict[str, Any]: Configuration data.
     """
     try:
-        config = load_or_create_config()
-        ensure_required_keys(config)
+        config = _load_or_create_config()
+        _ensure_required_keys(config)
         if decrypt:
-            decrypt_config_values(config)
+            _decrypt_config_values(config)
         return config
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.critical("Critical failure in load_config: %s", e)
         raise
 
 
-def load_or_create_config() -> Dict[str, Any]:
+def _load_or_create_config() -> Dict[str, Any]:
     """
     Load the configuration from the JSON file, or create a new one if it doesn't exist.
 
     Returns:
         Dict[str, Any]: The loaded or newly created configuration data.
     """
-    if not os.path.exists(CONFIG_FILE):
-        logger.info("%s not found. Creating a new one with empty values.", CONFIG_FILE)
-        return create_default_config()
+    if not os.path.exists(_CONFIG_FILE):
+        logger.info("%s not found. Creating a new one with empty values.", _CONFIG_FILE)
+        return _create_default_config()
     try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as file:
+        with open(_CONFIG_FILE, "r", encoding="utf-8") as file:
             return json.load(file)
     except json.JSONDecodeError as e:
-        logger.error("Error decoding %s: %s", CONFIG_FILE, e)
-        return create_default_config()
+        logger.error("Error decoding %s: %s", _CONFIG_FILE, e)
+        return _create_default_config()
     except (OSError, IOError) as e:
-        logger.critical("Failed to read %s: %s", CONFIG_FILE, e)
+        logger.critical("Failed to read %s: %s", _CONFIG_FILE, e)
         raise
 
 
-def ensure_required_keys(config: Dict[str, Any]) -> None:
+def _ensure_required_keys(config: Dict[str, Any]) -> None:
     """
     Ensure that all required keys are present in the configuration.
 
     Args:
         config (Dict[str, Any]): The configuration data to check and update.
     """
-    missing_keys: list[str] = [key for key in REQUIRED_KEYS if key not in config]
+    missing_keys: list[str] = [key for key in _REQUIRED_KEYS if key not in config]
     if missing_keys:
         logger.info(
             "Missing keys in config: %s. Adding them with empty values.", missing_keys
@@ -175,22 +175,22 @@ def ensure_required_keys(config: Dict[str, Any]) -> None:
             raise
 
 
-def decrypt_config_values(config: Dict[str, Any]) -> None:
+def _decrypt_config_values(config: Dict[str, Any]) -> None:
     """
     Decrypt encrypted configuration values.
 
     Args:
         config (Dict[str, Any]): The configuration data containing potentially encrypted values.
     """
-    for key in REQUIRED_KEYS:
-        if key in config and config[key].startswith(ENCRYPTION_PREFIX):
+    for key in _REQUIRED_KEYS:
+        if key in config and config[key].startswith(_ENCRYPTION_PREFIX):
             try:
-                config[key] = decrypt_data(config[key])
+                config[key] = _decrypt_data(config[key])
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("Failed to decrypt key %s: %s", key, e)
 
 
-def create_default_config() -> Dict[str, Any]:
+def _create_default_config() -> Dict[str, Any]:
     """
     Create a default configuration with required keys set to empty strings.
 
@@ -198,9 +198,9 @@ def create_default_config() -> Dict[str, Any]:
         Dict[str, Any]: Default configuration data.
     """
     try:
-        config: Dict[str, Any] = {key: "" for key in REQUIRED_KEYS}
+        config: Dict[str, Any] = {key: "" for key in _REQUIRED_KEYS}
         save_config(config)
-        logger.debug("Default configuration created and saved to %s.", CONFIG_FILE)
+        logger.debug("Default configuration created and saved to %s.", _CONFIG_FILE)
         return config
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.critical("Failed to create default configuration: %s", e)
@@ -215,9 +215,9 @@ def save_config(config: Dict[str, Any]) -> None:
         config (Dict[str, Any]): Configuration data to save.
     """
     try:
-        with open(CONFIG_FILE, "w", encoding="utf-8") as file:
+        with open(_CONFIG_FILE, "w", encoding="utf-8") as file:
             json.dump(config, file, indent=4)
-        logger.debug("Configuration saved successfully to %s.", CONFIG_FILE)
+        logger.debug("Configuration saved successfully to %s.", _CONFIG_FILE)
     except (OSError, IOError) as e:
         logger.error("Failed to save configuration: %s", e)
     except Exception as e:  # pylint: disable=broad-exception-caught
@@ -241,7 +241,7 @@ def set_config_variable(
         old_value: Any = config.get(key, "")
         if encrypt:
             try:
-                value = encrypt_data(value)
+                value = _encrypt_data(value)
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("Failed to encrypt value for key %s: %s", key, e)
                 return  # Exit the function if encryption fails
@@ -253,7 +253,7 @@ def set_config_variable(
                 logger.debug(
                     "Configuration key '%s' changed and saved to %s.",
                     key,
-                    CONFIG_FILE,
+                    _CONFIG_FILE,
                 )
             except Exception as e:
                 logger.critical(
@@ -284,7 +284,7 @@ def get_config_variable(key: str, default: str = "", decrypt: bool = False) -> s
         value: Any = config.get(key, default)
         if decrypt and value:
             try:
-                value = decrypt_data(value)
+                value = _decrypt_data(value)
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.error("Failed to decrypt key %s: %s", key, e)
         return value
