@@ -12,7 +12,7 @@ import customtkinter as ctk
 from PIL import Image, ImageOps, ImageDraw
 import requests
 from customtkinter import CTkImage, get_appearance_mode
-from tkinter import messagebox
+from CTkMessagebox import CTkMessagebox
 
 
 def get_text_color() -> str:
@@ -195,9 +195,9 @@ class HomeTab:
     def _create_log_container(self) -> None:
         """Create the container frame for logs and the 'Clear Logs' button."""
         try:
-            self._log_container: ctk.CTkFrame = ctk.CTkFrame(
+            self._log_container: ctk.CTkFrame = ctk.CTkFrame(  # pylint: disable=attribute-defined-outside-init
                 self.parent, fg_color="transparent"
-            )  # pylint: disable=attribute-defined-outside-init
+            )
             self._log_container.grid(row=1, column=0, pady=10, padx=10, sticky="nsew")
             self._log_container.grid_rowconfigure(0, weight=1)
             self._log_container.grid_columnconfigure(0, weight=1)
@@ -461,11 +461,15 @@ class HomeTab:
         Clear the log file after user confirmation and update the log display.
         """
         try:
-            user_confirm = messagebox.askyesno(
-                "Clear Logs",
-                "Are you sure you want to clear the logs? This action cannot be undone.",
-            )
-            if not user_confirm:
+            user_confirm = CTkMessagebox(
+                title="Clear Logs",
+                message="Are you sure you want to clear the logs? This action cannot be undone.",
+                option_1="No",
+                option_2="Yes",
+                justify="center",
+            ).get()
+
+            if user_confirm == "No":
                 return
 
             with open(self.log_file_path, "w", encoding="utf-8") as log_file:
@@ -473,26 +477,40 @@ class HomeTab:
 
             self.update_logs("")
             self.logger.info("Log file has been cleared by the user.")
-
-            messagebox.showinfo("Clear Logs", "Logs have been successfully cleared.")
+            CTkMessagebox(
+                title="Clear Logs",
+                icon="check",
+                message="Logs have been successfully cleared.",
+                option_1="OK",
+                justify="center",
+            )
 
         except FileNotFoundError:
             self.logger.error("Log file not found: %s", self.log_file_path)
-            messagebox.showerror(
-                "Error",
-                f"Log file not found at {self.log_file_path}. Unable to clear logs.",
+            CTkMessagebox(
+                title="Error",
+                icon="cancel",
+                message=f"Log file not found at {self.log_file_path}. Unable to clear logs.",
+                option_1="OK",
+                justify="center",
             )
         except PermissionError:
             self.logger.error(
                 "Permission denied when accessing log file: %s", self.log_file_path
             )
-            messagebox.showerror(
-                "Error",
-                f"Permission denied when accessing the log file at {self.log_file_path}.",
+            CTkMessagebox(
+                title="Error",
+                icon="cancel",
+                message=f"Permission denied when accessing the log file at {self.log_file_path}.",
+                option_1="OK",
+                justify="center",
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Failed to clear logs: %s", e)
-            messagebox.showerror(
-                "Error",
-                f"An unexpected error occurred while clearing logs:\n{e}",
+            CTkMessagebox(
+                title="Error",
+                icon="cancel",
+                message=f"An unexpected error occurred while clearing logs:\n{e}",
+                option_1="OK",
+                justify="center",
             )

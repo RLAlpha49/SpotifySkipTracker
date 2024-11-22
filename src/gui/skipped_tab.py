@@ -5,11 +5,11 @@ allowing users to refresh the data and enforce skip threshold settings.
 """
 
 import json
-from tkinter import messagebox
 from tkinter import ttk
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
 import customtkinter as ctk
+from CTkMessagebox import CTkMessagebox
 from utils import load_skip_count, save_skip_count, unlike_song  # pylint: disable=import-error  # type: ignore
 from config_utils import load_config  # pylint: disable=import-error  # type: ignore
 
@@ -332,9 +332,11 @@ class SkippedTab:
             tracks_to_unlike (List[str]): The list of track IDs that have been unliked.
         """
         try:
-            messagebox.showinfo(
-                "Tracks Unliked",
-                f"{len(tracks_to_unlike)} track(s) have been unliked based on the new skip threshold.",
+            CTkMessagebox(
+                title="Tracks Unliked",
+                message=f"{len(tracks_to_unlike)} track(s) have been unliked based on the new skip threshold.",
+                icon="info",
+                justify="center",
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Failed to show info messagebox: %s", e)

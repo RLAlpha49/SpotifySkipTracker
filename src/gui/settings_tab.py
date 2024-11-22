@@ -4,9 +4,9 @@ It allows users to configure various application settings such as Spotify creden
 log level, appearance mode, color theme, and skip thresholds.
 """
 
-from tkinter import messagebox
 from typing import Any, Dict
 import customtkinter as ctk
+from CTkMessagebox import CTkMessagebox
 from CTkToolTip import CTkToolTip
 from config_utils import set_config_variable  # pylint: disable=import-error
 
@@ -538,8 +538,12 @@ class SettingsTab:
             self._save_timeframe_settings()
             self._save_color_theme()
             self._logger.info("Settings saved by the user.")
-            messagebox.showinfo(
-                "Settings Saved", "Settings have been saved successfully."
+            CTkMessagebox(
+                title="Settings Saved",
+                message="Settings have been saved successfully.",
+                icon="check",
+                option_1="OK",
+                justify="center",
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             self._logger.critical("Critical failure in save_settings: %s", e)
@@ -554,17 +558,24 @@ class SettingsTab:
                 self._process_setting_entry(key, entry)
         except AttributeError as ae:
             self._logger.error("Settings entries not found: %s", ae)
-            messagebox.showerror(
-                "Internal Error", "Settings entries are not properly initialized."
+            CTkMessagebox(
+                title="Internal Error",
+                message="Settings entries are not properly initialized.",
+                icon="cancel",
+                option_1="OK",
+                justify="center",
             )
             raise
         except Exception as e:  # pylint: disable=broad-exception-caught
             self._logger.critical(
                 "Unexpected error while saving configuration entries: %s", e
             )
-            messagebox.showerror(
-                "Internal Error",
-                "An unexpected error occurred while saving settings.",
+            CTkMessagebox(
+                title="Internal Error",
+                message="An unexpected error occurred while saving settings.",
+                icon="cancel",
+                option_1="OK",
+                justify="center",
             )
             raise
 
@@ -579,7 +590,13 @@ class SettingsTab:
         try:
             value: str = entry.get().strip()
             if not value:
-                messagebox.showerror("Input Error", f"{key} cannot be empty.")
+                CTkMessagebox(
+                    title="Input Error",
+                    message=f"{key} cannot be empty.",
+                    icon="cancel",
+                    option_1="OK",
+                    justify="center",
+                )
                 raise ValueError(f"{key} cannot be empty.")
             encrypt: bool = key in {"SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"}
             set_config_variable(key, value, encrypt=encrypt)
@@ -599,9 +616,12 @@ class SettingsTab:
             self._logger.setLevel(log_level)
         except Exception as e:  # pylint: disable=broad-exception-caught
             self._logger.error("Failed to set log level: %s", e)
-            messagebox.showerror(
-                "Internal Error",
-                f"An unexpected error occurred while saving the Log Level: {e}",
+            CTkMessagebox(
+                title="Internal Error",
+                message=f"An unexpected error occurred while saving the Log Level: {e}",
+                icon="cancel",
+                option_1="OK",
+                justify="center",
             )
             raise
 
@@ -612,15 +632,24 @@ class SettingsTab:
         try:
             log_line_count: str = self._variables["log_line_count"].get().strip()
             if not log_line_count.isdigit():
-                messagebox.showerror("Input Error", "Log Lines must be an integer.")
+                CTkMessagebox(
+                    title="Input Error",
+                    message="Log Lines must be an integer.",
+                    icon="cancel",
+                    option_1="OK",
+                    justify="center",
+                )
                 raise ValueError("Log Lines must be an integer.")
             set_config_variable("LOG_LINE_COUNT", log_line_count)
             self._config["LOG_LINE_COUNT"] = log_line_count
         except Exception as e:  # pylint: disable=broad-exception-caught
             self._logger.error("Failed to set log line count: %s", e)
-            messagebox.showerror(
-                "Internal Error",
-                f"An unexpected error occurred while saving the Log Line Count: {e}",
+            CTkMessagebox(
+                title="Internal Error",
+                message=f"An unexpected error occurred while saving the Log Line Count: {e}",
+                icon="cancel",
+                option_1="OK",
+                justify="center",
             )
             raise
 
@@ -635,9 +664,12 @@ class SettingsTab:
             ctk.set_appearance_mode(appearance_mode)
         except Exception as e:  # pylint: disable=broad-exception-caught
             self._logger.error("Failed to set appearance mode: %s", e)
-            messagebox.showerror(
-                "Internal Error",
-                f"An unexpected error occurred while saving the Appearance Mode: {e}",
+            CTkMessagebox(
+                title="Internal Error",
+                message=f"An unexpected error occurred while saving the Appearance Mode: {e}",
+                icon="cancel",
+                option_1="OK",
+                justify="center",
             )
             raise
 
@@ -651,18 +683,24 @@ class SettingsTab:
             if color_theme != previous_color_theme:
                 set_config_variable("COLOR_THEME", color_theme)
                 self._config["COLOR_THEME"] = color_theme
-                messagebox.showinfo(
-                    "Restart Required",
-                    "A restart is required for Color Theme setting to take effect.",
+                CTkMessagebox(
+                    title="Restart Required",
+                    message="A restart is required for Color Theme setting to take effect.",
+                    icon="info",
+                    option_1="OK",
+                    justify="center",
                 )
             else:
                 set_config_variable("COLOR_THEME", color_theme)
                 self._config["COLOR_THEME"] = color_theme
         except Exception as e:  # pylint: disable=broad-exception-caught
             self._logger.error("Failed to set color theme: %s", e)
-            messagebox.showerror(
-                "Internal Error",
-                f"An unexpected error occurred while saving the Color Theme: {e}",
+            CTkMessagebox(
+                title="Internal Error",
+                message=f"An unexpected error occurred while saving the Color Theme: {e}",
+                icon="cancel",
+                option_1="OK",
+                justify="center",
             )
             raise
 
@@ -689,9 +727,12 @@ class SettingsTab:
             self._config["SKIP_THRESHOLD"] = skip_threshold
         except Exception as e:  # pylint: disable=broad-exception-caught
             self._logger.error("Failed to set skip threshold: %s", e)
-            messagebox.showerror(
-                "Internal Error",
-                f"An unexpected error occurred while saving the Skip Threshold: {e}",
+            CTkMessagebox(
+                title="Internal Error",
+                message=f"An unexpected error occurred while saving the Skip Threshold: {e}",
+                icon="cancel",
+                option_1="OK",
+                justify="center",
             )
             raise
 
@@ -702,9 +743,12 @@ class SettingsTab:
         try:
             skip_progress_threshold: float = self._variables["skip_progress"].get()
             if not 0.01 <= skip_progress_threshold <= 0.99:
-                messagebox.showerror(
-                    "Input Error",
-                    "Skip Progress Threshold must be between 0.01 and 0.99.",
+                CTkMessagebox(
+                    title="Input Error",
+                    message="Skip Progress Threshold must be between 0.01 and 0.99.",
+                    icon="cancel",
+                    option_1="OK",
+                    justify="center",
                 )
                 raise ValueError(
                     "Skip Progress Threshold must be between 0.01 and 0.99."
@@ -713,9 +757,12 @@ class SettingsTab:
             self._config["SKIP_PROGRESS_THRESHOLD"] = skip_progress_threshold
         except Exception as e:  # pylint: disable=broad-exception-caught
             self._logger.error("Failed to set skip progress threshold: %s", e)
-            messagebox.showerror(
-                "Internal Error",
-                f"An unexpected error occurred while saving the Skip Progress Threshold: {e}",
+            CTkMessagebox(
+                title="Internal Error",
+                message=f"An unexpected error occurred while saving the Skip Progress Threshold: {e}",
+                icon="cancel",
+                option_1="OK",
+                justify="center",
             )
             raise
 
@@ -732,8 +779,11 @@ class SettingsTab:
             self._config["TIMEFRAME_UNIT"] = timeframe_unit
         except Exception as e:  # pylint: disable=broad-exception-caught
             self._logger.error("Failed to set timeframe settings: %s", e)
-            messagebox.showerror(
-                "Internal Error",
-                f"An unexpected error occurred while saving the Timeframe Settings: {e}",
+            CTkMessagebox(
+                title="Internal Error",
+                message=f"An unexpected error occurred while saving the Timeframe Settings: {e}",
+                icon="cancel",
+                option_1="OK",
+                justify="center",
             )
             raise

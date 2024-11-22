@@ -9,9 +9,9 @@ import threading
 import webbrowser
 import time
 from typing import Callable, Optional, Dict, Any, List
-from tkinter import messagebox
 import requests
 import customtkinter as ctk
+from CTkMessagebox import CTkMessagebox
 from flask import Flask
 from auth import login_bp, callback_bp, is_token_valid, stop_flag
 from gui.home_tab import HomeTab
@@ -255,7 +255,6 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         """
         try:
             home_frame = self.tab_view.tab("Home")
-            print(self._tabs.log.log_file_path)
             self._tabs.home_tab = HomeTab(
                 home_frame, logger, self._tabs.log.log_file_path
             )
@@ -360,7 +359,12 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             for var, entry in entries.items():
                 value = entry.get().strip()
                 if not value:
-                    messagebox.showerror("Input Error", f"{var} cannot be empty.")
+                    CTkMessagebox(
+                        title="Input Error",
+                        message=f"{var} cannot be empty.",
+                        icon="error",
+                        justify="center",
+                    )
                     return
                 if var in ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"]:
                     set_config_variable(var, value, encrypt=True)
@@ -369,10 +373,11 @@ class SpotifySkipTrackerGUI(ctk.CTk):
                 self._auth.config[var] = value
 
             popup.destroy()
-            messagebox.showinfo(
-                "Configuration Saved",
-                "Configuration variables have been saved. Please click the Login "
-                "button again to authenticate.",
+            CTkMessagebox(
+                title="Configuration Saved",
+                message="Configuration variables have been saved. Please click the Login button again to authenticate.",
+                icon="info",
+                justify="center",
             )
             logger.info("Configuration variables saved by the user.")
 
@@ -569,8 +574,11 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         self._auth.config["SPOTIFY_REFRESH_TOKEN"] = ""
         self._auth.access_token = ""
         self._auth.refresh_token = ""
-        messagebox.showinfo(
-            "Logout Successful", "You have been logged out successfully."
+        CTkMessagebox(
+            title="Logout Successful",
+            message="You have been logged out successfully.",
+            icon="info",
+            justify="center",
         )
         logger.info("User logged out and tokens cleared.")
 
@@ -622,10 +630,12 @@ class SpotifySkipTrackerGUI(ctk.CTk):
                 except Exception as e:  # pylint: disable=broad-exception-caught
                     self._error_message = f"Unable to retrieve error message: {e}"
             # Show an error message to the user before terminating
-            messagebox.showerror(
-                "Critical Error",
-                f"A critical error occurred: {self._error_message}. The application will now close.",
-            )
+            CTkMessagebox(
+                title="Critical Error",
+                message=f"A critical error occurred: {self._error_message}. The application will now close.",
+                icon="error",
+                justify="center",
+            ).get()
             self.terminate_application()
         else:
             # Schedule the next check after 1000 ms (1 second)
@@ -639,5 +649,10 @@ if __name__ == "__main__":
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.critical("Application terminated due to an unexpected error: %s", e)
         # Show popup to the user before exiting
-        messagebox.showerror("Critical Error", f"An unexpected error occurred:\n{e}")
+        CTkMessagebox(
+            title="Critical Error",
+            message=f"An unexpected error occurred:\n{e}",
+            icon="error",
+            justify="center",
+        ).get()
         sys.exit(1)
