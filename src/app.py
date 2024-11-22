@@ -515,6 +515,9 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         """
         previous_log_contents: str = ""
 
+        # Define log levels in order of severity
+        log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+
         while True:
             try:
                 with open(
@@ -533,15 +536,33 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             try:
                 log_line_count = int(log_line_count_str)
             except ValueError as e:
-                logger.error(
+                self.logger.error(
                     "Invalid LOG_LINE_COUNT value '%s'; defaulting to 500. Error: %s",
                     log_line_count_str,
                     e,
                 )
                 log_line_count = 500
 
-            # Display the most recent log lines
-            recent_logs = log_contents[-log_line_count:]
+            # Get the log level display setting
+            log_level_display = self._auth.config.get("LOG_LEVEL_DISPLAY", "INFO")
+            try:
+                display_level_index = log_levels.index(log_level_display)
+            except ValueError:
+                self.logger.error(
+                    "Invalid LOG_LEVEL_DISPLAY value '%s'; defaulting to INFO.",
+                    log_level_display,
+                )
+                display_level_index = log_levels.index("INFO")
+
+            # Filter logs based on the log level display setting
+            filtered_logs = [
+                line
+                for line in log_contents
+                if any(level in line for level in log_levels[display_level_index:])
+            ]
+
+            # Display the most recent filtered log lines
+            recent_logs = filtered_logs[-log_line_count:]
             display_logs = "".join(recent_logs)
 
             if display_logs != previous_log_contents:

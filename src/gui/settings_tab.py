@@ -143,7 +143,12 @@ class SettingsTab:
         """
         try:
             self._variables: Dict[str, Any] = {
-                "log_level": ctk.StringVar(value=self._config.get("LOG_LEVEL", "INFO")),
+                "log_level": ctk.StringVar(
+                    value=self._config.get("LOG_LEVEL", "DEBUG")
+                ),
+                "log_level_display": ctk.StringVar(
+                    value=self._config.get("LOG_LEVEL_DISPLAY", "INFO")
+                ),
                 "log_line_count": ctk.StringVar(
                     value=self._config.get("LOG_LINE_COUNT", "500")
                 ),
@@ -200,6 +205,17 @@ class SettingsTab:
             parent (ctk.CTkScrollableFrame): The parent frame to add the settings widgets to.
         """
         try:
+            # Log Level Display Dropdown
+            try:
+                self._create_dropdown(
+                    parent,
+                    "Log Level Display:",
+                    self._variables["log_level_display"],
+                    ["DEBUG", "INFO", "WARNING", "ERROR"],
+                )
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                self._logger.error("Failed to create Log Level Display: %s", e)
+
             # Log Level Dropdown
             try:
                 self._create_dropdown(
@@ -530,6 +546,7 @@ class SettingsTab:
         try:
             self._save_configuration_entries()
             self._save_log_level()
+            self._save_log_level_display()
             self._save_log_line_count()
             self._save_appearance_mode()
             self._apply_default_color_theme()
@@ -603,6 +620,25 @@ class SettingsTab:
             self._config[key] = value
         except Exception as e:  # pylint: disable=broad-exception-caught
             self._logger.error("Failed to process setting '%s': %s", key, e)
+            raise
+
+    def _save_log_level_display(self) -> None:
+        """
+        Save the log level display.
+        """
+        try:
+            log_level_display: str = self._variables["log_level_display"].get()
+            set_config_variable("LOG_LEVEL_DISPLAY", log_level_display)
+            self._config["LOG_LEVEL_DISPLAY"] = log_level_display
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self._logger.error("Failed to set log level display: %s", e)
+            CTkMessagebox(
+                title="Internal Error",
+                message=f"An unexpected error occurred while saving the Log Level Display: {e}",
+                icon="cancel",
+                option_1="OK",
+                justify="center",
+            )
             raise
 
     def _save_log_level(self) -> None:
