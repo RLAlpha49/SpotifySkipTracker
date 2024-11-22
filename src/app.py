@@ -123,6 +123,13 @@ class SpotifySkipTrackerGUI(ctk.CTk):
             self._threads = self.ThreadState()
             self._tabs = self.TabState()
 
+            # Start loading log file
+            self._tabs.log.log_file_path = os.path.join("logs", "spotify_app.log")
+            self._tabs.log.update_log_text_box_thread = threading.Thread(
+                target=self._update_log_text_box, daemon=True
+            )
+            self._tabs.log.update_log_text_box_thread.start()
+
             # Load configuration
             self._auth.config = load_config(decrypt=True)
             self._auth.access_token = self._auth.config.get("SPOTIFY_ACCESS_TOKEN", "")
@@ -145,13 +152,6 @@ class SpotifySkipTrackerGUI(ctk.CTk):
                 self._start_playback_monitoring()
             else:
                 logger.info("Access token not found or invalid. Please authenticate.")
-
-            # Start loading log file
-            self._tabs.log.log_file_path = os.path.join("logs", "spotify_app.log")
-            self._tabs.log.update_log_text_box_thread = threading.Thread(
-                target=self._update_log_text_box, daemon=True
-            )
-            self._tabs.log.update_log_text_box_thread.start()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.critical("Failed to initialize SpotifySkipTrackerGUI: %s", e)
             self._error_message = str(e)
@@ -255,7 +255,10 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         """
         try:
             home_frame = self.tab_view.tab("Home")
-            self._tabs.home_tab = HomeTab(home_frame, logger)
+            print(self._tabs.log.log_file_path)
+            self._tabs.home_tab = HomeTab(
+                home_frame, logger, self._tabs.log.log_file_path
+            )
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.critical("Failed to create Home tab: %s", e)
             raise
