@@ -1,4 +1,9 @@
+<div align="center">
+
+![SpotifySkipTrackerIconTransparent](https://github.com/user-attachments/assets/4023e57b-64b6-4b60-a369-42290dc887ab)
+
 # Spotify Skip Tracker
+</div>
 
 **Spotify Skip Tracker** is a Python-based GUI application that monitors your Spotify playback, tracks your song-skipping behavior, and automatically unlikes songs that you skip more than a specified threshold. Enhance your Spotify experience by keeping track of the tracks you frequently skip and manage your liked songs efficiently.
 
