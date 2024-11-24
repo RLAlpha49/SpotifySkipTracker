@@ -7,6 +7,8 @@ managing skip counts, and checking if a song was skipped early.
 
 import logging
 import json
+import os
+import sys
 import time
 from typing import Optional, Dict, Any
 import requests
@@ -238,7 +240,7 @@ def load_skip_count() -> Dict[str, Dict[str, Any]]:
             save_skip_count(sorted_skip_count)
         return sorted_skip_count
     except FileNotFoundError:
-        _logger.info("skip_count.json not found. Returning empty skip count.")
+        _logger.debug("skip_count.json not found. Returning empty skip count.")
         return {}
     except json.JSONDecodeError as e:
         _logger.critical("JSON decode error while loading skip count: %s", e)
@@ -359,3 +361,21 @@ def unlike_song(track_id: str, retries: int = 3) -> None:
             "Critical failure in unlike_song for track '%s': %s", track_id, e
         )
         raise
+
+
+def resource_path(relative_path: str) -> str:
+    """
+    Get the absolute path to a resource, works for dev and for PyInstaller.
+
+    Args:
+        relative_path (str): The relative path to the resource.
+
+    Returns:
+        str: The absolute path to the resource.
+    """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = getattr(sys, "_MEIPASS", os.path.abspath("."))
+    except AttributeError:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)

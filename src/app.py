@@ -19,7 +19,7 @@ from gui.skipped_tab import SkippedTab
 from gui.settings_tab import SettingsTab
 from playback import main as playback_main
 from logging_config import setup_logger
-from utils import get_user_id  # pylint: disable=import-error
+from utils import get_user_id, resource_path  # pylint: disable=import-error
 from config_utils import load_config, set_config_variable  # pylint: disable=import-error
 
 
@@ -36,7 +36,7 @@ _flask_app.register_blueprint(callback_bp, url_prefix="/callback")
 _config = load_config()
 ctk.set_appearance_mode(_config.get("APPEARANCE_MODE", "System"))
 if _config.get("COLOR_THEME", "blue") == "NightTrain":
-    ctk.set_default_color_theme("assets/themes/night_train.json")
+    ctk.set_default_color_theme(resource_path("assets/themes/night_train.json"))
 else:
     ctk.set_default_color_theme(_config.get("COLOR_THEME", "blue"))
 

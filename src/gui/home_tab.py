@@ -6,13 +6,12 @@ It provides functionality to display playback information and logs.
 import io
 import threading
 from typing import Optional, Dict, Any
-import os
-import sys
 import customtkinter as ctk
 from PIL import Image, ImageOps, ImageDraw
 import requests
 from customtkinter import CTkImage, get_appearance_mode
 from CTkMessagebox import CTkMessagebox
+from utils import resource_path  # pylint: disable=import-error
 
 
 def get_text_color() -> str:
@@ -23,25 +22,6 @@ def get_text_color() -> str:
         str: "black" if in Dark mode, otherwise "white".
     """
     return "black" if get_appearance_mode() == "Dark" else "white"
-
-
-def resource_path(relative_path: str) -> str:
-    """
-    Get the absolute path to a resource, works for dev and for PyInstaller.
-
-    Args:
-        relative_path (str): The relative path to the resource.
-
-    Returns:
-        str: The absolute path to the resource.
-    """
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = getattr(sys, "_MEIPASS", os.path.abspath("."))
-    except AttributeError:
-        base_path = os.path.abspath(".")
-
-    return os.path.join(base_path, relative_path)
 
 
 class HomeTab:

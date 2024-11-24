@@ -9,6 +9,7 @@ import customtkinter as ctk
 from CTkMessagebox import CTkMessagebox
 from CTkToolTip import CTkToolTip
 from config_utils import set_config_variable  # pylint: disable=import-error
+from utils import resource_path  # pylint: disable=import-error
 
 
 class SettingsTab:
@@ -563,6 +564,13 @@ class SettingsTab:
                 justify="center",
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
+            CTkMessagebox(
+                title="Internal Error",
+                message=f"An unexpected error occurred while saving settings: {e}",
+                icon="cancel",
+                option_1="OK",
+                justify="center",
+            )
             self._logger.critical("Critical failure in save_settings: %s", e)
             raise
 
@@ -745,10 +753,13 @@ class SettingsTab:
         Apply the default color theme.
         """
         try:
-            if self._config["COLOR_THEME"] == "NightTrain":
-                ctk.set_default_color_theme("assets/themes/night_train.json")
+            color_theme = self._config.get("COLOR_THEME", "blue")
+            if color_theme == "NightTrain":
+                ctk.set_default_color_theme(
+                    resource_path("assets/themes/night_train.json")
+                )
             else:
-                ctk.set_default_color_theme(self._config["COLOR_THEME"])
+                ctk.set_default_color_theme(color_theme)
         except Exception as e:  # pylint: disable=broad-exception-caught
             self._logger.error("Failed to apply color theme: %s", e)
             raise
