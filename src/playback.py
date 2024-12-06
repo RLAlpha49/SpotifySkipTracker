@@ -146,7 +146,9 @@ class PlaybackMonitor:
             self._process_playback_safe(playback)
 
     def _is_valid_playback(self, playback: Optional[Dict[str, Any]]) -> bool:
-        return bool(
+        if not isinstance(playback, dict):
+            return False
+        return (
             playback.get("is_playing")
             and playback.get("context", {}).get("uri")
             == f"spotify:user:{self.user_id}:collection"

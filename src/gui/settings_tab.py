@@ -806,7 +806,9 @@ class SettingsTab:
             self._logger.error("Failed to set skip progress threshold: %s", e)
             CTkMessagebox(
                 title="Internal Error",
-                message=f"An unexpected error occurred while saving the Skip Progress Threshold: {e}",
+                message=(
+                    f"An unexpected error occurred while saving the Skip Progress Threshold: {e}"
+                ),
                 icon="cancel",
                 option_1="OK",
                 justify="center",

@@ -505,7 +505,7 @@ class SpotifySkipTrackerGUI(ctk.CTk):
         """
         try:
             if self._tabs.home_tab:
-                self._tabs.home_tab.update_playback_info(playback)
+                self._tabs.home_tab.update_playback_info(playback, self._auth.user_id)
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Failed to update playback info: %s", e)
 

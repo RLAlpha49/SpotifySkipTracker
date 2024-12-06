@@ -71,7 +71,9 @@ class HomeTab:
             self._playback_frame: ctk.CTkFrame = ctk.CTkFrame(
                 self.parent, fg_color="transparent"
             )
-            self._playback_frame.grid(row=0, column=0, pady=10, padx=10, sticky="nsew")
+            self._playback_frame.grid(
+                row=0, column=0, pady=(0, 10), padx=10, sticky="nsew"
+            )
             self._playback_frame.grid_columnconfigure(1, weight=1)
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.critical(
@@ -82,10 +84,20 @@ class HomeTab:
     def _create_ui_elements(self) -> None:
         """Create UI elements for the HomeTab."""
         self._ui_elements: Dict[str, Any] = {}
+        self._create_playlist_notice()
         self._create_album_art_label()
         self._create_track_info_frame()
         self._create_progress_frame()
         self._create_log_container()
+
+    def _create_playlist_notice(self) -> None:
+        """Create the playlist notice label."""
+        self._ui_elements["playlist_notice"] = ctk.CTkLabel(
+            self._playback_frame, text="", text_color="red", font=("Arial", 12, "bold")
+        )
+        self._ui_elements["playlist_notice"].grid(
+            row=0, column=0, columnspan=2, pady=0, sticky="ew"
+        )
 
     def _create_album_art_label(self) -> None:
         """Create the album art label."""
@@ -99,7 +111,7 @@ class HomeTab:
                 text_color=get_text_color(),
             )
             self._ui_elements["album_art_label"].grid(
-                row=0, column=0, rowspan=3, padx=10, pady=10
+                row=1, column=0, rowspan=3, padx=10, pady=(0, 10)
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Failed to create album art label: %s", e)
@@ -109,7 +121,7 @@ class HomeTab:
         try:
             self._ui_elements["track_info_frame"] = ctk.CTkFrame(self._playback_frame)
             self._ui_elements["track_info_frame"].grid(
-                row=0, column=1, columnspan=6, sticky="nsew", padx=10, pady=10
+                row=1, column=1, columnspan=6, sticky="nsew", padx=10, pady=(0, 10)
             )
 
             self._ui_elements["track_info_labels"]: Dict[str, ctk.CTkLabel] = {  # type: ignore
@@ -145,7 +157,7 @@ class HomeTab:
                 self._playback_frame, fg_color="transparent"
             )
             self._ui_elements["progress_frame"].grid(
-                row=1, column=1, sticky="nsew", padx=5, pady=10
+                row=2, column=1, sticky="nsew", padx=5, pady=10
             )
             self._ui_elements["progress_frame"].grid_columnconfigure(0, weight=1)
 
@@ -167,7 +179,7 @@ class HomeTab:
                 row=0, column=0, pady=5, padx=(0, 5), sticky="ew"
             )
             self._ui_elements["progress"]["time_label"].grid(
-                row=1, column=0, pady=5, sticky="ew"
+                row=2, column=0, pady=5, sticky="ew"
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Failed to create progress bar and label: %s", e)
@@ -228,15 +240,25 @@ class HomeTab:
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Failed to initialize dynamic variables: %s", e)
 
-    def update_playback_info(self, playback: Optional[Dict[str, Any]]) -> None:
+    def update_playback_info(
+        self, playback: Optional[Dict[str, Any]], user_id: str
+    ) -> None:
         """
         Update the playback information in the Home tab.
 
         Args:
             playback (Optional[Dict[str, Any]]): The current playback information.
+            user_id (str): Spotify user ID.
         """
         try:
             if playback:
+                # Check if the playback is from the user's Liked Songs collection
+                context_uri = playback.get("context", {}).get("uri", "")
+                if context_uri != f"spotify:user:{user_id}:collection":
+                    self._show_playlist_notice()
+                else:
+                    self._hide_playlist_notice()
+
                 self._update_playback_labels(playback)
                 self._update_progress_bar(playback)
                 self._update_album_art(playback)
@@ -245,6 +267,19 @@ class HomeTab:
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.critical("Critical failure in update_playback_info: %s", e)
             raise
+
+    def _show_playlist_notice(self) -> None:
+        """Display a notice that the Liked Songs Playlist is not being played."""
+        self._ui_elements["playlist_notice"].configure(
+            text=(
+                "Notice: You are not playing from your Liked Songs Playlist. "
+                "Skips will not be tracked."
+            )
+        )
+
+    def _hide_playlist_notice(self) -> None:
+        """Hide the playlist notice by setting its text to an empty string."""
+        self._ui_elements["playlist_notice"].configure(text="")
 
     def _truncate_text(self, text: str, max_length: int = 30) -> str:
         """
@@ -334,6 +369,7 @@ class HomeTab:
         Clear the playback information in the Home tab.
         """
         try:
+            self._ui_elements["playlist_notice"].configure(text="")
             self._ui_elements["track_info_labels"]["track_name"].configure(
                 text="Track: "
             )

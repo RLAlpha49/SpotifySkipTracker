@@ -110,7 +110,7 @@ def get_current_playback(retries: int = 3) -> Optional[Dict[str, Any]]:
                 url: str = "https://api.spotify.com/v1/me/player"
 
                 response: requests.Response = requests.get(
-                    url, headers=headers, timeout=10
+                    url, headers=headers, timeout=5
                 )
                 if response.status_code == 200:
                     return response.json()
@@ -130,18 +130,16 @@ def get_current_playback(retries: int = 3) -> Optional[Dict[str, Any]]:
                     continue
                 if response.status_code == 204:
                     return None
-                _logger.error("Failed to fetch current playback")
                 time.sleep(2)
-            except requests.exceptions.RequestException as e:
-                _logger.error(
-                    "Request exception while fetching current playback: %s", e
-                )
+            except requests.exceptions.RequestException:
                 time.sleep(2)
             except Exception as e:  # pylint: disable=broad-exception-caught
                 _logger.critical(
                     "Unexpected error while fetching current playback: %s", e
                 )
                 raise
+        _logger.error("Failed to fetch current playback after %d attempts", retries)
+        return None
     except Exception as e:
         _logger.critical("Critical failure in get_current_playback: %s", e)
         raise
