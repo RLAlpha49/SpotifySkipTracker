@@ -148,9 +148,19 @@ def oauth_callback() -> Any:
                 return "Authentication successful. Server shutting down..."
             except requests.exceptions.RequestException as e:
                 _logger.error("Failed to obtain tokens: %s", e)
+                _logger.info(
+                    "Check your antivirus and firewall if access to network is disabled"
+                )
                 if "response" in locals():
                     _logger.debug("Response content: %s", response.content)
-                return jsonify({"error": "Failed to obtain tokens."}), 400
+                return jsonify(
+                    {
+                        "error": (
+                            "Failed to obtain tokens. "
+                            "Check your antivirus and firewall if access to network is disabled."
+                        )
+                    }
+                ), 400
             except Exception as e:  # pylint: disable=broad-exception-caught
                 _logger.critical("Unexpected error during token exchange: %s", e)
                 raise

@@ -3,7 +3,10 @@
 ![SpotifySkipTrackerIconTransparent](https://github.com/user-attachments/assets/4023e57b-64b6-4b60-a369-42290dc887ab)
 
 # Spotify Skip Tracker
+
 </div>
+
+**Note:** This application is compiled using PyInstaller. Which is known for false positives for antivirus programs and firewalls. Some antivirus programs and firewalls may block the application from running. If this happens, try to add the application to the exceptions list of your firewall and antivirus.
 
 **Spotify Skip Tracker** is a Python-based GUI application that monitors your Spotify playback, tracks your song-skipping behavior, and automatically unlikes songs that you skip more than a specified threshold. Enhance your Spotify experience by keeping track of the tracks you frequently skip and manage your liked songs efficiently.
 
@@ -94,6 +97,7 @@ python src/app.py
 2. If prompted, enter the missing configuration variables.
 3. Your default browser will open; log in with your Spotify account to grant access.
 4. After successful authentication, the GUI will start monitoring your playback.
+   - It is possible that the application will not start due to a firewall or antivirus blocking the network access. If this happens, try to add the application to the exceptions list of your firewall and antivirus.
 
 ### Monitoring Playback
 
