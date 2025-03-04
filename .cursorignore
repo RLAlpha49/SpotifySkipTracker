@@ -1,7 +1,6 @@
 # Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
-/logs
-/venv
-/venv_linux
-/.mypy_cache
-/.ruff_cache
-*.pyc
+/old-python
+/node_modules
+/out
+/.vscode
+/.webpack
