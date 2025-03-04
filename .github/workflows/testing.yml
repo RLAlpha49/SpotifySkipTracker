@@ -1,9 +1,9 @@
 name: Tests
 on:
   push:
-    branches: [electron-app]
+    branches: [electron]
   pull_request:
-    branches: [electron-app]
+    branches: [electron]
 
 jobs:
   tests-unit:

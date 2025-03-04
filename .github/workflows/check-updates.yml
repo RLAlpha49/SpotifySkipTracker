@@ -1,7 +1,7 @@
 name: Check for Package Updates
 on:
   push:
-    branches: [electron-app]
+    branches: [electron]
   workflow_dispatch:
     inputs:
       update-packages:
@@ -120,4 +120,4 @@ jobs:
             </details>
           branch: deps/update-packages
           delete-branch: true
-          base: electron-app
+          base: electron

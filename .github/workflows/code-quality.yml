@@ -1,9 +1,9 @@
 name: Code Quality
 on:
   push:
-    branches: [electron-app]
+    branches: [electron]
   pull_request:
-    branches: [electron-app]
+    branches: [electron]
   schedule:
     - cron: "0 0 * * 3"
 

@@ -2,9 +2,9 @@ name: Build Electron App
 
 on:
   push:
-    branches: [electron-app]
+    branches: [electron]
   pull_request:
-    branches: [electron-app]
+    branches: [electron]
 
 jobs:
   build-windows:
