@@ -1,5 +1,5 @@
 import React from "react";
-import BaseLayout from "@/layouts/BaseLayout";
+import MainLayout from "@/layouts/MainLayout";
 import { Outlet, createRootRoute } from "@tanstack/react-router";
 
 export const RootRoute = createRootRoute({
@@ -8,8 +8,8 @@ export const RootRoute = createRootRoute({
 
 function Root() {
   return (
-    <BaseLayout>
+    <MainLayout>
       <Outlet />
-    </BaseLayout>
+    </MainLayout>
   );
 }

@@ -18,7 +18,80 @@ interface ElectronWindow {
   close: () => Promise<void>;
 }
 
+// Define Spotify-related types
+interface SpotifyCredentials {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}
+
+interface SpotifyPlaybackInfo {
+  isPlaying: boolean;
+  trackId: string;
+  trackName: string;
+  artistName: string;
+  albumName: string;
+  albumArt: string;
+  progress: number;
+  duration: number;
+}
+
+interface SkippedTrack {
+  id: string;
+  name: string;
+  artist: string;
+  skipCount: number;
+  lastSkipped: string;
+}
+
+interface SpotifySettings {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+  logLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  logLineCount: number;
+  skipThreshold: number;
+  timeframeInDays: number;
+  skipProgress: number;
+}
+
 declare interface Window {
   themeMode: ThemeModeContext;
   electronWindow: ElectronWindow;
+
+  spotify: {
+    // Authentication
+    authenticate: (credentials?: SpotifyCredentials) => Promise<boolean>;
+    logout: () => Promise<boolean>;
+    isAuthenticated: () => Promise<boolean>;
+
+    // Playback
+    getCurrentPlayback: () => Promise<SpotifyPlaybackInfo | null>;
+
+    // Skipped tracks
+    getSkippedTracks: () => Promise<SkippedTrack[]>;
+    saveSkippedTracks: (tracks: SkippedTrack[]) => Promise<boolean>;
+    updateSkippedTrack: (track: SkippedTrack) => Promise<boolean>;
+
+    // Settings
+    saveSettings: (settings: SpotifySettings) => Promise<boolean>;
+    getSettings: () => Promise<SpotifySettings>;
+
+    // Logs
+    saveLog: (message: string) => Promise<boolean>;
+    getLogs: (count?: number) => Promise<string[]>;
+    clearLogs: () => Promise<boolean>;
+
+    // App Control
+    restartApp: () => Promise<boolean>;
+
+    // Service
+    startMonitoring: () => Promise<boolean>;
+    stopMonitoring: () => Promise<boolean>;
+
+    // Events
+    onPlaybackUpdate: (
+      callback: (data: SpotifyPlaybackInfo) => void,
+    ) => () => void;
+  };
 }
