@@ -78,6 +78,7 @@ interface SkippedTrackInfo {
   name: string;
   artist: string;
   skipCount: number;
+  notSkippedCount: number;
   lastSkipped: string;
 }
 
@@ -332,6 +333,7 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
               name: playbackState.trackName || "",
               artist: playbackState.artistName || "",
               skipCount: 1,
+              notSkippedCount: 0,
               lastSkipped: new Date().toISOString(),
             } as SkippedTrackInfo);
 
@@ -361,6 +363,23 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
           `Track completed: ${playbackState.trackName} by ${playbackState.artistName} (${Math.round(progressPercentage * 100)}%)`,
           "DEBUG",
         );
+
+        // If track was in library, record the completion
+        if (playbackState.isInLibrary) {
+          try {
+            // Update not skipped count in storage
+            const store = await import("../helpers/storage/store");
+            await store.updateNotSkippedTrack({
+              id: playbackState.trackId,
+              name: playbackState.trackName || "",
+              artist: playbackState.artistName || "",
+              // Don't specify skipCount or lastSkipped to preserve existing values
+              notSkippedCount: 1,
+            } as SkippedTrackInfo);
+          } catch (error) {
+            saveLog(`Error updating not skipped track data: ${error}`, "ERROR");
+          }
+        }
       }
     }
 

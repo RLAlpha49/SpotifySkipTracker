@@ -17,6 +17,7 @@ type SkippedTrack = {
   name: string;
   artist: string;
   skipCount: number;
+  notSkippedCount: number;
   lastSkipped: string;
 };
 
@@ -71,10 +72,13 @@ export default function SkippedTracksPage() {
                 <Table className="w-full table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[40%]">Track</TableHead>
+                      <TableHead className="w-[30%]">Track</TableHead>
                       <TableHead className="w-[15%]">Artist</TableHead>
                       <TableHead className="w-[10%] text-right">
                         Skips
+                      </TableHead>
+                      <TableHead className="w-[10%] text-right">
+                        Plays
                       </TableHead>
                       <TableHead className="w-[35%] text-right">
                         Last Skipped
@@ -97,6 +101,11 @@ export default function SkippedTracksPage() {
                         <TableCell className="max-w-0 text-right">
                           <div className="truncate text-right">
                             {track.skipCount}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-0 text-right">
+                          <div className="truncate text-right">
+                            {track.notSkippedCount || 0}
                           </div>
                         </TableCell>
                         <TableCell className="max-w-0 text-right">

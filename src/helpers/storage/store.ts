@@ -266,6 +266,7 @@ interface SkippedTrack {
   name: string;
   artist: string;
   skipCount: number;
+  notSkippedCount: number;
   lastSkipped: string;
 }
 
@@ -319,6 +320,7 @@ export function updateSkippedTrack(track: SkippedTrack): boolean {
       tracks.push({
         ...track,
         skipCount: 1,
+        notSkippedCount: 0,
         lastSkipped: new Date().toISOString(),
       });
     }
@@ -326,6 +328,39 @@ export function updateSkippedTrack(track: SkippedTrack): boolean {
     return saveSkippedTracks(tracks);
   } catch (error) {
     console.error("Failed to update skipped track:", error);
+    return false;
+  }
+}
+
+// Function to update a track when it's not skipped (completed)
+export function updateNotSkippedTrack(track: SkippedTrack): boolean {
+  try {
+    const tracks = getSkippedTracks();
+    const existingIndex = tracks.findIndex((t) => t.id === track.id);
+
+    if (existingIndex >= 0) {
+      // Update existing track - preserve skipCount and lastSkipped
+      tracks[existingIndex] = {
+        ...tracks[existingIndex],
+        // Only update these fields, don't overwrite skipCount or lastSkipped
+        id: track.id,
+        name: track.name,
+        artist: track.artist,
+        notSkippedCount: (tracks[existingIndex].notSkippedCount || 0) + 1,
+      };
+    } else {
+      // Add new track
+      tracks.push({
+        ...track,
+        skipCount: 0,
+        notSkippedCount: 1,
+        lastSkipped: "", // No skip date for a track that wasn't skipped
+      });
+    }
+
+    return saveSkippedTracks(tracks);
+  } catch (error) {
+    console.error("Failed to update not skipped track:", error);
     return false;
   }
 }

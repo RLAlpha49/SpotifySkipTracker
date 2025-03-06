@@ -42,6 +42,7 @@ interface SkippedTrack {
   name: string;
   artist: string;
   skipCount: number;
+  notSkippedCount: number;
   lastSkipped: string;
 }
 
