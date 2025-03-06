@@ -27,6 +27,7 @@ export default function HomePage() {
   const [playbackInfo, setPlaybackInfo] = useState<PlaybackInfo | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isMonitoring, setIsMonitoring] = useState(false);
   const [settings, setSettings] = useState({
     logLevel: "INFO" as "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
   });
@@ -45,6 +46,16 @@ export default function HomePage() {
         // Then load logs
         const savedLogs = await window.spotify.getLogs();
         setLogs(savedLogs);
+        
+        // Check if already authenticated
+        const authStatus = await window.spotify.isAuthenticated();
+        setIsAuthenticated(authStatus);
+        
+        // Check if monitoring is active
+        if (authStatus) {
+          const isActive = await window.spotify.isMonitoringActive();
+          setIsMonitoring(isActive);
+        }
       } catch (error) {
         console.error("Failed to load settings or logs:", error);
       }
@@ -53,55 +64,32 @@ export default function HomePage() {
     loadSettingsAndLogs();
   }, []);
 
-  // Mock function to load playback data - would be replaced with actual Electron IPC
+  // Set up playback update listener
   useEffect(() => {
-    const mockPlaybackInterval = setInterval(() => {
-      if (isAuthenticated) {
-        // Mock fetching playback info
-        const mockIsPlaying = Math.random() > 0.3;
-        if (mockIsPlaying) {
-          const mockProgress = Math.floor(Math.random() * 100);
-          const isInPlaylist = Math.random() > 0.5; // Randomly determine if in playlist
-
-          // Add a log when track is in playlist for skip tracking
-          if (isInPlaylist && (!playbackInfo || !playbackInfo.isInPlaylist)) {
-            // Only log when the playlist status changes to avoid duplication
-            addLog(
-              "Current track is in a playlist - skips will be tracked",
-              "INFO",
-            );
-          }
-
+    if (isAuthenticated) {
+      // Set up listener for playback updates from main process
+      const unsubscribe = window.spotify.onPlaybackUpdate((data) => {
+        if (data.isPlaying) {
           setPlaybackInfo({
-            albumArt:
-              "https://i.scdn.co/image/ab67616d0000b2731290d2196e9874d4060f0764",
-            trackName: "Lorem Ipsum Track",
-            artist: "Artist Name",
-            album: "Album Title",
-            progress: mockProgress,
-            duration: 100,
-            isPlaying: true,
-            isInPlaylist,
+            albumArt: data.albumArt,
+            trackName: data.trackName,
+            artist: data.artistName,
+            album: data.albumName,
+            progress: data.progress,
+            duration: data.duration,
+            isPlaying: data.isPlaying,
+            isInPlaylist: data.isInPlaylist,
           });
-
-          // Only log when the track is new or playback starts from paused state
-          if (!playbackInfo || !playbackInfo.isPlaying) {
-            addLog(
-              `Now playing: Lorem Ipsum Track by Artist Name${isInPlaylist ? " (in playlist)" : ""}`,
-              "DEBUG",
-            );
-          }
         } else {
-          // Only log when transitioning from playing to not playing
-          if (playbackInfo && playbackInfo.isPlaying) {
-            addLog("No active playback detected", "DEBUG");
-          }
           setPlaybackInfo(null);
         }
-      }
-    }, 5000);
-
-    return () => clearInterval(mockPlaybackInterval);
+      });
+      
+      return () => {
+        // Clean up listener when component unmounts or auth state changes
+        unsubscribe();
+      };
+    }
   }, [isAuthenticated]);
 
   // Function to add a log entry - now persists to storage
@@ -134,36 +122,73 @@ export default function HomePage() {
 
   // Authentication functions
   const handleAuthenticate = async () => {
-    // This would be replaced with actual Electron-to-main process authentication
     addLog("Authenticating with Spotify...", "INFO");
 
     try {
+      // Get settings for credentials
+      const settings = await window.spotify.getSettings();
+      
       const success = await window.spotify.authenticate({
-        clientId: "mock-client-id",
-        clientSecret: "mock-client-secret",
-        redirectUri: "http://localhost:8888/callback",
+        clientId: settings.clientId,
+        clientSecret: settings.clientSecret,
+        redirectUri: settings.redirectUri,
       });
+      
       if (success) {
         setIsAuthenticated(true);
-        // The "Successfully authenticated" log is already added in main.ts, no need to duplicate it here
       } else {
-        addLog("Authentication failed", "ERROR");
+        addLog("Authentication failed - check your Spotify credentials in settings", "ERROR");
       }
     } catch (error) {
       console.error("Authentication error:", error);
-      addLog("Authentication error occurred", "ERROR");
+      addLog(`Authentication error occurred: ${error}`, "ERROR");
     }
   };
 
   const handleLogout = async () => {
     try {
+      // Stop monitoring if active
+      if (isMonitoring) {
+        await handleStopMonitoring();
+      }
+      
       await window.spotify.logout();
       setIsAuthenticated(false);
       setPlaybackInfo(null);
-      // The "Logged out" log is already added in main.ts, no need to duplicate it here
     } catch (error) {
       console.error("Logout error:", error);
       addLog("Error during logout", "ERROR");
+    }
+  };
+  
+  // Monitoring functions
+  const handleStartMonitoring = async () => {
+    try {
+      const success = await window.spotify.startMonitoring();
+      if (success) {
+        setIsMonitoring(true);
+        addLog("Started Spotify playback monitoring", "INFO");
+      } else {
+        addLog("Failed to start monitoring", "ERROR");
+      }
+    } catch (error) {
+      console.error("Error starting monitoring:", error);
+      addLog("Error starting monitoring", "ERROR");
+    }
+  };
+  
+  const handleStopMonitoring = async () => {
+    try {
+      const success = await window.spotify.stopMonitoring();
+      if (success) {
+        setIsMonitoring(false);
+        addLog("Stopped Spotify playback monitoring", "INFO");
+      } else {
+        addLog("Failed to stop monitoring", "ERROR");
+      }
+    } catch (error) {
+      console.error("Error stopping monitoring:", error);
+      addLog("Error stopping monitoring", "ERROR");
     }
   };
 
@@ -241,9 +266,20 @@ export default function HomePage() {
         </div>
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
-            <Button variant="destructive" onClick={handleLogout}>
-              Logout
-            </Button>
+            <>
+              {isMonitoring ? (
+                <Button variant="outline" onClick={handleStopMonitoring}>
+                  Stop Monitoring
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={handleStartMonitoring}>
+                  Start Monitoring
+                </Button>
+              )}
+              <Button variant="destructive" onClick={handleLogout}>
+                Logout
+              </Button>
+            </>
           ) : (
             <Button onClick={handleAuthenticate}>Connect with Spotify</Button>
           )}
@@ -256,7 +292,7 @@ export default function HomePage() {
           <CardContent className="flex flex-1 flex-col p-6">
             {playbackInfo?.isInPlaylist && (
               <div className="mb-4 rounded-md bg-yellow-100 p-3 text-sm text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                This track is part of a playlist. Skipping will be tracked.
+                This track is part of your library. Skipping will be tracked.
               </div>
             )}
 
@@ -296,7 +332,9 @@ export default function HomePage() {
               <div className="flex flex-1 flex-col items-center justify-center">
                 <p className="text-muted-foreground">
                   {isAuthenticated
-                    ? "No active playback"
+                    ? isMonitoring 
+                      ? "No active playback"
+                      : "Monitoring not started"
                     : "Not connected to Spotify"}
                 </p>
               </div>

@@ -18,59 +18,100 @@ import {
   updateSkippedTrack,
 } from "./helpers/storage/store";
 
+// Import Spotify services
+import {
+  getCurrentPlayback,
+  setTokens as setApiTokens,
+  clearTokens as clearApiTokens,
+  isTokenValid,
+  refreshAccessToken,
+} from "./services/spotify-api";
+import { 
+  startPlaybackMonitoring, 
+  stopPlaybackMonitoring,
+  isMonitoringActive
+} from "./services/playback-monitor";
+import { startAuthFlow, cancelAuthFlow } from "./services/oauth-handler";
+import { 
+  saveTokens, 
+  loadTokens, 
+  clearTokens as clearStoredTokens 
+} from "./services/token-storage";
+
 const inDevelopment = process.env.NODE_ENV === "development";
-
-// Add Spotify service for handling authentication and API calls
-interface SpotifyTokens {
-  access_token: string;
-  refresh_token: string;
-  expires_at: number;
-}
-
-let spotifyTokens: SpotifyTokens | null = null;
-let monitoringInterval: NodeJS.Timeout | null = null;
-
-// Track the current playback to detect skips
-let currentTrackId: string | null = null;
-let lastPlaybackTime: number = 0;
-const SKIP_THRESHOLD = 0.7; // 70% of track needs to be played to not count as skip
 
 // Set up the IPC handlers for Spotify services
 function setupSpotifyIPC(mainWindow: BrowserWindow) {
   // Authentication handlers
   ipcMain.handle("spotify:authenticate", async (_, credentials) => {
-    console.log("Authenticating with Spotify...", credentials);
-    // In a real app, this would handle OAuth with Spotify using credentials
-    // For now, we'll just simulate success
-    spotifyTokens = {
-      access_token: "mock_access_token",
-      refresh_token: "mock_refresh_token",
-      expires_at: Date.now() + 3600000, // 1 hour from now
-    };
-
-    // Log the authentication
-    saveLog(
-      `Authenticated with Spotify using client ID: ${credentials?.clientId || "mock-client-id"}`,
-      "DEBUG",
-    );
-    saveLog(`Successfully authenticated with Spotify`, "INFO");
-
-    // Add a log about when the token will expire
-    const expiryTime = new Date(spotifyTokens.expires_at).toLocaleTimeString();
-    saveLog(`Authentication token will expire at ${expiryTime}`, "DEBUG");
-
-    return true;
+    try {
+      console.log("Authenticating with Spotify...", credentials);
+      
+      // Check if we have stored tokens
+      const storedTokens = loadTokens();
+      if (storedTokens) {
+        // If we have tokens, check if they're valid or can be refreshed
+        try {
+          if (isTokenValid()) {
+            // Set the tokens in the API service
+            setApiTokens(storedTokens.accessToken, storedTokens.refreshToken, 3600);
+            saveLog('Using existing valid tokens', 'DEBUG');
+            return true;
+          } else {
+            // Try to refresh the token
+            await refreshAccessToken(credentials.clientId, credentials.clientSecret);
+            saveLog('Successfully refreshed access token', 'INFO');
+            return true;
+          }
+        } catch (error) {
+          saveLog(`Failed to use stored tokens: ${error}`, 'DEBUG');
+          // Continue to new authentication
+        }
+      }
+      
+      // Start the authentication flow
+      try {
+        const tokens = await startAuthFlow(
+          mainWindow,
+          credentials.clientId,
+          credentials.clientSecret,
+          credentials.redirectUri
+        );
+        
+        // Save tokens
+        saveTokens({
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          expiresAt: Date.now() + tokens.expiresIn * 1000
+        });
+        
+        // Also set them in the API service
+        setApiTokens(tokens.accessToken, tokens.refreshToken, tokens.expiresIn);
+        
+        saveLog('Successfully authenticated with Spotify', 'INFO');
+        return true;
+      } catch (error) {
+        saveLog(`Authentication failed: ${error}`, 'ERROR');
+        return false;
+      }
+    } catch (error) {
+      saveLog(`Authentication error: ${error}`, 'ERROR');
+      return false;
+    }
   });
 
   ipcMain.handle("spotify:logout", async () => {
     console.log("Logging out from Spotify");
-    spotifyTokens = null;
-    if (monitoringInterval) {
-      clearInterval(monitoringInterval);
-      monitoringInterval = null;
-      saveLog("Playback monitoring stopped due to logout", "DEBUG");
+    
+    // Stop monitoring if active
+    if (isMonitoringActive()) {
+      stopPlaybackMonitoring();
     }
-
+    
+    // Clear tokens
+    clearApiTokens();
+    clearStoredTokens();
+    
     // Log the logout
     saveLog("Logged out from Spotify", "INFO");
 
@@ -78,30 +119,38 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   });
 
   ipcMain.handle("spotify:isAuthenticated", async () => {
-    return !!spotifyTokens;
+    // Try to load tokens from storage
+    const storedTokens = loadTokens();
+    
+    if (storedTokens) {
+      // Set tokens in the API service
+      setApiTokens(
+        storedTokens.accessToken,
+        storedTokens.refreshToken,
+        Math.floor((storedTokens.expiresAt - Date.now()) / 1000)
+      );
+      
+      // Check if token is valid
+      return isTokenValid();
+    }
+    
+    return false;
   });
 
   // Playback handlers
   ipcMain.handle("spotify:getCurrentPlayback", async () => {
-    if (!spotifyTokens) return null;
-
-    // In a real app, this would call the Spotify API
-    // For now, return mock data
-    const isPlaying = Math.random() > 0.3;
-
-    if (!isPlaying) return null;
-
-    return {
-      isPlaying: true,
-      trackId: "1234567890",
-      trackName: "Mock Track Name",
-      artistName: "Mock Artist",
-      albumName: "Mock Album",
-      albumArt:
-        "https://i.scdn.co/image/ab67616d0000b2731290d2196e9874d4060f0764",
-      progress: Math.floor(Math.random() * 100),
-      duration: 100,
-    };
+    try {
+      const settings = getSettings();
+      
+      // Get current playback from Spotify API
+      return await getCurrentPlayback(
+        settings.clientId || "",
+        settings.clientSecret || ""
+      );
+    } catch (error) {
+      saveLog(`Error getting current playback: ${error}`, "ERROR");
+      return null;
+    }
   });
 
   // Skipped tracks handlers
@@ -137,8 +186,6 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     // Log the settings save operation
     if (result) {
       saveLog("Settings saved successfully", "INFO");
-      // No need to send a separate message to the renderer for the toast
-      // The toast is shown by the renderer when this handler returns success
     } else {
       saveLog("Failed to save settings", "ERROR");
     }
@@ -158,7 +205,6 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     console.log(`Saving log [${level}]:`, message);
 
     // Avoid duplicate logs by checking the most recent log
-    // This is a simple check - it might not catch all duplicates
     const recentLogs = getLogs(1);
     if (recentLogs.length > 0) {
       // Extract just the message part without timestamp and level
@@ -203,163 +249,45 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   ipcMain.handle("spotify:startMonitoring", async () => {
     console.log("Starting Spotify monitoring...");
 
-    // Get current settings to include in log
+    // Get current settings
     const settings = getSettings();
-    saveLog(
-      `Started Spotify playback monitoring (skip threshold: ${settings.skipThreshold * 100}%)`,
-      "INFO",
-    );
-
-    // In a real app, this would start polling the Spotify API
-
-    // Clear any existing interval
-    if (monitoringInterval) {
-      clearInterval(monitoringInterval);
-      saveLog("Restarting existing playback monitoring session", "DEBUG");
-    }
-
-    // Set up monitoring interval
-    monitoringInterval = setInterval(async () => {
-      try {
-        // In a real app, this would be the response from Spotify API
-        // For now, simulate random playback
-        const isPlaying = Math.random() > 0.2; // 80% chance of playing
-
-        if (isPlaying) {
-          // Generate random track data
-          const trackId = `track_${Math.floor(Math.random() * 1000)}`;
-          const trackName = `Track ${Math.floor(Math.random() * 100)}`;
-          const artistName = `Artist ${Math.floor(Math.random() * 20)}`;
-          const albumName = `Album ${Math.floor(Math.random() * 50)}`;
-          const duration = Math.floor(Math.random() * 300) + 120; // 2-5 minutes
-          const progress = Math.random(); // 0-1 progress through track
-
-          // Check if track has changed and handle skip detection
-          if (currentTrackId && currentTrackId !== trackId) {
-            // If track changed and less than threshold was played, count as skip
-            const skipThreshold = settings.skipThreshold || SKIP_THRESHOLD;
-
-            if (lastPlaybackTime < skipThreshold) {
-              // This is a skip - if we have previous track info, record it
-              if (currentTrackId) {
-                console.log(
-                  `Track skipped: ${currentTrackId} at ${Math.round(lastPlaybackTime * 100)}%`,
-                );
-
-                // If track was barely played (less than 10%), it's just a DEBUG level event
-                if (lastPlaybackTime < 0.1) {
-                  saveLog(
-                    `Track skipped quickly: ${currentTrackId} (${Math.round(lastPlaybackTime * 100)}% played)`,
-                    "DEBUG",
-                  );
-                } else {
-                  // Regular skip is worth noting at INFO level
-                  saveLog(
-                    `Track skipped: ${currentTrackId} (${Math.round(lastPlaybackTime * 100)}% played)`,
-                    "INFO",
-                  );
-                }
-
-                // Update skipped track in storage
-                updateSkippedTrack({
-                  id: currentTrackId,
-                  name: `Track ${currentTrackId.split("_")[1]}`, // Just for demo
-                  artist: "Demo Artist", // Just for demo
-                  skipCount: 1, // This will be incremented in the function
-                  lastSkipped: new Date().toISOString(),
-                });
-              }
-            } else {
-              // Track was played sufficiently
-              saveLog(
-                `Track completed: ${currentTrackId} (${Math.round(lastPlaybackTime * 100)}%)`,
-                "DEBUG",
-              );
-            }
-          }
-
-          // Log first play of a track
-          if (currentTrackId !== trackId) {
-            saveLog(`Now playing: ${trackName} by ${artistName}`, "DEBUG");
-          }
-
-          // Update current track info
-          currentTrackId = trackId;
-          lastPlaybackTime = progress;
-
-          // Send update to renderer
-          mainWindow.webContents.send("spotify:playbackUpdate", {
-            isPlaying,
-            trackId,
-            trackName,
-            artistName,
-            albumName,
-            albumArt: `https://picsum.photos/seed/${trackId}/300/300`, // Random image
-            progress: Math.round(progress * 100),
-            duration,
-            isInPlaylist: Math.random() > 0.5, // 50% chance of being in playlist
-          });
-        } else {
-          // If nothing is playing, reset tracking
-          currentTrackId = null;
-          lastPlaybackTime = 0;
-
-          // Send update to renderer that nothing is playing
-          mainWindow.webContents.send("spotify:playbackUpdate", {
-            isPlaying: false,
-            trackId: "",
-            trackName: "",
-            artistName: "",
-            albumName: "",
-            albumArt: "",
-            progress: 0,
-            duration: 0,
-            isInPlaylist: false,
-          });
-        }
-      } catch (error) {
-        console.error("Error in playback monitoring:", error);
-
-        // Classify errors for better log filtering
-        if (error instanceof TypeError) {
-          saveLog(
-            `Type error in playback monitoring: ${error.message}`,
-            "ERROR",
-          );
-        } else if (
-          error instanceof Error &&
-          error.message.includes("network")
-        ) {
-          saveLog(
-            `Network error in playback monitoring: ${error.message}`,
-            "WARNING",
-          );
-        } else {
-          saveLog(`Error in playback monitoring: ${error}`, "ERROR");
-        }
+    
+    try {
+      // Start monitoring
+      const success = startPlaybackMonitoring(
+        mainWindow,
+        settings.clientId,
+        settings.clientSecret
+      );
+      
+      if (success) {
+        return true;
+      } else {
+        saveLog("Failed to start playback monitoring", "ERROR");
+        return false;
       }
-    }, 3000); // Check every 3 seconds
-
-    return true;
+    } catch (error) {
+      saveLog(`Error starting monitoring: ${error}`, "ERROR");
+      return false;
+    }
   });
 
   ipcMain.handle("spotify:stopMonitoring", async () => {
-    if (monitoringInterval) {
-      clearInterval(monitoringInterval);
-      monitoringInterval = null;
-      saveLog("Stopped Spotify playback monitoring", "INFO");
-
-      // Log summary info if we were tracking a song
-      if (currentTrackId) {
-        saveLog(
-          `Last tracked song was: ${currentTrackId} at ${Math.round(lastPlaybackTime * 100)}% progress`,
-          "DEBUG",
-        );
-      }
-    } else {
-      saveLog("No active monitoring session to stop", "DEBUG");
+    try {
+      return stopPlaybackMonitoring();
+    } catch (error) {
+      saveLog(`Error stopping monitoring: ${error}`, "ERROR");
+      return false;
     }
-    return true;
+  });
+
+  ipcMain.handle("spotify:isMonitoringActive", async () => {
+    try {
+      return isMonitoringActive();
+    } catch (error) {
+      saveLog(`Failed to check monitoring status: ${error}`, "ERROR");
+      return false;
+    }
   });
 }
 
@@ -442,10 +370,14 @@ function createWindow() {
   // Handle window closed
   mainWindow.on("closed", () => {
     saveLog("Application closed", "INFO");
-    if (monitoringInterval) {
-      clearInterval(monitoringInterval);
-      monitoringInterval = null;
+    
+    // Stop monitoring if active
+    if (isMonitoringActive()) {
+      stopPlaybackMonitoring();
     }
+    
+    // Cancel auth flow if in progress
+    cancelAuthFlow();
   });
 
   return mainWindow;
@@ -493,6 +425,11 @@ app.on("window-all-closed", () => {
 
 app.on("quit", () => {
   saveLog("Application quit");
+  
+  // Make sure monitoring is stopped
+  if (isMonitoringActive()) {
+    stopPlaybackMonitoring();
+  }
 });
 
 // In this file you can include the rest of your app's specific main process

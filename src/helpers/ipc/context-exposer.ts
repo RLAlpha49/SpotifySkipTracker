@@ -44,6 +44,7 @@ export default function exposeContexts() {
     // Service
     startMonitoring: () => ipcRenderer.invoke("spotify:startMonitoring"),
     stopMonitoring: () => ipcRenderer.invoke("spotify:stopMonitoring"),
+    isMonitoringActive: () => ipcRenderer.invoke("spotify:isMonitoringActive"),
 
     // Events
     onPlaybackUpdate: (callback: (data: SpotifyPlaybackInfo) => void) => {

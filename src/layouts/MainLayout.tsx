@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, Outlet, useNavigate, useRouter } from "@tanstack/react-router";
 import ToggleTheme from "@/components/ToggleTheme";
 import {
@@ -9,21 +9,45 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
+
 export default function MainLayout() {
   const router = useRouter();
   const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // Check authentication status when component mounts
+    const checkAuth = async () => {
+      try {
+        const authStatus = await window.spotify.isAuthenticated();
+        setIsAuthenticated(authStatus);
+      } catch (error) {
+        console.error("Failed to check authentication status:", error);
+      }
+    };
+
+    checkAuth();
+  }, []);
 
   const isActive = (path: string) => {
     return router.state.location.pathname === path;
   };
 
-  // This would be replaced with actual state management
-  const isAuthenticated = true;
-
-  const handleLogout = () => {
-    // This would have the actual logout logic
-    console.log("Logging out");
-    navigate({ to: "/" });
+  const handleLogout = async () => {
+    try {
+      const success = await window.spotify.logout();
+      if (success) {
+        setIsAuthenticated(false);
+        toast.success("Logged out successfully");
+        navigate({ to: "/" });
+      } else {
+        toast.error("Failed to logout");
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Error during logout");
+    }
   };
 
   return (

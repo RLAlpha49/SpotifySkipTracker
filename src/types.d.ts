@@ -34,6 +34,7 @@ interface SpotifyPlaybackInfo {
   albumArt: string;
   progress: number;
   duration: number;
+  isInPlaylist?: boolean;
 }
 
 interface SkippedTrack {
@@ -91,6 +92,7 @@ declare interface Window {
     // Service
     startMonitoring: () => Promise<boolean>;
     stopMonitoring: () => Promise<boolean>;
+    isMonitoringActive: () => Promise<boolean>;
 
     // Events
     onPlaybackUpdate: (
