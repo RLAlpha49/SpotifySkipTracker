@@ -1,9 +1,27 @@
+/**
+ * Home Page Component
+ *
+ * This is the main dashboard of the application, showing:
+ * - Current Spotify playback information with album art and progress
+ * - Authentication status and controls
+ * - Playback monitoring controls (start/stop)
+ * - Application logs with filtering by log level
+ *
+ * The component manages multiple states:
+ * - Current playback information from Spotify
+ * - Authentication status
+ * - Monitoring status
+ * - Application logs
+ * - User settings
+ */
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
 import {
   Select,
   SelectTrigger,
@@ -12,6 +30,9 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 
+/**
+ * Information about the currently playing Spotify track
+ */
 interface PlaybackInfo {
   albumArt: string;
   trackName: string;
@@ -24,15 +45,22 @@ interface PlaybackInfo {
 }
 
 export default function HomePage() {
+  // State for current playback information
   const [playbackInfo, setPlaybackInfo] = useState<PlaybackInfo | null>(null);
+  // State for application logs
   const [logs, setLogs] = useState<string[]>([]);
+  // State for authentication status
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // State for monitoring status
   const [isMonitoring, setIsMonitoring] = useState(false);
+  // State for user settings
   const [settings, setSettings] = useState({
     logLevel: "INFO" as "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
   });
 
-  // Load settings and logs on component mount
+  /**
+   * Load settings, logs, and check authentication status on component mount
+   */
   useEffect(() => {
     const loadSettingsAndLogs = async () => {
       try {
@@ -51,359 +79,459 @@ export default function HomePage() {
         const authStatus = await window.spotify.isAuthenticated();
         setIsAuthenticated(authStatus);
 
-        // Check if monitoring is active
+        // If authenticated, check if monitoring is active
         if (authStatus) {
-          const isActive = await window.spotify.isMonitoringActive();
-          setIsMonitoring(isActive);
+          const monitoringStatus = await window.spotify.isMonitoringActive();
+          setIsMonitoring(monitoringStatus);
         }
       } catch (error) {
-        console.error("Failed to load settings or logs:", error);
+        console.error("Error loading initial data:", error);
+        addLog(`Error loading initial data: ${error}`, "ERROR");
       }
     };
 
     loadSettingsAndLogs();
-
-    // Set up a polling interval to refresh logs every second
-    const logRefreshInterval = setInterval(async () => {
-      try {
-        const savedLogs = await window.spotify.getLogs();
-
-        // When new logs arrive, check specifically for any skip messages that might have been missed
-        const hasNewSkipMessages = savedLogs.some(
-          (log) => log.includes("Track skipped:") && !logs.includes(log),
-        );
-
-        if (hasNewSkipMessages) {
-          console.log("Found new skip messages in logs");
-        }
-
-        setLogs(savedLogs);
-      } catch (error) {
-        console.error("Failed to refresh logs:", error);
-      }
-    }, 500); // Refresh twice per second for more responsive skip detection
-
-    // Clean up interval on component unmount
-    return () => {
-      clearInterval(logRefreshInterval);
-    };
   }, []);
 
-  // Set up playback update listener
+  /**
+   * Set up playback update listener when authenticated
+   */
   useEffect(() => {
-    if (isAuthenticated) {
-      // Set up listener for playback updates from main process
-      const unsubscribe = window.spotify.onPlaybackUpdate((data) => {
-        if (data.isPlaying) {
-          setPlaybackInfo({
-            albumArt: data.albumArt,
-            trackName: data.trackName,
-            artist: data.artistName,
-            album: data.albumName,
-            progress: data.progress,
-            duration: data.duration,
-            isPlaying: data.isPlaying,
-            isInPlaylist: data.isInPlaylist,
-          });
-        } else {
-          setPlaybackInfo(null);
-        }
-      });
+    if (!isAuthenticated) return;
 
-      return () => {
-        // Clean up listener when component unmounts or auth state changes
-        unsubscribe();
-      };
-    }
+    // Subscribe to playback updates from Spotify
+    const unsubscribe = window.spotify.onPlaybackUpdate((data) => {
+      setPlaybackInfo({
+        albumArt: data.albumArt,
+        trackName: data.trackName,
+        artist: data.artistName,
+        album: data.albumName,
+        progress: data.progress,
+        duration: data.duration,
+        isPlaying: data.isPlaying,
+        isInPlaylist: data.isInPlaylist,
+      });
+    });
+
+    // Get initial playback state
+    const getInitialPlayback = async () => {
+      try {
+        const playback = await window.spotify.getCurrentPlayback();
+        if (playback) {
+          setPlaybackInfo({
+            albumArt: playback.albumArt,
+            trackName: playback.trackName,
+            artist: playback.artistName,
+            album: playback.albumName,
+            progress: playback.progress,
+            duration: playback.duration,
+            isPlaying: playback.isPlaying,
+            isInPlaylist: playback.isInPlaylist,
+          });
+        }
+      } catch (error) {
+        console.error("Error getting current playback:", error);
+      }
+    };
+
+    getInitialPlayback();
+
+    // Cleanup: unsubscribe when component unmounts
+    return () => {
+      unsubscribe();
+    };
   }, [isAuthenticated]);
 
-  // Function to add a log entry - now persists to storage
+  /**
+   * Save a log message and update the logs state
+   *
+   * @param message - The log message to save
+   * @param level - The severity level of the log
+   */
   const addLog = async (
     message: string,
     level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" = "INFO",
   ) => {
-    // Save to persistent storage
-    await window.spotify.saveLog(message, level);
-
-    // Update state with new log and most recent logs
-    const timestamp = new Date().toLocaleTimeString();
-    const formattedMessage = `[${timestamp}] [${level}] ${message}`;
-
-    setLogs((prevLogs) => {
-      // Check if this exact log message already exists in our recent logs
-      // This prevents UI duplication, but allow track skipped messages to always show
-      if (
-        prevLogs.includes(formattedMessage) &&
-        !message.includes("Track skipped:")
-      ) {
-        return prevLogs; // Don't add duplicates
-      }
-
-      const newLogs = [...prevLogs, formattedMessage];
-      // Keep only the most recent logs in state (match settings)
-      if (newLogs.length > 100) {
-        return newLogs.slice(-100);
-      }
-      return newLogs;
-    });
-  };
-
-  // Authentication functions
-  const handleAuthenticate = async () => {
-    addLog("Authenticating with Spotify...", "INFO");
-
     try {
-      // Get settings for credentials
-      const settings = await window.spotify.getSettings();
+      // Save log to storage
+      await window.spotify.saveLog(message, level);
 
-      const success = await window.spotify.authenticate({
-        clientId: settings.clientId,
-        clientSecret: settings.clientSecret,
-        redirectUri: settings.redirectUri,
-      });
-
-      if (success) {
-        setIsAuthenticated(true);
-      } else {
-        addLog(
-          "Authentication failed - check your Spotify credentials in settings",
-          "ERROR",
-        );
-      }
+      // Update logs in state
+      const updatedLogs = await window.spotify.getLogs();
+      setLogs(updatedLogs);
     } catch (error) {
-      console.error("Authentication error:", error);
-      addLog(`Authentication error occurred: ${error}`, "ERROR");
+      console.error("Error saving log:", error);
     }
   };
 
+  /**
+   * Handle log level change from dropdown
+   *
+   * @param value - The new log level
+   */
+  const handleLogLevelChange = async (value: string) => {
+    try {
+      // Update settings state
+      setSettings((prev) => ({
+        ...prev,
+        logLevel: value as "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
+      }));
+
+      // Get current settings first
+      const currentSettings = await window.spotify.getSettings();
+
+      // Update only the log level
+      await window.spotify.saveSettings({
+        ...currentSettings,
+        logLevel: value as "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
+      });
+
+      // Log the change
+      addLog(`Log level changed to ${value}`, "INFO");
+    } catch (error) {
+      console.error("Error changing log level:", error);
+      addLog(`Error changing log level: ${error}`, "ERROR");
+    }
+  };
+
+  /**
+   * Handle authentication with Spotify
+   */
+  const handleAuthenticate = async () => {
+    try {
+      // Show authentication in progress
+      addLog("Authenticating with Spotify...", "INFO");
+
+      // Get current settings to access credentials
+      const currentSettings = await window.spotify.getSettings();
+
+      // Make sure we have the required credentials
+      if (!currentSettings.clientId || !currentSettings.clientSecret) {
+        addLog(
+          "Authentication failed: Missing Spotify credentials in settings",
+          "ERROR",
+        );
+        toast.error("Authentication Failed", {
+          description:
+            "Please configure your Spotify credentials in Settings first.",
+        });
+        return;
+      }
+
+      // Attempt authentication with explicit credentials
+      const success = await window.spotify.authenticate({
+        clientId: currentSettings.clientId,
+        clientSecret: currentSettings.clientSecret,
+        redirectUri:
+          currentSettings.redirectUri || "http://localhost:8888/callback",
+      });
+
+      if (success) {
+        // Update authentication state
+        setIsAuthenticated(true);
+        addLog("Authentication successful", "INFO");
+      } else {
+        addLog("Authentication failed", "ERROR");
+      }
+    } catch (error) {
+      console.error("Authentication error:", error);
+      addLog(`Authentication error: ${error}`, "ERROR");
+    }
+  };
+
+  /**
+   * Handle logout from Spotify
+   */
   const handleLogout = async () => {
     try {
+      // Show logout in progress
+      addLog("Logging out from Spotify...", "INFO");
+
       // Stop monitoring if active
       if (isMonitoring) {
         await handleStopMonitoring();
       }
 
-      await window.spotify.logout();
-      setIsAuthenticated(false);
-      setPlaybackInfo(null);
+      // Attempt logout
+      const success = await window.spotify.logout();
+
+      if (success) {
+        // Update authentication state
+        setIsAuthenticated(false);
+        // Clear playback info
+        setPlaybackInfo(null);
+        addLog("Logout successful", "INFO");
+      } else {
+        addLog("Logout failed", "ERROR");
+      }
     } catch (error) {
       console.error("Logout error:", error);
-      addLog("Error during logout", "ERROR");
+      addLog(`Logout error: ${error}`, "ERROR");
     }
   };
 
-  // Monitoring functions
+  /**
+   * Start monitoring Spotify playback
+   */
   const handleStartMonitoring = async () => {
     try {
+      // Show monitoring start in progress
+      addLog("Starting Spotify playback monitoring...", "INFO");
+
+      // Attempt to start monitoring
       const success = await window.spotify.startMonitoring();
+
       if (success) {
+        // Update monitoring state
         setIsMonitoring(true);
-        addLog("Started Spotify playback monitoring", "INFO");
       } else {
         addLog("Failed to start monitoring", "ERROR");
       }
     } catch (error) {
       console.error("Error starting monitoring:", error);
-      addLog("Error starting monitoring", "ERROR");
+      addLog(`Error starting monitoring: ${error}`, "ERROR");
     }
   };
 
+  /**
+   * Stop monitoring Spotify playback
+   */
   const handleStopMonitoring = async () => {
     try {
+      // Show monitoring stop in progress
+      addLog("Stopping Spotify playback monitoring...", "INFO");
+
+      // Attempt to stop monitoring
       const success = await window.spotify.stopMonitoring();
+
       if (success) {
+        // Update monitoring state
         setIsMonitoring(false);
-        addLog("Stopped Spotify playback monitoring", "INFO");
       } else {
         addLog("Failed to stop monitoring", "ERROR");
       }
     } catch (error) {
       console.error("Error stopping monitoring:", error);
-      addLog("Error stopping monitoring", "ERROR");
+      addLog(`Error stopping monitoring: ${error}`, "ERROR");
     }
   };
 
-  // Clear logs function - now also clears persistent storage
+  /**
+   * Clear application logs
+   */
   const handleClearLogs = async () => {
     try {
-      await window.spotify.clearLogs();
-      setLogs([]);
-      addLog("Logs cleared", "INFO");
+      // Attempt to clear logs
+      const success = await window.spotify.clearLogs();
+
+      if (success) {
+        // Update logs state
+        setLogs([]);
+        addLog("Logs cleared", "INFO");
+      } else {
+        addLog("Failed to clear logs", "ERROR");
+      }
     } catch (error) {
       console.error("Error clearing logs:", error);
-      addLog("Error clearing logs", "ERROR");
+      addLog(`Error clearing logs: ${error}`, "ERROR");
     }
   };
 
-  // Format time function
+  /**
+   * Format seconds into MM:SS format
+   *
+   * @param seconds - Number of seconds to format
+   * @returns Formatted time string
+   */
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
-  // Helper function to filter logs by level
+  /**
+   * Filter logs based on the selected log level
+   *
+   * @returns Filtered and sorted array of log messages
+   */
   const getFilteredLogs = () => {
     const logLevels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
-    const currentLevelIndex = logLevels.indexOf(settings.logLevel);
+    const selectedLevelIndex = logLevels.indexOf(settings.logLevel);
 
-    // If we have an invalid log level, just return all logs but ensure they're unique
-    if (currentLevelIndex === -1) {
-      const uniqueLogs: string[] = [];
-      logs.forEach((log) => {
-        if (!uniqueLogs.includes(log)) {
-          uniqueLogs.push(log);
-        }
-      });
-      // Sort logs by timestamp (expected format: "[timestamp] [LEVEL] message")
-      return sortLogsByTimestamp(uniqueLogs);
-    }
+    // Only show logs at or above the selected level
+    const filteredLogs = logs.filter((log) => {
+      // Parse log level from the log string
+      const match = log.match(/\[.*?\]\s+\[([A-Z]+)\]/);
+      if (!match) return false;
 
-    // First filter by log level
-    const filtered = logs.filter((log) => {
-      // Parse log level from log entry (expected format: "[timestamp] [LEVEL] message")
-      // The log format is like "[12:34:56] [INFO] Message"
-      const levelMatch = log.match(/\[.*?\]\s+\[([A-Z]+)\]/);
-      if (!levelMatch) return true; // No level found, include by default
-
-      const logLevel = levelMatch[1];
+      const logLevel = match[1];
       const logLevelIndex = logLevels.indexOf(logLevel);
 
-      // Show logs that have level >= current selected level
-      return logLevelIndex >= currentLevelIndex;
+      return logLevelIndex >= selectedLevelIndex;
     });
 
-    // Then remove duplicate logs (same exact content)
-    const uniqueLogs: string[] = [];
-    filtered.forEach((log) => {
-      if (!uniqueLogs.includes(log)) {
-        uniqueLogs.push(log);
-      }
-    });
-
-    // Finally, sort logs by timestamp
-    return sortLogsByTimestamp(uniqueLogs);
+    // Sort logs by timestamp
+    return sortLogsByTimestamp(filteredLogs);
   };
 
-  // Helper function to sort logs by timestamp
+  /**
+   * Sort logs by their timestamp (newest first)
+   *
+   * @param logsToSort - Array of log messages to sort
+   * @returns Sorted array of log messages
+   */
   const sortLogsByTimestamp = (logsToSort: string[]): string[] => {
-    return logsToSort.sort((a, b) => {
+    return [...logsToSort].sort((a, b) => {
       // Extract timestamps from log entries
-      const timestampA = a.match(/\[(.*?)\]/)?.[1] || "";
-      const timestampB = b.match(/\[(.*?)\]/)?.[1] || "";
+      const timestampA = a.match(/\[(.*?)\]/);
+      const timestampB = b.match(/\[(.*?)\]/);
 
-      // Parse timestamps (format is typically HH:MM:SS)
-      const timeA = timestampA.split(":").map(Number);
-      const timeB = timestampB.split(":").map(Number);
-
-      // Convert to seconds for comparison
-      const secondsA =
-        (timeA[0] || 0) * 3600 + (timeA[1] || 0) * 60 + (timeA[2] || 0);
-      const secondsB =
-        (timeB[0] || 0) * 3600 + (timeB[1] || 0) * 60 + (timeB[2] || 0);
-
-      // Handle day rollover (if timestamps span midnight)
-      if (Math.abs(secondsA - secondsB) > 43200) {
-        // 12 hours in seconds
-        // If the difference is more than 12 hours, assume day rollover
-        return secondsA > secondsB ? -1 : 1;
+      if (!timestampA || !timestampB) {
+        return 0;
       }
 
-      // Regular chronological comparison
-      return secondsA - secondsB;
+      return timestampB[1].localeCompare(timestampA[1]);
     });
   };
 
-  // Helper function to get the CSS class for each log level
+  /**
+   * Get CSS class for log entry based on its level
+   *
+   * @param log - Log message string
+   * @returns CSS class string for styling
+   */
   const getLogLevelClass = (log: string): string => {
-    // Extract log level from the log entry
-    const levelMatch = log.match(/\[.*?\]\s+\[([A-Z]+)\]/);
-    if (!levelMatch) return "text-gray-500"; // Default color if no level found
-
-    // Apply appropriate color based on log level
-    switch (levelMatch[1]) {
-      case "DEBUG":
-        return "text-slate-500 dark:text-slate-400";
-      case "INFO":
-        return "text-blue-600 dark:text-blue-400";
-      case "WARNING":
-        return "text-amber-600 dark:text-amber-400";
-      case "ERROR":
-        return "text-red-600 dark:text-red-400";
-      case "CRITICAL":
-        return "text-rose-700 dark:text-rose-400 font-bold";
-      default:
-        return "text-gray-500";
+    if (log.includes("[DEBUG]")) {
+      return "text-muted-foreground";
+    } else if (log.includes("[INFO]")) {
+      return "text-primary";
+    } else if (log.includes("[WARNING]")) {
+      return "text-yellow-600 dark:text-yellow-400";
+    } else if (log.includes("[ERROR]")) {
+      return "text-red-600 dark:text-red-400";
+    } else if (log.includes("[CRITICAL]")) {
+      return "text-red-700 dark:text-red-300 font-bold";
     }
+    return "";
   };
 
   return (
-    <div className="flex h-full flex-col p-4">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="font-mono text-2xl font-bold">Home</h1>
-          <p
-            className="text-muted-foreground text-sm uppercase"
-            data-testid="pageTitle"
-          >
-            Dashboard
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {isAuthenticated ? (
-            <>
-              {isMonitoring ? (
-                <Button variant="outline" onClick={handleStopMonitoring}>
-                  Stop Monitoring
+    <div className="container mx-auto py-4">
+      {/* Authentication and Monitoring Controls */}
+      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Card>
+          <CardContent className="p-4">
+            <h2 className="mb-4 text-lg font-semibold">Authentication</h2>
+            {isAuthenticated ? (
+              <div className="flex items-center justify-between">
+                <span className="text-green-600 dark:text-green-400">
+                  Connected to Spotify
+                </span>
+                <Button variant="outline" onClick={handleLogout}>
+                  Logout
                 </Button>
-              ) : (
-                <Button variant="outline" onClick={handleStartMonitoring}>
-                  Start Monitoring
-                </Button>
-              )}
-              <Button variant="destructive" onClick={handleLogout}>
-                Logout
-              </Button>
-            </>
-          ) : (
-            <Button onClick={handleAuthenticate}>Connect with Spotify</Button>
-          )}
-        </div>
-      </div>
-
-      <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Playback Info */}
-        <Card className="flex h-full flex-col">
-          <CardContent className="flex flex-1 flex-col p-6">
-            {playbackInfo?.isInPlaylist && (
-              <div className="mb-4 rounded-md bg-yellow-100 p-3 text-sm text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                This track is part of your library. Skipping will be tracked.
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <span className="text-red-600 dark:text-red-400">
+                  Not connected to Spotify
+                </span>
+                <Button onClick={handleAuthenticate}>Connect</Button>
               </div>
             )}
+          </CardContent>
+        </Card>
 
-            {playbackInfo ? (
-              <div className="flex flex-1 flex-col items-center justify-center gap-4">
-                <div className="h-48 w-48 overflow-hidden rounded-md">
+        <Card>
+          <CardContent className="p-4">
+            <h2 className="mb-4 text-lg font-semibold">Playback Monitoring</h2>
+            {isAuthenticated ? (
+              <div className="flex items-center justify-between">
+                <span
+                  className={
+                    isMonitoring
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  }
+                >
+                  {isMonitoring ? "Monitoring Active" : "Monitoring Inactive"}
+                </span>
+                {isMonitoring ? (
+                  <Button
+                    variant="outline"
+                    onClick={handleStopMonitoring}
+                    disabled={!isAuthenticated}
+                  >
+                    Stop Monitoring
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleStartMonitoring}
+                    disabled={!isAuthenticated}
+                  >
+                    Start Monitoring
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <span className="text-muted-foreground">
+                Authenticate to enable monitoring
+              </span>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Now Playing Section */}
+      <Card className="mb-4">
+        <CardContent className="p-4">
+          <h2 className="mb-4 text-lg font-semibold">Now Playing</h2>
+          {playbackInfo && isAuthenticated ? (
+            <div className="flex flex-col gap-4 md:flex-row">
+              <div className="flex-shrink-0">
+                {playbackInfo.albumArt ? (
                   <img
                     src={playbackInfo.albumArt}
-                    alt={`${playbackInfo.album} cover`}
-                    className="h-full w-full object-cover"
+                    alt="Album Artwork"
+                    className="h-32 w-32 rounded-md object-cover shadow-md"
                   />
-                </div>
-
-                <div className="w-full text-center">
-                  <h3 className="truncate text-xl font-semibold">
-                    {playbackInfo.trackName}
+                ) : (
+                  <div className="bg-muted text-muted-foreground flex h-32 w-32 items-center justify-center rounded-md text-center text-xs">
+                    No Album Art
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-1 flex-col justify-between">
+                <div>
+                  <h3 className="text-base font-semibold">
+                    {playbackInfo.trackName || "Unknown Track"}
                   </h3>
-                  <p className="text-muted-foreground">{playbackInfo.artist}</p>
                   <p className="text-muted-foreground text-sm">
-                    {playbackInfo.album}
+                    {playbackInfo.artist || "Unknown Artist"}
                   </p>
+                  <p className="text-muted-foreground text-xs">
+                    {playbackInfo.album || "Unknown Album"}
+                  </p>
+                  {playbackInfo.isInPlaylist !== undefined && (
+                    <p
+                      className={`mt-2 text-xs ${
+                        playbackInfo.isInPlaylist
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {playbackInfo.isInPlaylist
+                        ? "Track is in your library"
+                        : "Track is not in your library"}
+                    </p>
+                  )}
                 </div>
-
-                <div className="w-full space-y-2">
-                  <Progress value={playbackInfo.progress} className="h-2" />
-                  <div className="flex justify-between text-xs">
+                <div className="mt-2">
+                  <Progress
+                    value={playbackInfo.progress}
+                    className="h-1.5 w-full"
+                  />
+                  <div className="text-muted-foreground mt-1 flex justify-between text-xs">
                     <span>
                       {formatTime(
                         (playbackInfo.progress / 100) * playbackInfo.duration,
@@ -413,85 +541,64 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="flex flex-1 flex-col items-center justify-center">
-                <p className="text-muted-foreground">
-                  {isAuthenticated
-                    ? isMonitoring
-                      ? "No active playback"
-                      : "Monitoring not started"
-                    : "Not connected to Spotify"}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">
+              {isAuthenticated
+                ? "No track currently playing"
+                : "Connect to Spotify to see playback information"}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* Logs */}
-        <Card className="flex h-full flex-col">
-          <CardContent className="flex h-full flex-col p-6">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-medium">Logs</h3>
-              </div>
-              <div className="flex gap-2">
-                <Select
-                  value={settings.logLevel}
-                  onValueChange={(value) =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      logLevel: value as
-                        | "DEBUG"
-                        | "INFO"
-                        | "WARNING"
-                        | "ERROR"
-                        | "CRITICAL",
-                    }))
-                  }
-                >
-                  <SelectTrigger className="h-8 w-[120px]">
-                    <SelectValue placeholder="Log Level" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="DEBUG">DEBUG</SelectItem>
-                    <SelectItem value="INFO">INFO</SelectItem>
-                    <SelectItem value="WARNING">WARNING</SelectItem>
-                    <SelectItem value="ERROR">ERROR</SelectItem>
-                    <SelectItem value="CRITICAL">CRITICAL</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="sm" onClick={handleClearLogs}>
-                  Clear
-                </Button>
-              </div>
+      {/* Logs Section */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Activity Logs</h2>
+            <div className="flex items-center gap-2">
+              <Select
+                value={settings.logLevel}
+                onValueChange={handleLogLevelChange}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Log Level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DEBUG">DEBUG</SelectItem>
+                  <SelectItem value="INFO">INFO</SelectItem>
+                  <SelectItem value="WARNING">WARNING</SelectItem>
+                  <SelectItem value="ERROR">ERROR</SelectItem>
+                  <SelectItem value="CRITICAL">CRITICAL</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" onClick={handleClearLogs}>
+                Clear Logs
+              </Button>
             </div>
-            <Separator className="mb-2" />
-            <div className="flex-1 overflow-hidden">
-              <ScrollArea className="h-[100vh] max-h-[400px]">
-                <div className="space-y-1 pr-4 font-mono text-xs">
-                  {(() => {
-                    const filteredLogs = getFilteredLogs();
-                    return filteredLogs.length > 0 ? (
-                      filteredLogs.map((log, index) => (
-                        <div
-                          key={index}
-                          className={`py-1 break-all whitespace-pre-wrap ${getLogLevelClass(log)}`}
-                        >
-                          {log}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-muted-foreground text-center italic">
-                        No logs to display
-                      </p>
-                    );
-                  })()}
-                </div>
-              </ScrollArea>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+          <Separator className="my-2" />
+          <ScrollArea className="h-60 w-full rounded-md border p-4">
+            {getFilteredLogs().length > 0 ? (
+              <div className="space-y-1">
+                {getFilteredLogs().map((log, index) => (
+                  <div
+                    key={index}
+                    className={`font-mono text-xs ${getLogLevelClass(log)}`}
+                  >
+                    {log}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center text-sm">
+                No logs to display
+              </p>
+            )}
+          </ScrollArea>
+        </CardContent>
+      </Card>
     </div>
   );
 }

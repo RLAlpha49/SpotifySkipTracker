@@ -1,3 +1,17 @@
+/**
+ * Settings Page
+ *
+ * This page provides a form for configuring the application's settings,
+ * including:
+ * - Spotify API credentials (Client ID, Client Secret, Redirect URI)
+ * - Skip detection settings (threshold, timeframe, progress percentage)
+ * - Application settings (log level, log line count)
+ * - Theme preferences
+ *
+ * The form uses React Hook Form with Zod validation to ensure
+ * all settings are valid before being saved.
+ */
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,7 +39,6 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import ToggleTheme from "@/components/ToggleTheme";
 import {
   AlertDialog,
@@ -38,7 +51,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-// Define schema for settings form
+/**
+ * Zod schema for validating settings form inputs
+ * Defines validation rules for all form fields
+ */
 const settingsFormSchema = z.object({
   // Spotify API credentials
   clientId: z.string().min(1, { message: "Client ID is required" }),
@@ -52,18 +68,26 @@ const settingsFormSchema = z.object({
   timeframeInDays: z.coerce.number().int().min(1).max(365),
 });
 
-// Type for application settings
+/**
+ * Type definition for application settings
+ * Includes all validated form fields plus the skipProgress setting
+ * which is handled separately with a slider
+ */
 type SpotifySettings = z.infer<typeof settingsFormSchema> & {
   skipProgress: number;
 };
 
 export default function SettingsPage() {
-  const [skipProgressValue, setSkipProgressValue] = useState<number>(70);
-  const [originalSettings, setOriginalSettings] =
-    useState<SpotifySettings | null>(null);
+  // State for application restart confirmation dialog
   const [showRestartDialog, setShowRestartDialog] = useState(false);
+  // State for tracking whether settings have been changed
+  const [settingsChanged, setSettingsChanged] = useState(false);
+  // State for skip progress percentage slider
+  const [skipProgress, setSkipProgress] = useState(70);
 
-  // Initialize form with default values
+  /**
+   * Initialize form with React Hook Form and Zod validation
+   */
   const form = useForm<z.infer<typeof settingsFormSchema>>({
     resolver: zodResolver(settingsFormSchema),
     defaultValues: {
@@ -77,29 +101,30 @@ export default function SettingsPage() {
     },
   });
 
-  // Load saved settings on component mount
+  /**
+   * Load saved settings from storage when component mounts
+   */
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        // Get settings from persistent storage
-        const savedSettings = await window.spotify.getSettings();
+        const settings = await window.spotify.getSettings();
 
-        // Store original settings for comparison
-        setOriginalSettings(savedSettings);
-
-        // Update form with saved settings
+        // Update form values with loaded settings
         form.reset({
-          clientId: savedSettings.clientId,
-          clientSecret: savedSettings.clientSecret,
-          redirectUri: savedSettings.redirectUri,
-          logLevel: savedSettings.logLevel,
-          logLineCount: savedSettings.logLineCount,
-          skipThreshold: savedSettings.skipThreshold,
-          timeframeInDays: savedSettings.timeframeInDays,
+          clientId: settings.clientId || "",
+          clientSecret: settings.clientSecret || "",
+          redirectUri: settings.redirectUri || "http://localhost:8888/callback",
+          logLevel: settings.logLevel || "INFO",
+          logLineCount: settings.logLineCount || 100,
+          skipThreshold: settings.skipThreshold || 3,
+          timeframeInDays: settings.timeframeInDays || 30,
         });
 
-        // Update skip progress value
-        setSkipProgressValue(savedSettings.skipProgress);
+        // Update the skip progress slider
+        setSkipProgress(settings.skipProgress || 70);
+
+        // Reset the settings changed flag
+        setSettingsChanged(false);
       } catch (error) {
         console.error("Failed to load settings:", error);
         toast.error("Failed to load settings", {
@@ -111,345 +136,392 @@ export default function SettingsPage() {
     loadSettings();
   }, [form]);
 
-  // Check if critical settings that require restart have changed
+  /**
+   * Check if the new settings require an application restart
+   *
+   * @param newSettings - The new settings to be saved
+   * @returns True if restart is required, false otherwise
+   */
   const requiresRestart = (newSettings: SpotifySettings): boolean => {
-    if (!originalSettings) return false;
+    const currentValues = form.getValues();
 
-    // These settings require a restart to take effect
-    const criticalSettings = [
-      "clientId",
-      "clientSecret",
-      "redirectUri",
-      "logLevel",
-    ] as const;
-
-    return criticalSettings.some(
-      (setting) => originalSettings[setting] !== newSettings[setting],
+    // Only certain settings changes require a restart
+    return (
+      currentValues.clientId !== newSettings.clientId ||
+      currentValues.clientSecret !== newSettings.clientSecret ||
+      currentValues.redirectUri !== newSettings.redirectUri
     );
   };
 
-  // Handle restart application
+  /**
+   * Handle application restart
+   * Calls the restart API and shows a toast notification
+   */
   const handleRestart = async () => {
     try {
-      // Tell the main process to restart the app
+      // Close the restart dialog
+      setShowRestartDialog(false);
+
+      // Show restart notification
+      toast.info("Restarting application...", {
+        description: "The application will restart now to apply changes.",
+      });
+
+      // Trigger application restart
       await window.spotify.restartApp();
     } catch (error) {
-      console.error("Failed to restart app:", error);
-      toast.error("Restart Failed", {
-        description: "Please close and reopen the application manually.",
+      console.error("Failed to restart application:", error);
+      toast.error("Failed to restart", {
+        description:
+          "Could not restart the application. Please restart manually.",
       });
     }
   };
 
-  // Handle form submission
+  /**
+   * Form submission handler
+   * Saves settings and shows restart dialog if needed
+   *
+   * @param values - Form values from React Hook Form
+   */
   async function onSubmit(values: z.infer<typeof settingsFormSchema>) {
     try {
-      // Show processing toast
-      toast.loading("Saving settings...");
-
-      const newSettings: SpotifySettings = {
+      // Combine form values with skip progress setting
+      const settings: SpotifySettings = {
         ...values,
-        skipProgress: skipProgressValue,
+        skipProgress,
       };
 
-      // Log settings changes
-      await window.spotify.saveLog(
-        `Updating settings - log level: ${newSettings.logLevel}, skip threshold: ${newSettings.skipThreshold}`,
-        "DEBUG",
-      );
-
-      // Save settings to persistent storage
-      const success = await window.spotify.saveSettings(newSettings);
+      // Save settings to storage
+      const success = await window.spotify.saveSettings(settings);
 
       if (success) {
-        // Dismiss loading toast and show success toast
-        toast.dismiss();
-        toast.success("Settings saved successfully");
+        // Show success notification
+        toast.success("Settings saved", {
+          description: "Your settings have been saved successfully.",
+        });
 
-        // Log settings saved
-        await window.spotify.saveLog("Settings updated successfully", "DEBUG");
-
-        // Store the new settings as original settings
-        setOriginalSettings(newSettings);
-
-        // Check if restart is needed
-        if (requiresRestart(newSettings)) {
-          await window.spotify.saveLog(
-            "Settings change requires application restart",
-            "WARNING",
-          );
+        // Check if restart is required
+        if (requiresRestart(settings)) {
           setShowRestartDialog(true);
         }
-      } else {
-        // Dismiss loading toast and show error toast
-        toast.dismiss();
-        toast.error("Failed to save settings");
 
-        // Log error
-        await window.spotify.saveLog("Failed to save settings", "ERROR");
+        // Reset settings changed flag
+        setSettingsChanged(false);
+      } else {
+        // Show error notification
+        toast.error("Failed to save settings", {
+          description: "Could not save settings. Please try again.",
+        });
       }
     } catch (error) {
       console.error("Error saving settings:", error);
-      // Dismiss loading toast and show error toast
-      toast.dismiss();
       toast.error("Error", {
-        description:
-          "An unexpected error occurred while saving settings. Please check the console for details.",
-        duration: 4000,
+        description: "An error occurred while saving settings.",
       });
     }
   }
 
+  /**
+   * Track form changes to enable/disable save button
+   */
+  useEffect(() => {
+    const subscription = form.watch(() => setSettingsChanged(true));
+    return () => subscription.unsubscribe();
+  }, [form]);
+
   return (
-    <>
-      <div className="flex h-full flex-col p-4">
-        <div className="mb-4">
-          <h1 className="font-mono text-2xl font-bold">Settings</h1>
-          <p className="text-muted-foreground text-sm uppercase">
-            Configure application settings
-          </p>
-        </div>
-
-        <Card className="flex flex-1 flex-col">
-          <CardContent className="flex flex-1 flex-col p-6">
-            <ScrollArea className="flex-1 pr-4">
-              <Form {...form}>
-                <form
-                  onSubmit={form.handleSubmit(onSubmit)}
-                  className="space-y-8"
-                >
-                  {/* Spotify API section */}
-                  <div>
-                    <h3 className="text-lg font-medium">
-                      Spotify API Settings
-                    </h3>
-                    <p className="text-muted-foreground text-sm">
-                      Configure your Spotify API credentials
-                    </p>
-                    <Separator className="my-4" />
-
-                    <div className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="clientId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Client ID</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Spotify Client ID"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="clientSecret"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Client Secret</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="password"
-                                placeholder="Spotify Client Secret"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="redirectUri"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Redirect URI</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="http://localhost:8888/callback"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              This should match what you have configured in your
-                              Spotify Developer Dashboard
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Log settings section */}
-                  <div>
-                    <h3 className="text-lg font-medium">Log Settings</h3>
-                    <Separator className="my-4" />
-
-                    <div className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="logLevel"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Log Level</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select log level" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="DEBUG">DEBUG</SelectItem>
-                                <SelectItem value="INFO">INFO</SelectItem>
-                                <SelectItem value="WARNING">WARNING</SelectItem>
-                                <SelectItem value="ERROR">ERROR</SelectItem>
-                                <SelectItem value="CRITICAL">
-                                  CRITICAL
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormDescription>
-                              Controls which log messages are displayed (DEBUG
-                              shows all, CRITICAL shows only critical messages)
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="logLineCount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Log Line Count</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min={10}
-                                max={1000}
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Maximum number of log lines to display
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Skip settings section */}
-                  <div>
-                    <h3 className="text-lg font-medium">Skip Settings</h3>
-                    <Separator className="my-4" />
-
-                    <div className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="skipThreshold"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Skip Threshold</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min={1}
-                                max={10}
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Number of skips before a track is considered for
-                              unliking
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="timeframeInDays"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Timeframe (Days)</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min={1}
-                                max={365}
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Only consider skips within this timeframe
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="space-y-2">
-                        <Label>Skip Progress: {skipProgressValue}%</Label>
-                        <Slider
-                          value={[skipProgressValue]}
-                          onValueChange={(value) =>
-                            setSkipProgressValue(value[0])
-                          }
-                          min={0}
-                          max={100}
-                          step={1}
-                        />
-                        <p className="text-muted-foreground text-xs">
-                          Progress threshold for counting a skip (percentage of
-                          track duration)
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Theme settings section */}
-                  <div>
-                    <h3 className="text-lg font-medium">Appearance Settings</h3>
-                    <Separator className="my-4" />
-
-                    <div className="flex items-center space-x-2">
-                      <Label>Theme</Label>
-                      <ToggleTheme />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button type="submit">Save Settings</Button>
-                  </div>
-                </form>
-              </Form>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+    <div className="container mx-auto py-4">
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold">Settings</h1>
+        <p className="text-muted-foreground text-sm">
+          Configure application settings and Spotify credentials
+        </p>
       </div>
 
-      {/* Restart Dialog */}
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <ScrollArea className="h-[calc(100vh-200px)]">
+            <div className="space-y-6 pr-4">
+              {/* Spotify API Settings */}
+              <div>
+                <h2 className="text-lg font-semibold">
+                  Spotify API Credentials
+                </h2>
+                <p className="text-muted-foreground mb-4 text-sm">
+                  Enter your Spotify Developer credentials. You can get these
+                  from the{" "}
+                  <a
+                    href="https://developer.spotify.com/dashboard"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    Spotify Developer Dashboard
+                  </a>
+                  .
+                </p>
+
+                <Card>
+                  <CardContent className="space-y-4 p-6">
+                    <FormField
+                      control={form.control}
+                      name="clientId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Client ID</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Spotify Client ID"
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                setSettingsChanged(true);
+                              }}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Your Spotify application Client ID
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="clientSecret"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Client Secret</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              placeholder="Spotify Client Secret"
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                setSettingsChanged(true);
+                              }}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Your Spotify application Client Secret
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="redirectUri"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Redirect URI</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="http://localhost:8888/callback"
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                setSettingsChanged(true);
+                              }}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            The redirect URI registered in your Spotify
+                            application
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Skip Detection Settings */}
+              <div>
+                <h2 className="text-lg font-semibold">
+                  Skip Detection Settings
+                </h2>
+                <p className="text-muted-foreground mb-4 text-sm">
+                  Configure how skips are detected and when tracks are removed
+                </p>
+
+                <Card>
+                  <CardContent className="space-y-4 p-6">
+                    <FormField
+                      control={form.control}
+                      name="skipThreshold"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Skip Count Threshold</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={10}
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                setSettingsChanged(true);
+                              }}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Number of skips before a track is suggested for
+                            removal
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="timeframeInDays"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Analysis Timeframe (days)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={365}
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                setSettingsChanged(true);
+                              }}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Period of time to consider for skip analysis
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="space-y-2">
+                      <Label htmlFor="skipProgress">
+                        Skip Progress Threshold: {skipProgress}%
+                      </Label>
+                      <Slider
+                        id="skipProgress"
+                        min={10}
+                        max={90}
+                        step={5}
+                        value={[skipProgress]}
+                        onValueChange={(value) => {
+                          setSkipProgress(value[0]);
+                          setSettingsChanged(true);
+                        }}
+                      />
+                      <p className="text-muted-foreground text-xs">
+                        If a track is played beyond this percentage, it
+                        won&apos;t be considered skipped
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Application Settings */}
+              <div>
+                <h2 className="text-lg font-semibold">Application Settings</h2>
+                <p className="text-muted-foreground mb-4 text-sm">
+                  Configure general application behavior
+                </p>
+
+                <Card>
+                  <CardContent className="space-y-4 p-6">
+                    <FormField
+                      control={form.control}
+                      name="logLevel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Log Level</FormLabel>
+                          <Select
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              setSettingsChanged(true);
+                            }}
+                            defaultValue={field.value}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select log level" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="DEBUG">DEBUG</SelectItem>
+                              <SelectItem value="INFO">INFO</SelectItem>
+                              <SelectItem value="WARNING">WARNING</SelectItem>
+                              <SelectItem value="ERROR">ERROR</SelectItem>
+                              <SelectItem value="CRITICAL">CRITICAL</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Minimum log level to display
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="logLineCount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Log Line Count</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={10}
+                              max={1000}
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                setSettingsChanged(true);
+                              }}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Maximum number of log lines to keep
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="space-y-2">
+                      <Label>Theme</Label>
+                      <div className="flex items-center space-x-2">
+                        <ToggleTheme />
+                        <span className="text-sm">Toggle dark/light mode</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </ScrollArea>
+
+          <div className="flex justify-end">
+            <Button type="submit" disabled={!settingsChanged}>
+              Save Settings
+            </Button>
+          </div>
+        </form>
+      </Form>
+
+      {/* Application Restart Dialog */}
       <AlertDialog open={showRestartDialog} onOpenChange={setShowRestartDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Restart Required</AlertDialogTitle>
             <AlertDialogDescription>
-              Some of the settings you changed require the application to
-              restart in order to take effect. Would you like to restart now?
+              The changes you made require an application restart to take
+              effect. Do you want to restart now?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -460,6 +532,6 @@ export default function SettingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }
