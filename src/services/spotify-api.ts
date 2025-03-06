@@ -12,6 +12,137 @@ let accessToken: string | null = null;
 let refreshToken: string | null = null;
 let tokenExpiryTime: number = 0;
 
+// Define types for Spotify API responses
+interface SpotifyImage {
+  url: string;
+  height: number;
+  width: number;
+}
+
+interface SpotifyExternalUrls {
+  spotify: string;
+}
+
+interface SpotifyFollowers {
+  href: string | null;
+  total: number;
+}
+
+interface SpotifyUserProfile {
+  country: string;
+  display_name: string;
+  email: string;
+  explicit_content: {
+    filter_enabled: boolean;
+    filter_locked: boolean;
+  };
+  external_urls: SpotifyExternalUrls;
+  followers: SpotifyFollowers;
+  href: string;
+  id: string;
+  images: SpotifyImage[];
+  product: string;
+  type: string;
+  uri: string;
+}
+
+interface SpotifyArtist {
+  external_urls: SpotifyExternalUrls;
+  href: string;
+  id: string;
+  name: string;
+  type: string;
+  uri: string;
+}
+
+interface SpotifyAlbum {
+  album_type: string;
+  artists: SpotifyArtist[];
+  available_markets: string[];
+  external_urls: SpotifyExternalUrls;
+  href: string;
+  id: string;
+  images: SpotifyImage[];
+  name: string;
+  release_date: string;
+  release_date_precision: string;
+  total_tracks: number;
+  type: string;
+  uri: string;
+}
+
+interface SpotifyTrack {
+  album: SpotifyAlbum;
+  artists: SpotifyArtist[];
+  available_markets: string[];
+  disc_number: number;
+  duration_ms: number;
+  explicit: boolean;
+  external_ids: { isrc: string };
+  external_urls: SpotifyExternalUrls;
+  href: string;
+  id: string;
+  is_local: boolean;
+  name: string;
+  popularity: number;
+  preview_url: string;
+  track_number: number;
+  type: string;
+  uri: string;
+}
+
+interface SpotifyDevice {
+  id: string;
+  is_active: boolean;
+  is_private_session: boolean;
+  is_restricted: boolean;
+  name: string;
+  type: string;
+  volume_percent: number;
+}
+
+interface SpotifyPlaybackState {
+  device: SpotifyDevice;
+  repeat_state: string;
+  shuffle_state: boolean;
+  context: {
+    type: string;
+    href: string;
+    external_urls: SpotifyExternalUrls;
+    uri: string;
+  } | null;
+  timestamp: number;
+  progress_ms: number;
+  is_playing: boolean;
+  item: SpotifyTrack;
+  currently_playing_type: string;
+  actions: {
+    disallows: Record<string, boolean>;
+  };
+}
+
+interface SpotifyPlayHistory {
+  track: SpotifyTrack;
+  played_at: string;
+  context: {
+    type: string;
+    href: string;
+    external_urls: SpotifyExternalUrls;
+    uri: string;
+  } | null;
+}
+
+interface SpotifyRecentlyPlayedResponse {
+  items: SpotifyPlayHistory[];
+  next: string | null;
+  cursors: {
+    after: string;
+    before: string;
+  };
+  limit: number;
+  href: string;
+}
+
 /**
  * Generate the authorization URL for Spotify OAuth
  */
@@ -80,7 +211,7 @@ export async function exchangeCodeForTokens(
 export async function refreshAccessToken(
   clientId: string,
   clientSecret: string,
-): Promise<string> {
+): Promise<string | never> {
   if (!refreshToken) {
     throw new Error("No refresh token available");
   }
@@ -111,7 +242,12 @@ export async function refreshAccessToken(
 
     saveLog("Successfully refreshed access token", "DEBUG");
 
-    return accessToken;
+    // Make sure we never return null here
+    if (!accessToken) {
+      throw new Error("Failed to get access token from response");
+    }
+    
+    return accessToken as string;
   } catch (error) {
     saveLog(`Failed to refresh access token: ${error}`, "ERROR");
     throw error;
@@ -153,7 +289,7 @@ export function clearTokens(): void {
 export async function getCurrentUser(
   clientId: string,
   clientSecret: string,
-): Promise<any> {
+): Promise<SpotifyUserProfile> {
   await ensureValidToken(clientId, clientSecret);
 
   try {
@@ -175,7 +311,7 @@ export async function getCurrentUser(
 export async function getCurrentPlayback(
   clientId: string,
   clientSecret: string,
-): Promise<any> {
+): Promise<SpotifyPlaybackState | null> {
   await ensureValidToken(clientId, clientSecret);
 
   try {
@@ -204,7 +340,7 @@ export async function getRecentlyPlayedTracks(
   clientId: string,
   clientSecret: string,
   limit: number = 5,
-): Promise<any> {
+): Promise<SpotifyRecentlyPlayedResponse> {
   await ensureValidToken(clientId, clientSecret);
 
   try {

@@ -467,7 +467,7 @@ export default function HomePage() {
             </div>
             <Separator className="mb-2" />
             <div className="flex-1 overflow-hidden">
-              <ScrollArea className="h-[calc(100vh-260px)] max-h-[400px]">
+              <ScrollArea className="h-[100vh] max-h-[400px]">
                 <div className="space-y-1 pr-4 font-mono text-xs">
                   {(() => {
                     const filteredLogs = getFilteredLogs();
