@@ -1,3 +1,18 @@
+/**
+ * Spotify Playback Monitoring Service
+ *
+ * This service is responsible for monitoring Spotify playback in real-time and
+ * detecting when tracks are skipped. It uses the Spotify Web API to poll the
+ * current playback state and tracks user listening behavior.
+ *
+ * Key Features:
+ * - Real-time monitoring of Spotify playback
+ * - Skip detection based on configurable progress thresholds
+ * - Tracking of play completion stats
+ * - Integration with library management (removing frequently skipped tracks)
+ * - Statistics collection and storage
+ */
+
 import { BrowserWindow } from "electron";
 import {
   getCurrentPlayback,
@@ -7,6 +22,10 @@ import {
 } from "./spotify-api";
 import { saveLog, getSettings } from "../helpers/storage/store";
 
+/**
+ * Internal state for tracking playback information
+ * Maintains the current playback state and history between polling intervals
+ */
 interface PlaybackState {
   trackId: string | null;
   trackName: string | null;
@@ -35,28 +54,41 @@ let playbackState: PlaybackState = {
   lastNowPlayingLog: 0,
 };
 
+// Monitoring state variables
 let monitoringInterval: NodeJS.Timeout | null = null;
 let clientId: string;
 let clientSecret: string;
 
 // Define interfaces for Spotify API responses
+/**
+ * Represents an artist from the Spotify API
+ */
 interface SpotifyArtist {
   name: string;
   id: string;
 }
 
+/**
+ * Represents an image from the Spotify API
+ */
 interface SpotifyImage {
   url: string;
   height: number;
   width: number;
 }
 
+/**
+ * Represents an album from the Spotify API
+ */
 interface SpotifyAlbum {
   name: string;
   id: string;
   images: SpotifyImage[];
 }
 
+/**
+ * Represents a track from the Spotify API
+ */
 interface SpotifyTrack {
   id: string;
   name: string;
@@ -65,14 +97,23 @@ interface SpotifyTrack {
   duration_ms: number;
 }
 
+/**
+ * Represents a playback item from the Spotify API's recently played endpoint
+ */
 interface SpotifyPlaybackItem {
   track: SpotifyTrack;
 }
 
+/**
+ * Response format from the Spotify recently played tracks API
+ */
 interface RecentlyPlayedResponse {
   items: SpotifyPlaybackItem[];
 }
 
+/**
+ * Information about tracks that are skipped, including counts and timestamps
+ */
 interface SkippedTrackInfo {
   id: string;
   name: string;
@@ -83,7 +124,13 @@ interface SkippedTrackInfo {
 }
 
 /**
- * Start monitoring playback
+ * Starts monitoring Spotify playback to detect skips and track listening behavior.
+ * Sets up a polling interval to check playback state every second.
+ *
+ * @param mainWindow - The main application window for sending updates
+ * @param spotifyClientId - Spotify API client ID
+ * @param spotifyClientSecret - Spotify API client secret
+ * @returns boolean - Success status of starting the monitoring
  */
 export function startPlaybackMonitoring(
   mainWindow: BrowserWindow,
@@ -124,7 +171,10 @@ export function startPlaybackMonitoring(
 }
 
 /**
- * Stop monitoring playback
+ * Stops the playback monitoring process.
+ * Clears the monitoring interval and logs final state.
+ *
+ * @returns boolean - Success status of stopping the monitoring
  */
 export function stopPlaybackMonitoring(): boolean {
   try {
@@ -156,14 +206,21 @@ export function stopPlaybackMonitoring(): boolean {
 }
 
 /**
- * Check if monitoring is active
+ * Checks if the playback monitoring service is currently active.
+ *
+ * @returns boolean - True if monitoring is active, false otherwise
  */
 export function isMonitoringActive(): boolean {
   return monitoringInterval !== null;
 }
 
 /**
- * Monitor playback and detect skips
+ * Main monitoring function that polls the Spotify API for current playback.
+ * This function is called at regular intervals (typically 1 second) when monitoring is active.
+ *
+ * It detects track changes, updates playback state, and sends updates to the renderer process.
+ *
+ * @param mainWindow - The main application window for sending updates
  */
 async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
   try {
@@ -292,7 +349,14 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
 }
 
 /**
- * Handle track change and detect skips
+ * Handles track changes and detects if a track was skipped.
+ *
+ * This is the core of the skip detection logic:
+ * - When a track changes, check how far through the previous track the user was
+ * - If below the threshold, count it as a skip
+ * - Update statistics and potentially remove from library if skip count exceeds threshold
+ *
+ * @param newTrackId - The ID of the new track being played
  */
 async function handleTrackChange(newTrackId: string): Promise<void> {
   try {
@@ -391,7 +455,8 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
 }
 
 /**
- * Update the list of recent tracks
+ * Updates the list of recently played tracks from Spotify.
+ * This helps avoid false skip detection when users revisit recent tracks.
  */
 async function updateRecentTracks(): Promise<void> {
   try {
@@ -411,7 +476,8 @@ async function updateRecentTracks(): Promise<void> {
 }
 
 /**
- * Reset the playback state
+ * Resets the playback state when nothing is playing or playback is stopped.
+ * Maintains any existing recent tracks list.
  */
 function resetPlaybackState(): void {
   playbackState = {
@@ -428,7 +494,9 @@ function resetPlaybackState(): void {
 }
 
 /**
- * Get skipped tracks from storage
+ * Gets the list of skipped tracks from storage.
+ *
+ * @returns Promise<SkippedTrackInfo[]> - List of skipped tracks with counts and metadata
  */
 async function getSkippedTracks(): Promise<SkippedTrackInfo[]> {
   try {

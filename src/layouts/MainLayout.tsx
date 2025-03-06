@@ -1,10 +1,31 @@
-import React, { useState } from "react";
-import { Link, Outlet } from "@tanstack/react-router";
+/**
+ * Main Application Layout
+ *
+ * This component provides the consistent layout structure for the entire application.
+ * It includes:
+ * - Header with app title and theme toggle
+ * - Main content area with scrolling support
+ * - Bottom navigation bar with links to main sections
+ *
+ * The layout uses CSS app-region properties to enable window dragging
+ * in the Electron application, and it tracks the active route to highlight
+ * the current navigation item.
+ */
+
+import React, { useState, ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import ToggleTheme from "@/components/ToggleTheme";
 import { HomeIcon, SettingsIcon, SkipForwardIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-export default function MainLayout() {
+/**
+ * Props for the MainLayout component
+ */
+interface MainLayoutProps {
+  children: ReactNode;
+}
+
+export default function MainLayout({ children }: MainLayoutProps) {
   // Use state to track which route is active
   const [activeRoute, setActiveRoute] = useState("/");
 
@@ -31,9 +52,7 @@ export default function MainLayout() {
       </header>
 
       {/* Main Content - scrollable */}
-      <ScrollArea className="flex-1 overflow-auto">
-        <Outlet />
-      </ScrollArea>
+      <ScrollArea className="flex-1 overflow-auto">{children}</ScrollArea>
 
       {/* Bottom Navigation - fixed at the bottom */}
       <nav className="bg-background border-t">
@@ -49,7 +68,7 @@ export default function MainLayout() {
             aria-current={isHomeActive ? "page" : undefined}
           >
             <HomeIcon className="h-5 w-5" />
-            <span className="mt-1 text-xs">Home</span>
+            <span className="text-xs">Home</span>
           </Link>
 
           <Link
@@ -63,7 +82,7 @@ export default function MainLayout() {
             aria-current={isSkippedTracksActive ? "page" : undefined}
           >
             <SkipForwardIcon className="h-5 w-5" />
-            <span className="mt-1 text-xs">Skipped Tracks</span>
+            <span className="text-xs">Skipped</span>
           </Link>
 
           <Link
@@ -77,7 +96,7 @@ export default function MainLayout() {
             aria-current={isSettingsActive ? "page" : undefined}
           >
             <SettingsIcon className="h-5 w-5" />
-            <span className="mt-1 text-xs">Settings</span>
+            <span className="text-xs">Settings</span>
           </Link>
         </div>
       </nav>

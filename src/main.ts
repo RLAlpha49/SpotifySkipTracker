@@ -1,3 +1,24 @@
+/**
+ * Main Entry Point for Spotify Skip Tracker Electron Application
+ *
+ * This application monitors Spotify playback and tracks when songs are skipped.
+ * It helps users identify songs they frequently skip in their library, allowing them
+ * to make data-driven decisions about which tracks to keep or remove.
+ *
+ * Key Features:
+ * - OAuth authentication with Spotify API
+ * - Real-time playback monitoring
+ * - Skip detection with configurable thresholds
+ * - Automatic library management (optional removal of frequently skipped tracks)
+ * - Persistent storage of skip statistics
+ * - Activity logging with configurable verbosity
+ *
+ * Application Architecture:
+ * - Electron main process (this file) - Controls application lifecycle and sets up IPC
+ * - Renderer process - React UI for user interaction
+ * - Services - Modules handling specific functionality (auth, playback, storage)
+ */
+
 import { app, BrowserWindow, ipcMain, Menu } from "electron";
 import registerListeners from "./helpers/ipc/listeners-register";
 // "electron-squirrel-startup" seems broken when packaging with vite
@@ -38,9 +59,16 @@ import {
   clearTokens as clearStoredTokens,
 } from "./services/token-storage";
 
+// Environment detection for development vs. production mode
 const inDevelopment = process.env.NODE_ENV === "development";
 
-// Set up the IPC handlers for Spotify services
+/**
+ * Sets up all IPC (Inter-Process Communication) handlers for Spotify-related functionality.
+ * These handlers allow the renderer process (UI) to communicate with the main process
+ * and access Spotify API services.
+ *
+ * @param mainWindow - The main application window instance
+ */
 function setupSpotifyIPC(mainWindow: BrowserWindow) {
   // Authentication handlers
   ipcMain.handle("spotify:authenticate", async (_, credentials) => {
@@ -107,6 +135,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     }
   });
 
+  // Logout handler - Clears tokens and stops monitoring
   ipcMain.handle("spotify:logout", async () => {
     console.log("Logging out from Spotify");
 
@@ -125,6 +154,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     return true;
   });
 
+  // Authentication status check handler
   ipcMain.handle("spotify:isAuthenticated", async () => {
     // Try to load tokens from storage
     const storedTokens = loadTokens();
@@ -144,7 +174,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     return false;
   });
 
-  // Playback handlers
+  // Current playback information handler
   ipcMain.handle("spotify:getCurrentPlayback", async () => {
     try {
       const settings = getSettings();
@@ -160,7 +190,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     }
   });
 
-  // Skipped tracks handlers
+  // Skipped tracks management handlers
   ipcMain.handle("spotify:getSkippedTracks", async () => {
     const tracks = getSkippedTracks();
     saveLog(`Loaded ${tracks.length} skipped tracks from storage`, "DEBUG");
@@ -184,7 +214,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     return result;
   });
 
-  // Settings handlers - Updated to use persistent storage
+  // Settings handlers - Uses persistent storage
   ipcMain.handle("spotify:saveSettings", async (_, settings) => {
     console.log("Saving settings:", settings);
     const result = saveSettings(settings);
@@ -206,7 +236,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     return settings;
   });
 
-  // Logs handlers
+  // Logs management handlers
   ipcMain.handle("spotify:saveLog", async (_, message, level = "INFO") => {
     console.log(`Saving log [${level}]:`, message);
 
@@ -239,7 +269,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     return true;
   });
 
-  // Service handlers
+  // Playback monitoring service handlers
   ipcMain.handle("spotify:startMonitoring", async () => {
     console.log("Starting Spotify monitoring...");
 
@@ -285,7 +315,13 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   });
 }
 
-// Create the browser window.
+/**
+ * Creates the main application window and configures it.
+ * This includes setting up the menu, preload script, and loading the renderer.
+ * Also initializes IPC handlers and system event listeners.
+ *
+ * @returns The created BrowserWindow instance
+ */
 function createWindow() {
   // Set custom menu (minimal) or no menu
   if (inDevelopment) {
@@ -376,7 +412,10 @@ function createWindow() {
   return mainWindow;
 }
 
-// Install development extensions
+/**
+ * Installs developer extensions when in development mode.
+ * This helps with debugging and development workflows.
+ */
 async function installExtensions() {
   try {
     if (inDevelopment) {

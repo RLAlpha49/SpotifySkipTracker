@@ -1,3 +1,17 @@
+/**
+ * Storage Service for Spotify Skip Tracker
+ *
+ * This module provides persistent storage functionality for the application,
+ * handling settings, logs, and skip statistics. It uses the Electron app's
+ * user data directory to store files securely on the user's machine.
+ *
+ * Key Features:
+ * - Application settings management
+ * - Logging system with configurable verbosity
+ * - Storage for skipped track statistics
+ * - Automatic log rotation and archiving
+ */
+
 import { app } from "electron";
 import path from "path";
 import fs from "fs";
@@ -17,7 +31,12 @@ if (!fs.existsSync(logsPath)) {
   fs.mkdirSync(logsPath, { recursive: true });
 }
 
-// Handle "latest.log" at startup - rename it if it exists
+/**
+ * Log Rotation System
+ *
+ * At application startup, we archive the previous session's log file
+ * with a timestamp to maintain history while keeping the current log clean
+ */
 const latestLogPath = path.join(logsPath, "latest.log");
 if (fs.existsSync(latestLogPath)) {
   try {
@@ -35,19 +54,23 @@ if (fs.existsSync(latestLogPath)) {
   }
 }
 
-// Define settings schema for type safety
+/**
+ * Application Settings Schema
+ *
+ * Defines the structure and types for application settings
+ */
 interface SettingsSchema {
-  clientId: string;
-  clientSecret: string;
-  redirectUri: string;
-  logLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
-  logLineCount: number;
-  skipThreshold: number;
-  timeframeInDays: number;
-  skipProgress: number;
+  clientId: string; // Spotify API Client ID
+  clientSecret: string; // Spotify API Client Secret
+  redirectUri: string; // OAuth redirect URI
+  logLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL"; // Log verbosity
+  logLineCount: number; // Number of log lines to show in UI
+  skipThreshold: number; // Number of skips before suggesting removal
+  timeframeInDays: number; // Time window for skip analysis
+  skipProgress: number; // Progress percentage threshold to count as skip
 }
 
-// Default settings
+// Default settings applied when no settings file exists
 const defaultSettings: SettingsSchema = {
   clientId: "",
   clientSecret: "",
@@ -62,7 +85,12 @@ const defaultSettings: SettingsSchema = {
 // Path to settings file
 const settingsFilePath = path.join(appDataPath, "settings.json");
 
-// Function to save settings
+/**
+ * Save application settings to disk
+ *
+ * @param settings - Application settings to save
+ * @returns True if settings were saved successfully, false otherwise
+ */
 export function saveSettings(settings: SettingsSchema): boolean {
   try {
     // Create settings file if it doesn't exist
@@ -84,7 +112,12 @@ export function saveSettings(settings: SettingsSchema): boolean {
   }
 }
 
-// Function to get settings
+/**
+ * Get application settings from disk
+ * If no settings file exists, creates one with default values
+ *
+ * @returns Current application settings
+ */
 export function getSettings(): SettingsSchema {
   try {
     // Read settings from file
@@ -104,7 +137,16 @@ export function getSettings(): SettingsSchema {
   }
 }
 
-// Function to save log entry
+/**
+ * Application Logging System
+ *
+ * Saves log entries to both a current session log (latest.log) and daily log files
+ * for historical tracking. Includes smart deduplication to prevent log spam.
+ *
+ * @param message - The log message to save
+ * @param level - Severity level of the log message
+ * @returns True if log was saved (or deduplicated), false on error
+ */
 export function saveLog(
   message: string,
   level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" = "INFO",
@@ -184,7 +226,15 @@ export function saveLog(
   }
 }
 
-// Function to get most recent logs
+/**
+ * Retrieve recent application logs
+ *
+ * Gets logs from both the current session and historical log files,
+ * merging them in chronological order.
+ *
+ * @param count - Maximum number of log entries to return
+ * @returns Array of log entries, ordered from oldest to newest
+ */
 export function getLogs(count: number = 100): string[] {
   try {
     // Always check latest.log first
@@ -233,7 +283,13 @@ export function getLogs(count: number = 100): string[] {
   }
 }
 
-// Function to clear logs
+/**
+ * Clear all application logs
+ *
+ * Removes all log files and creates a fresh, empty current session log
+ *
+ * @returns True if logs were successfully cleared, false on error
+ */
 export function clearLogs(): boolean {
   try {
     // Get all log files
@@ -260,19 +316,29 @@ export function clearLogs(): boolean {
   }
 }
 
-// Skipped tracks management
+/**
+ * Skipped Track Information
+ *
+ * Data structure for tracking skip statistics for a track
+ */
 interface SkippedTrack {
-  id: string;
-  name: string;
-  artist: string;
-  skipCount: number;
-  notSkippedCount: number;
-  lastSkipped: string;
+  id: string; // Spotify track ID
+  name: string; // Track name
+  artist: string; // Artist name
+  skipCount: number; // Number of times skipped
+  notSkippedCount: number; // Number of times played to completion
+  lastSkipped: string; // ISO date string of last skip
 }
 
+// Path to skipped tracks storage
 const skippedTracksFilePath = path.join(appDataPath, "skipped-tracks.json");
 
-// Function to save skipped tracks
+/**
+ * Save the full list of skipped tracks to storage
+ *
+ * @param tracks - Array of track data with skip statistics
+ * @returns True if saved successfully, false on error
+ */
 export function saveSkippedTracks(tracks: SkippedTrack[]): boolean {
   try {
     // Write tracks to file
@@ -284,7 +350,11 @@ export function saveSkippedTracks(tracks: SkippedTrack[]): boolean {
   }
 }
 
-// Function to get skipped tracks
+/**
+ * Get all skipped tracks from storage
+ *
+ * @returns Array of tracks with skip statistics, or empty array if none exist
+ */
 export function getSkippedTracks(): SkippedTrack[] {
   try {
     // Read tracks from file
@@ -301,7 +371,13 @@ export function getSkippedTracks(): SkippedTrack[] {
   }
 }
 
-// Function to add or update a skipped track
+/**
+ * Update skip count for a specific track
+ * If the track doesn't exist in storage, it is added
+ *
+ * @param track - Track information to update
+ * @returns True if updated successfully, false on error
+ */
 export function updateSkippedTrack(track: SkippedTrack): boolean {
   try {
     const tracks = getSkippedTracks();
@@ -332,7 +408,13 @@ export function updateSkippedTrack(track: SkippedTrack): boolean {
   }
 }
 
-// Function to update a track when it's not skipped (completed)
+/**
+ * Update played-to-completion count for a specific track
+ * If the track doesn't exist in storage, it is added
+ *
+ * @param track - Track information to update
+ * @returns True if updated successfully, false on error
+ */
 export function updateNotSkippedTrack(track: SkippedTrack): boolean {
   try {
     const tracks = getSkippedTracks();
@@ -365,5 +447,8 @@ export function updateNotSkippedTrack(track: SkippedTrack): boolean {
   }
 }
 
-// Export the path to the data directory for other utilities
+/**
+ * Path to the application data directory
+ * Exported for use by other modules that need to access storage
+ */
 export const dataDirectory = appDataPath;
