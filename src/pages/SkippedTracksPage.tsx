@@ -65,34 +65,53 @@ export default function SkippedTracksPage() {
 
       <Card className="flex flex-1 flex-col">
         <CardContent className="flex flex-1 flex-col p-6">
-          <ScrollArea className="h-[calc(100vh-220px)] flex-1">
+          <ScrollArea className="h-[calc(100vh-220px)] w-full flex-1">
             {skippedTracks.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Track</TableHead>
-                    <TableHead>Artist</TableHead>
-                    <TableHead className="text-right">Skip Count</TableHead>
-                    <TableHead className="text-right">Last Skipped</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {skippedTracks.map((track) => (
-                    <TableRow key={track.id}>
-                      <TableCell className="font-medium">
-                        {track.name}
-                      </TableCell>
-                      <TableCell>{track.artist}</TableCell>
-                      <TableCell className="text-right">
-                        {track.skipCount}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {track.lastSkipped}
-                      </TableCell>
+              <div className="w-full overflow-x-hidden">
+                <Table className="w-full table-fixed">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[40%]">Track</TableHead>
+                      <TableHead className="w-[15%]">Artist</TableHead>
+                      <TableHead className="w-[10%] text-right">
+                        Skips
+                      </TableHead>
+                      <TableHead className="w-[35%] text-right">
+                        Last Skipped
+                      </TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {skippedTracks.map((track) => (
+                      <TableRow key={track.id}>
+                        <TableCell className="max-w-0 truncate font-medium">
+                          <div className="truncate" title={track.name}>
+                            {track.name}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-0">
+                          <div className="truncate" title={track.artist}>
+                            {track.artist}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-0 text-right">
+                          <div className="truncate text-right">
+                            {track.skipCount}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-0 text-right">
+                          <div
+                            className="truncate text-right"
+                            title={track.lastSkipped}
+                          >
+                            {track.lastSkipped}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
               <div className="flex h-64 items-center justify-center">
                 {loading ? (
