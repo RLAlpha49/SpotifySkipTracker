@@ -28,7 +28,6 @@ export default function HomePage() {
   const [logs, setLogs] = useState<string[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isMonitoring, setIsMonitoring] = useState(false);
-  const [isRefreshingLogs, setIsRefreshingLogs] = useState(false);
   const [settings, setSettings] = useState({
     logLevel: "INFO" as "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
   });
@@ -45,10 +44,8 @@ export default function HomePage() {
         }));
 
         // Then load logs
-        setIsRefreshingLogs(true);
         const savedLogs = await window.spotify.getLogs();
         setLogs(savedLogs);
-        setIsRefreshingLogs(false);
 
         // Check if already authenticated
         const authStatus = await window.spotify.isAuthenticated();
@@ -61,7 +58,6 @@ export default function HomePage() {
         }
       } catch (error) {
         console.error("Failed to load settings or logs:", error);
-        setIsRefreshingLogs(false);
       }
     };
 
@@ -70,7 +66,6 @@ export default function HomePage() {
     // Set up a polling interval to refresh logs every second
     const logRefreshInterval = setInterval(async () => {
       try {
-        setIsRefreshingLogs(true);
         const savedLogs = await window.spotify.getLogs();
 
         // When new logs arrive, check specifically for any skip messages that might have been missed
@@ -83,10 +78,8 @@ export default function HomePage() {
         }
 
         setLogs(savedLogs);
-        setIsRefreshingLogs(false);
       } catch (error) {
         console.error("Failed to refresh logs:", error);
-        setIsRefreshingLogs(false);
       }
     }, 500); // Refresh twice per second for more responsive skip detection
 
@@ -321,6 +314,29 @@ export default function HomePage() {
     });
   };
 
+  // Helper function to get the CSS class for each log level
+  const getLogLevelClass = (log: string): string => {
+    // Extract log level from the log entry
+    const levelMatch = log.match(/\[.*?\]\s+\[([A-Z]+)\]/);
+    if (!levelMatch) return "text-gray-500"; // Default color if no level found
+
+    // Apply appropriate color based on log level
+    switch (levelMatch[1]) {
+      case "DEBUG":
+        return "text-slate-500 dark:text-slate-400";
+      case "INFO":
+        return "text-blue-600 dark:text-blue-400";
+      case "WARNING":
+        return "text-amber-600 dark:text-amber-400";
+      case "ERROR":
+        return "text-red-600 dark:text-red-400";
+      case "CRITICAL":
+        return "text-rose-700 dark:text-rose-400 font-bold";
+      default:
+        return "text-gray-500";
+    }
+  };
+
   return (
     <div className="flex h-full flex-col p-4">
       <div className="mb-4 flex items-center justify-between">
@@ -413,13 +429,10 @@ export default function HomePage() {
 
         {/* Logs */}
         <Card className="flex h-full flex-col">
-          <CardContent className="flex flex-1 flex-col p-6">
+          <CardContent className="flex h-full flex-col p-6">
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-medium">Logs</h3>
-                {isRefreshingLogs && (
-                  <div className="border-primary h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"></div>
-                )}
               </div>
               <div className="flex gap-2">
                 <Select
@@ -453,27 +466,29 @@ export default function HomePage() {
               </div>
             </div>
             <Separator className="mb-2" />
-            <ScrollArea className="flex-1">
-              <div className="space-y-1 font-mono text-xs">
-                {(() => {
-                  const filteredLogs = getFilteredLogs();
-                  return filteredLogs.length > 0 ? (
-                    filteredLogs.map((log, index) => (
-                      <div
-                        key={index}
-                        className="py-1 break-all whitespace-pre-wrap"
-                      >
-                        {log}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-muted-foreground text-center italic">
-                      No logs to display
-                    </p>
-                  );
-                })()}
-              </div>
-            </ScrollArea>
+            <div className="flex-1 overflow-hidden">
+              <ScrollArea className="h-[calc(100vh-260px)] max-h-[400px]">
+                <div className="space-y-1 pr-4 font-mono text-xs">
+                  {(() => {
+                    const filteredLogs = getFilteredLogs();
+                    return filteredLogs.length > 0 ? (
+                      filteredLogs.map((log, index) => (
+                        <div
+                          key={index}
+                          className={`py-1 break-all whitespace-pre-wrap ${getLogLevelClass(log)}`}
+                        >
+                          {log}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground text-center italic">
+                        No logs to display
+                      </p>
+                    );
+                  })()}
+                </div>
+              </ScrollArea>
+            </div>
           </CardContent>
         </Card>
       </div>

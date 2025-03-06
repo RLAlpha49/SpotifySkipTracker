@@ -308,7 +308,14 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
       !playbackState.recentTracks.includes(newTrackId)
     ) {
       // Check if track was skipped
-      if (progressPercentage > skipProgressThreshold) {
+      if (progressPercentage < skipProgressThreshold) {
+        console.log(
+          "Track skipped:",
+          playbackState.trackName,
+          playbackState.artistName,
+          progressPercentage,
+          skipProgressThreshold,
+        );
         // If track was in library, record the skip
         if (playbackState.isInLibrary) {
           // This is a skip - record it

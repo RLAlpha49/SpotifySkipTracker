@@ -1,73 +1,24 @@
-import React, { useState, useEffect } from "react";
-import { Link, Outlet, useNavigate, useRouter } from "@tanstack/react-router";
+import React from "react";
+import { Link, Outlet, useRouter } from "@tanstack/react-router";
 import ToggleTheme from "@/components/ToggleTheme";
-import {
-  HomeIcon,
-  SettingsIcon,
-  SkipForwardIcon,
-  LogOutIcon,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { HomeIcon, SettingsIcon, SkipForwardIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { toast } from "sonner";
 
 export default function MainLayout() {
   const router = useRouter();
-  const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    // Check authentication status when component mounts
-    const checkAuth = async () => {
-      try {
-        const authStatus = await window.spotify.isAuthenticated();
-        setIsAuthenticated(authStatus);
-      } catch (error) {
-        console.error("Failed to check authentication status:", error);
-      }
-    };
-
-    checkAuth();
-  }, []);
 
   const isActive = (path: string) => {
     return router.state.location.pathname === path;
-  };
-
-  const handleLogout = async () => {
-    try {
-      const success = await window.spotify.logout();
-      if (success) {
-        setIsAuthenticated(false);
-        toast.success("Logged out successfully");
-        navigate({ to: "/" });
-      } else {
-        toast.error("Failed to logout");
-      }
-    } catch (error) {
-      console.error("Logout error:", error);
-      toast.error("Error during logout");
-    }
   };
 
   return (
     <div className="flex h-screen flex-col">
       {/* Header - Make draggable with app-region */}
       <header className="app-region-drag border-b">
-        <div className="container mx-auto flex items-center justify-between p-4">
+        <div className="flex w-full items-center justify-between px-6 py-4">
           <h1 className="font-mono text-xl font-bold">Spotify Skip Tracker</h1>
           <div className="app-region-no-drag flex items-center gap-2">
             <ToggleTheme />
-            {isAuthenticated && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleLogout}
-                title="Logout"
-              >
-                <LogOutIcon className="h-5 w-5" />
-              </Button>
-            )}
           </div>
         </div>
       </header>
@@ -79,47 +30,45 @@ export default function MainLayout() {
 
       {/* Bottom Navigation - fixed at the bottom */}
       <nav className="bg-background border-t">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between py-2">
-            <Link
-              to="/"
-              className={`flex flex-col items-center p-2 ${
-                isActive("/")
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              aria-current={isActive("/") ? "page" : undefined}
-            >
-              <HomeIcon className="h-5 w-5" />
-              <span className="mt-1 text-xs">Home</span>
-            </Link>
+        <div className="flex w-full justify-between px-6 py-2">
+          <Link
+            to="/"
+            className={`flex flex-col items-center p-2 ${
+              isActive("/")
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            aria-current={isActive("/") ? "page" : undefined}
+          >
+            <HomeIcon className="h-5 w-5" />
+            <span className="mt-1 text-xs">Home</span>
+          </Link>
 
-            <Link
-              to="/skipped-tracks"
-              className={`flex flex-col items-center p-2 ${
-                isActive("/skipped-tracks")
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              aria-current={isActive("/skipped-tracks") ? "page" : undefined}
-            >
-              <SkipForwardIcon className="h-5 w-5" />
-              <span className="mt-1 text-xs">Skipped Tracks</span>
-            </Link>
+          <Link
+            to="/skipped-tracks"
+            className={`flex flex-col items-center p-2 ${
+              isActive("/skipped-tracks")
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            aria-current={isActive("/skipped-tracks") ? "page" : undefined}
+          >
+            <SkipForwardIcon className="h-5 w-5" />
+            <span className="mt-1 text-xs">Skipped Tracks</span>
+          </Link>
 
-            <Link
-              to="/settings"
-              className={`flex flex-col items-center p-2 ${
-                isActive("/settings")
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              aria-current={isActive("/settings") ? "page" : undefined}
-            >
-              <SettingsIcon className="h-5 w-5" />
-              <span className="mt-1 text-xs">Settings</span>
-            </Link>
-          </div>
+          <Link
+            to="/settings"
+            className={`flex flex-col items-center p-2 ${
+              isActive("/settings")
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            aria-current={isActive("/settings") ? "page" : undefined}
+          >
+            <SettingsIcon className="h-5 w-5" />
+            <span className="mt-1 text-xs">Settings</span>
+          </Link>
         </div>
       </nav>
     </div>
