@@ -1,15 +1,22 @@
-import React from "react";
-import { Link, Outlet, useRouter } from "@tanstack/react-router";
+import React, { useState } from "react";
+import { Link, Outlet } from "@tanstack/react-router";
 import ToggleTheme from "@/components/ToggleTheme";
 import { HomeIcon, SettingsIcon, SkipForwardIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function MainLayout() {
-  const router = useRouter();
+  // Use state to track which route is active
+  const [activeRoute, setActiveRoute] = useState("/");
 
-  const isActive = (path: string) => {
-    return router.state.location.pathname === path;
+  // Update activeRoute when a link is clicked
+  const handleNavigation = (route: string) => {
+    setActiveRoute(route);
   };
+
+  // Check if routes are active based on the activeRoute state
+  const isHomeActive = activeRoute === "/";
+  const isSkippedTracksActive = activeRoute === "/skipped-tracks";
+  const isSettingsActive = activeRoute === "/settings";
 
   return (
     <div className="flex h-screen flex-col">
@@ -33,12 +40,13 @@ export default function MainLayout() {
         <div className="flex w-full justify-between px-6 py-2">
           <Link
             to="/"
+            onClick={() => handleNavigation("/")}
             className={`flex flex-col items-center p-2 ${
-              isActive("/")
+              isHomeActive
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"
             }`}
-            aria-current={isActive("/") ? "page" : undefined}
+            aria-current={isHomeActive ? "page" : undefined}
           >
             <HomeIcon className="h-5 w-5" />
             <span className="mt-1 text-xs">Home</span>
@@ -46,12 +54,13 @@ export default function MainLayout() {
 
           <Link
             to="/skipped-tracks"
+            onClick={() => handleNavigation("/skipped-tracks")}
             className={`flex flex-col items-center p-2 ${
-              isActive("/skipped-tracks")
+              isSkippedTracksActive
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"
             }`}
-            aria-current={isActive("/skipped-tracks") ? "page" : undefined}
+            aria-current={isSkippedTracksActive ? "page" : undefined}
           >
             <SkipForwardIcon className="h-5 w-5" />
             <span className="mt-1 text-xs">Skipped Tracks</span>
@@ -59,12 +68,13 @@ export default function MainLayout() {
 
           <Link
             to="/settings"
+            onClick={() => handleNavigation("/settings")}
             className={`flex flex-col items-center p-2 ${
-              isActive("/settings")
+              isSettingsActive
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"
             }`}
-            aria-current={isActive("/settings") ? "page" : undefined}
+            aria-current={isSettingsActive ? "page" : undefined}
           >
             <SettingsIcon className="h-5 w-5" />
             <span className="mt-1 text-xs">Settings</span>

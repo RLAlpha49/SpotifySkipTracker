@@ -246,7 +246,7 @@ export async function refreshAccessToken(
     if (!accessToken) {
       throw new Error("Failed to get access token from response");
     }
-    
+
     return accessToken as string;
   } catch (error) {
     saveLog(`Failed to refresh access token: ${error}`, "ERROR");
