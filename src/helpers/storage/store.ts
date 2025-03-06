@@ -106,11 +106,28 @@ export function getSettings(): SettingsSchema {
 }
 
 // Function to save log entry
-export function saveLog(message: string): boolean {
+export function saveLog(message: string, level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" = "INFO"): boolean {
   try {
+    // Check for recent duplicate logs (anti-spam)
+    const recentLogs = getLogs(1);
+    if (recentLogs.length > 0) {
+      // Extract message part from most recent log
+      const lastLogMatch = recentLogs[0].match(/\[.*?\]\s+\[([A-Z]+)\]\s+(.*)/);
+      if (lastLogMatch) {
+        const lastLogLevel = lastLogMatch[1];
+        const lastLogMessage = lastLogMatch[2];
+        
+        // If same message and level within the last log, don't duplicate it
+        if (lastLogMessage === message && lastLogLevel === level) {
+          console.log(`Preventing duplicate log: [${level}] ${message}`);
+          return true; // Pretend we saved it
+        }
+      }
+    }
+    
     const now = new Date();
     const timestamp = now.toLocaleTimeString();
-    const logEntry = `[${timestamp}] ${message}\n`;
+    const logEntry = `[${timestamp}] [${level}] ${message}\n`;
 
     // Save to latest.log (current session log)
     fs.appendFileSync(latestLogPath, logEntry);

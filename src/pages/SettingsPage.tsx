@@ -152,29 +152,35 @@ export default function SettingsPage() {
         skipProgress: skipProgressValue,
       };
 
+      // Log settings changes
+      await window.spotify.saveLog(`Updating settings - log level: ${newSettings.logLevel}, skip threshold: ${newSettings.skipThreshold}`, "DEBUG");
+
       // Save settings to persistent storage
       const success = await window.spotify.saveSettings(newSettings);
 
       if (success) {
         // Dismiss loading toast and show success toast
         toast.dismiss();
-        toast.success("Settings Saved", {
-          description: "Your settings have been saved successfully.",
-          duration: 3000,
-        });
+        toast.success("Settings saved successfully");
 
-        // Check if restart is required
+        // Log settings saved
+        await window.spotify.saveLog("Settings updated successfully", "DEBUG");
+
+        // Store the new settings as original settings
+        setOriginalSettings(newSettings);
+
+        // Check if restart is needed
         if (requiresRestart(newSettings)) {
+          await window.spotify.saveLog("Settings change requires application restart", "WARNING");
           setShowRestartDialog(true);
         }
       } else {
         // Dismiss loading toast and show error toast
         toast.dismiss();
-        toast.error("Failed to Save", {
-          description:
-            "There was a problem saving your settings. Please try again.",
-          duration: 4000,
-        });
+        toast.error("Failed to save settings");
+        
+        // Log error
+        await window.spotify.saveLog("Failed to save settings", "ERROR");
       }
     } catch (error) {
       console.error("Error saving settings:", error);
@@ -306,6 +312,9 @@ export default function SettingsPage() {
                                 </SelectItem>
                               </SelectContent>
                             </Select>
+                            <FormDescription>
+                              Controls which log messages are displayed (DEBUG shows all, CRITICAL shows only critical messages)
+                            </FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}

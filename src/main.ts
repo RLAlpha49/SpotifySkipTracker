@@ -51,8 +51,13 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     // Log the authentication
     saveLog(
       `Authenticated with Spotify using client ID: ${credentials?.clientId || "mock-client-id"}`,
+      "DEBUG"
     );
-    saveLog(`Successfully authenticated with Spotify`);
+    saveLog(`Successfully authenticated with Spotify`, "INFO");
+    
+    // Add a log about when the token will expire
+    const expiryTime = new Date(spotifyTokens.expires_at).toLocaleTimeString();
+    saveLog(`Authentication token will expire at ${expiryTime}`, "DEBUG");
 
     return true;
   });
@@ -63,10 +68,11 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     if (monitoringInterval) {
       clearInterval(monitoringInterval);
       monitoringInterval = null;
+      saveLog("Playback monitoring stopped due to logout", "DEBUG");
     }
 
     // Log the logout
-    saveLog("Logged out from Spotify");
+    saveLog("Logged out from Spotify", "INFO");
 
     return true;
   });
@@ -102,14 +108,14 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   ipcMain.handle("spotify:getSkippedTracks", async () => {
     console.log("Getting skipped tracks...");
     const tracks = getSkippedTracks();
-    saveLog(`Loaded ${tracks.length} skipped tracks from storage`);
+    saveLog(`Loaded ${tracks.length} skipped tracks from storage`, "DEBUG");
     return tracks;
   });
 
   ipcMain.handle("spotify:saveSkippedTracks", async (_, tracks) => {
     console.log("Saving skipped tracks...", tracks.length);
     const result = saveSkippedTracks(tracks);
-    saveLog(`Saved ${tracks.length} skipped tracks to storage`);
+    saveLog(`Saved ${tracks.length} skipped tracks to storage`, "DEBUG");
     return result;
   });
 
@@ -118,6 +124,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     const result = updateSkippedTrack(track);
     saveLog(
       `Updated skipped track: ${track.name} by ${track.artist} (ID: ${track.id})`,
+      "DEBUG"
     );
     return result;
   });
@@ -129,11 +136,11 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
 
     // Log the settings save operation
     if (result) {
-      saveLog("Settings saved successfully");
+      saveLog("Settings saved successfully", "INFO");
       // No need to send a separate message to the renderer for the toast
       // The toast is shown by the renderer when this handler returns success
     } else {
-      saveLog("Failed to save settings");
+      saveLog("Failed to save settings", "ERROR");
     }
 
     return result;
@@ -142,14 +149,27 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   ipcMain.handle("spotify:getSettings", async () => {
     // Get settings from persistent storage
     const settings = getSettings();
-    saveLog("Settings loaded from storage");
+    saveLog("Settings loaded from storage", "DEBUG");
     return settings;
   });
 
   // Logs handlers
-  ipcMain.handle("spotify:saveLog", async (_, message) => {
-    console.log("Saving log:", message);
-    return saveLog(message);
+  ipcMain.handle("spotify:saveLog", async (_, message, level = "INFO") => {
+    console.log(`Saving log [${level}]:`, message);
+    
+    // Avoid duplicate logs by checking the most recent log
+    // This is a simple check - it might not catch all duplicates
+    const recentLogs = getLogs(1);
+    if (recentLogs.length > 0) {
+      // Extract just the message part without timestamp and level
+      const lastLogMessageMatch = recentLogs[0].match(/\[.*?\]\s+\[.*?\]\s+(.*)/);
+      if (lastLogMessageMatch && lastLogMessageMatch[1] === message) {
+        console.log("Preventing duplicate log:", message);
+        return true; // Don't save duplicate, but return success
+      }
+    }
+    
+    return saveLog(message, level);
   });
 
   ipcMain.handle("spotify:getLogs", async (_, count) => {
@@ -160,16 +180,13 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   ipcMain.handle("spotify:clearLogs", async () => {
     console.log("Clearing logs");
     const result = clearLogs();
-    if (result) {
-      saveLog("Log history cleared");
-    }
     return result;
   });
 
   // App control handlers
   ipcMain.handle("spotify:restartApp", async () => {
     console.log("Restarting application...");
-    saveLog("Application restart requested by user");
+    saveLog("Application restart requested by user", "INFO");
 
     // Schedule the restart after a brief delay to allow the response to be sent
     setTimeout(() => {
@@ -183,13 +200,17 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   // Service handlers
   ipcMain.handle("spotify:startMonitoring", async () => {
     console.log("Starting Spotify monitoring...");
-    saveLog("Started Spotify playback monitoring");
+    
+    // Get current settings to include in log
+    const settings = getSettings();
+    saveLog(`Started Spotify playback monitoring (skip threshold: ${settings.skipThreshold * 100}%)`, "INFO");
 
     // In a real app, this would start polling the Spotify API
 
     // Clear any existing interval
     if (monitoringInterval) {
       clearInterval(monitoringInterval);
+      saveLog("Restarting existing playback monitoring session", "DEBUG");
     }
 
     // Set up monitoring interval
@@ -211,7 +232,6 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
           // Check if track has changed and handle skip detection
           if (currentTrackId && currentTrackId !== trackId) {
             // If track changed and less than threshold was played, count as skip
-            const settings = getSettings();
             const skipThreshold = settings.skipThreshold || SKIP_THRESHOLD;
 
             if (lastPlaybackTime < skipThreshold) {
@@ -220,9 +240,20 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
                 console.log(
                   `Track skipped: ${currentTrackId} at ${Math.round(lastPlaybackTime * 100)}%`,
                 );
-                saveLog(
-                  `Track skipped: ${currentTrackId} at ${Math.round(lastPlaybackTime * 100)}%`,
-                );
+                
+                // If track was barely played (less than 10%), it's just a DEBUG level event
+                if (lastPlaybackTime < 0.1) {
+                  saveLog(
+                    `Track skipped quickly: ${currentTrackId} (${Math.round(lastPlaybackTime * 100)}% played)`,
+                    "DEBUG"
+                  );
+                } else {
+                  // Regular skip is worth noting at INFO level
+                  saveLog(
+                    `Track skipped: ${currentTrackId} (${Math.round(lastPlaybackTime * 100)}% played)`,
+                    "INFO"
+                  );
+                }
 
                 // Update skipped track in storage
                 updateSkippedTrack({
@@ -237,13 +268,14 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
               // Track was played sufficiently
               saveLog(
                 `Track completed: ${currentTrackId} (${Math.round(lastPlaybackTime * 100)}%)`,
+                "DEBUG"
               );
             }
           }
 
           // Log first play of a track
           if (currentTrackId !== trackId) {
-            saveLog(`Now playing: ${trackName} by ${artistName}`);
+            saveLog(`Now playing: ${trackName} by ${artistName}`, "DEBUG");
           }
 
           // Update current track info
@@ -282,7 +314,15 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
         }
       } catch (error) {
         console.error("Error in playback monitoring:", error);
-        saveLog(`Error in playback monitoring: ${error}`);
+        
+        // Classify errors for better log filtering
+        if (error instanceof TypeError) {
+          saveLog(`Type error in playback monitoring: ${error.message}`, "ERROR");
+        } else if (error instanceof Error && error.message.includes("network")) {
+          saveLog(`Network error in playback monitoring: ${error.message}`, "WARNING");
+        } else {
+          saveLog(`Error in playback monitoring: ${error}`, "ERROR");
+        }
       }
     }, 3000); // Check every 3 seconds
 
@@ -293,7 +333,14 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     if (monitoringInterval) {
       clearInterval(monitoringInterval);
       monitoringInterval = null;
-      saveLog("Stopped Spotify playback monitoring");
+      saveLog("Stopped Spotify playback monitoring", "INFO");
+      
+      // Log summary info if we were tracking a song
+      if (currentTrackId) {
+        saveLog(`Last tracked song was: ${currentTrackId} at ${Math.round(lastPlaybackTime * 100)}% progress`, "DEBUG");
+      }
+    } else {
+      saveLog("No active monitoring session to stop", "DEBUG");
     }
     return true;
   });
@@ -354,21 +401,24 @@ function createWindow() {
   // Once the window is ready, show it
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
-    saveLog("Application started");
+    saveLog("Application started", "INFO");
 
     // Load configuration when app starts
     try {
       const settings = getSettings();
       console.log("Loaded initial settings:", settings);
+      // Log configuration info that might be useful for diagnostics
+      saveLog(`Application initialized with log level: ${settings.logLevel}`, "DEBUG");
+      saveLog(`Skip threshold set to: ${settings.skipThreshold * 100}%`, "DEBUG");
     } catch (error) {
       console.error("Error loading initial settings:", error);
-      saveLog(`Error loading initial settings: ${error}`);
+      saveLog(`Error loading initial settings: ${error}`, "ERROR");
     }
   });
 
   // Handle window closed
   mainWindow.on("closed", () => {
-    saveLog("Application closed");
+    saveLog("Application closed", "INFO");
     if (monitoringInterval) {
       clearInterval(monitoringInterval);
       monitoringInterval = null;
@@ -384,11 +434,11 @@ async function installExtensions() {
     if (inDevelopment) {
       const name = await installExtension(REACT_DEVELOPER_TOOLS);
       console.log(`Extensions installed successfully: ${name}`);
-      saveLog(`Installed developer extensions: ${name}`);
+      saveLog(`Installed developer extensions: ${name}`, "DEBUG");
     }
   } catch (err) {
     console.error("Error installing extensions:", err);
-    saveLog(`Error installing extensions: ${err}`);
+    saveLog(`Error installing extensions: ${err}`, "ERROR");
   }
 }
 

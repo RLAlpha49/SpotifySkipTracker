@@ -31,7 +31,7 @@ export default function SkippedTracksPage() {
       setSkippedTracks(tracks);
 
       // Log successful load
-      window.spotify.saveLog("Loaded skipped tracks from storage");
+      window.spotify.saveLog("Loaded skipped tracks from storage", "DEBUG");
     } catch (error) {
       console.error("Failed to load skipped tracks:", error);
       toast.error("Failed to load data", {
@@ -39,7 +39,7 @@ export default function SkippedTracksPage() {
       });
 
       // Log error
-      window.spotify.saveLog(`Error loading skipped tracks: ${error}`);
+      window.spotify.saveLog(`Error loading skipped tracks: ${error}`, "ERROR");
     } finally {
       setLoading(false);
     }

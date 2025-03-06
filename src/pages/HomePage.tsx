@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 interface PlaybackInfo {
   albumArt: string;
@@ -20,19 +21,30 @@ export default function HomePage() {
   const [playbackInfo, setPlaybackInfo] = useState<PlaybackInfo | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [settings, setSettings] = useState({
+    logLevel: "INFO" as "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
+  });
 
-  // Load logs on component mount
+  // Load settings and logs on component mount
   useEffect(() => {
-    const loadLogs = async () => {
+    const loadSettingsAndLogs = async () => {
       try {
+        // Load settings first
+        const savedSettings = await window.spotify.getSettings();
+        setSettings(prevSettings => ({
+          ...prevSettings,
+          logLevel: savedSettings.logLevel
+        }));
+
+        // Then load logs
         const savedLogs = await window.spotify.getLogs();
         setLogs(savedLogs);
       } catch (error) {
-        console.error("Failed to load logs:", error);
+        console.error("Failed to load settings or logs:", error);
       }
     };
 
-    loadLogs();
+    loadSettingsAndLogs();
   }, []);
 
   // Mock function to load playback data - would be replaced with actual Electron IPC
@@ -44,6 +56,12 @@ export default function HomePage() {
         if (mockIsPlaying) {
           const mockProgress = Math.floor(Math.random() * 100);
           const isInPlaylist = Math.random() > 0.5; // Randomly determine if in playlist
+
+          // Add a log when track is in playlist for skip tracking
+          if (isInPlaylist && (!playbackInfo || !playbackInfo.isInPlaylist)) {
+            // Only log when the playlist status changes to avoid duplication
+            addLog("Current track is in a playlist - skips will be tracked", "INFO");
+          }
 
           setPlaybackInfo({
             albumArt:
@@ -57,13 +75,19 @@ export default function HomePage() {
             isInPlaylist,
           });
 
-          // Add log
-          addLog(
-            `Now playing: Lorem Ipsum Track by Artist Name${isInPlaylist ? " (in playlist)" : ""}`,
-          );
+          // Only log when the track is new or playback starts from paused state
+          if (!playbackInfo || !playbackInfo.isPlaying) {
+            addLog(
+              `Now playing: Lorem Ipsum Track by Artist Name${isInPlaylist ? " (in playlist)" : ""}`,
+              "DEBUG"
+            );
+          }
         } else {
+          // Only log when transitioning from playing to not playing
+          if (playbackInfo && playbackInfo.isPlaying) {
+            addLog("No active playback detected", "DEBUG");
+          }
           setPlaybackInfo(null);
-          addLog("No active playback detected");
         }
       }
     }, 5000);
@@ -72,15 +96,21 @@ export default function HomePage() {
   }, [isAuthenticated]);
 
   // Function to add a log entry - now persists to storage
-  const addLog = async (message: string) => {
+  const addLog = async (message: string, level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" = "INFO") => {
     // Save to persistent storage
-    await window.spotify.saveLog(message);
+    await window.spotify.saveLog(message, level);
 
     // Update state with new log and most recent logs
     const timestamp = new Date().toLocaleTimeString();
-    const formattedMessage = `[${timestamp}] ${message}`;
+    const formattedMessage = `[${timestamp}] [${level}] ${message}`;
 
     setLogs((prevLogs) => {
+      // Check if this exact log message already exists in our recent logs
+      // This prevents UI duplication
+      if (prevLogs.includes(formattedMessage)) {
+        return prevLogs; // Don't add duplicates
+      }
+      
       const newLogs = [...prevLogs, formattedMessage];
       // Keep only the most recent logs in state (match settings)
       if (newLogs.length > 100) {
@@ -93,7 +123,7 @@ export default function HomePage() {
   // Authentication functions
   const handleAuthenticate = async () => {
     // This would be replaced with actual Electron-to-main process authentication
-    addLog("Authenticating with Spotify...");
+    addLog("Authenticating with Spotify...", "INFO");
 
     try {
       const success = await window.spotify.authenticate({
@@ -103,13 +133,13 @@ export default function HomePage() {
       });
       if (success) {
         setIsAuthenticated(true);
-        addLog("Successfully authenticated with Spotify");
+        // The "Successfully authenticated" log is already added in main.ts, no need to duplicate it here
       } else {
-        addLog("Authentication failed");
+        addLog("Authentication failed", "ERROR");
       }
     } catch (error) {
       console.error("Authentication error:", error);
-      addLog("Authentication error occurred");
+      addLog("Authentication error occurred", "ERROR");
     }
   };
 
@@ -118,10 +148,10 @@ export default function HomePage() {
       await window.spotify.logout();
       setIsAuthenticated(false);
       setPlaybackInfo(null);
-      addLog("Logged out from Spotify");
+      // The "Logged out" log is already added in main.ts, no need to duplicate it here
     } catch (error) {
       console.error("Logout error:", error);
-      addLog("Error during logout");
+      addLog("Error during logout", "ERROR");
     }
   };
 
@@ -130,9 +160,10 @@ export default function HomePage() {
     try {
       await window.spotify.clearLogs();
       setLogs([]);
-      addLog("Logs cleared");
+      addLog("Logs cleared", "INFO");
     } catch (error) {
       console.error("Error clearing logs:", error);
+      addLog("Error clearing logs", "ERROR");
     }
   };
 
@@ -141,6 +172,47 @@ export default function HomePage() {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  // Helper function to filter logs by level
+  const getFilteredLogs = () => {
+    const logLevels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
+    const currentLevelIndex = logLevels.indexOf(settings.logLevel);
+    
+    // If we have an invalid log level, just return all logs but ensure they're unique
+    if (currentLevelIndex === -1) {
+      const uniqueLogs: string[] = [];
+      logs.forEach(log => {
+        if (!uniqueLogs.includes(log)) {
+          uniqueLogs.push(log);
+        }
+      });
+      return uniqueLogs;
+    }
+    
+    // First filter by log level
+    const filtered = logs.filter(log => {
+      // Parse log level from log entry (expected format: "[timestamp] [LEVEL] message")
+      // The log format is like "[12:34:56] [INFO] Message"
+      const levelMatch = log.match(/\[.*?\]\s+\[([A-Z]+)\]/);
+      if (!levelMatch) return true; // No level found, include by default
+      
+      const logLevel = levelMatch[1];
+      const logLevelIndex = logLevels.indexOf(logLevel);
+      
+      // Show logs that have level >= current selected level
+      return logLevelIndex >= currentLevelIndex;
+    });
+    
+    // Then remove duplicate logs (same exact content)
+    const uniqueLogs: string[] = [];
+    filtered.forEach(log => {
+      if (!uniqueLogs.includes(log)) {
+        uniqueLogs.push(log);
+      }
+    });
+    
+    return uniqueLogs;
   };
 
   return (
@@ -225,27 +297,52 @@ export default function HomePage() {
           <CardContent className="flex flex-1 flex-col p-6">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-lg font-medium">Logs</h3>
-              <Button variant="outline" size="sm" onClick={handleClearLogs}>
-                Clear
-              </Button>
+              <div className="flex gap-2">
+                <Select 
+                  value={settings.logLevel}
+                  onValueChange={(value) => 
+                    setSettings(prev => ({ 
+                      ...prev, 
+                      logLevel: value as "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" 
+                    }))
+                  }
+                >
+                  <SelectTrigger className="w-[120px] h-8">
+                    <SelectValue placeholder="Log Level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DEBUG">DEBUG</SelectItem>
+                    <SelectItem value="INFO">INFO</SelectItem>
+                    <SelectItem value="WARNING">WARNING</SelectItem>
+                    <SelectItem value="ERROR">ERROR</SelectItem>
+                    <SelectItem value="CRITICAL">CRITICAL</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" onClick={handleClearLogs}>
+                  Clear
+                </Button>
+              </div>
             </div>
             <Separator className="mb-2" />
             <ScrollArea className="flex-1">
               <div className="space-y-1 font-mono text-xs">
-                {logs.length > 0 ? (
-                  logs.map((log, index) => (
-                    <div
-                      key={index}
-                      className="py-1 break-all whitespace-pre-wrap"
-                    >
-                      {log}
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground text-center italic">
-                    No logs to display
-                  </p>
-                )}
+                {(() => {
+                  const filteredLogs = getFilteredLogs();
+                  return filteredLogs.length > 0 ? (
+                    filteredLogs.map((log, index) => (
+                      <div
+                        key={index}
+                        className="py-1 break-all whitespace-pre-wrap"
+                      >
+                        {log}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-center italic">
+                      No logs to display
+                    </p>
+                  );
+                })()}
               </div>
             </ScrollArea>
           </CardContent>

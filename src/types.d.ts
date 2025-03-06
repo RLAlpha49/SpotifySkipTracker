@@ -78,7 +78,7 @@ declare interface Window {
     getSettings: () => Promise<SpotifySettings>;
 
     // Logs
-    saveLog: (message: string) => Promise<boolean>;
+    saveLog: (message: string, level?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL") => Promise<boolean>;
     getLogs: (count?: number) => Promise<string[]>;
     clearLogs: () => Promise<boolean>;
 
