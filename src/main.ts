@@ -51,10 +51,10 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     // Log the authentication
     saveLog(
       `Authenticated with Spotify using client ID: ${credentials?.clientId || "mock-client-id"}`,
-      "DEBUG"
+      "DEBUG",
     );
     saveLog(`Successfully authenticated with Spotify`, "INFO");
-    
+
     // Add a log about when the token will expire
     const expiryTime = new Date(spotifyTokens.expires_at).toLocaleTimeString();
     saveLog(`Authentication token will expire at ${expiryTime}`, "DEBUG");
@@ -124,7 +124,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     const result = updateSkippedTrack(track);
     saveLog(
       `Updated skipped track: ${track.name} by ${track.artist} (ID: ${track.id})`,
-      "DEBUG"
+      "DEBUG",
     );
     return result;
   });
@@ -156,19 +156,21 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   // Logs handlers
   ipcMain.handle("spotify:saveLog", async (_, message, level = "INFO") => {
     console.log(`Saving log [${level}]:`, message);
-    
+
     // Avoid duplicate logs by checking the most recent log
     // This is a simple check - it might not catch all duplicates
     const recentLogs = getLogs(1);
     if (recentLogs.length > 0) {
       // Extract just the message part without timestamp and level
-      const lastLogMessageMatch = recentLogs[0].match(/\[.*?\]\s+\[.*?\]\s+(.*)/);
+      const lastLogMessageMatch = recentLogs[0].match(
+        /\[.*?\]\s+\[.*?\]\s+(.*)/,
+      );
       if (lastLogMessageMatch && lastLogMessageMatch[1] === message) {
         console.log("Preventing duplicate log:", message);
         return true; // Don't save duplicate, but return success
       }
     }
-    
+
     return saveLog(message, level);
   });
 
@@ -200,10 +202,13 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   // Service handlers
   ipcMain.handle("spotify:startMonitoring", async () => {
     console.log("Starting Spotify monitoring...");
-    
+
     // Get current settings to include in log
     const settings = getSettings();
-    saveLog(`Started Spotify playback monitoring (skip threshold: ${settings.skipThreshold * 100}%)`, "INFO");
+    saveLog(
+      `Started Spotify playback monitoring (skip threshold: ${settings.skipThreshold * 100}%)`,
+      "INFO",
+    );
 
     // In a real app, this would start polling the Spotify API
 
@@ -240,18 +245,18 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
                 console.log(
                   `Track skipped: ${currentTrackId} at ${Math.round(lastPlaybackTime * 100)}%`,
                 );
-                
+
                 // If track was barely played (less than 10%), it's just a DEBUG level event
                 if (lastPlaybackTime < 0.1) {
                   saveLog(
                     `Track skipped quickly: ${currentTrackId} (${Math.round(lastPlaybackTime * 100)}% played)`,
-                    "DEBUG"
+                    "DEBUG",
                   );
                 } else {
                   // Regular skip is worth noting at INFO level
                   saveLog(
                     `Track skipped: ${currentTrackId} (${Math.round(lastPlaybackTime * 100)}% played)`,
-                    "INFO"
+                    "INFO",
                   );
                 }
 
@@ -268,7 +273,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
               // Track was played sufficiently
               saveLog(
                 `Track completed: ${currentTrackId} (${Math.round(lastPlaybackTime * 100)}%)`,
-                "DEBUG"
+                "DEBUG",
               );
             }
           }
@@ -314,12 +319,21 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
         }
       } catch (error) {
         console.error("Error in playback monitoring:", error);
-        
+
         // Classify errors for better log filtering
         if (error instanceof TypeError) {
-          saveLog(`Type error in playback monitoring: ${error.message}`, "ERROR");
-        } else if (error instanceof Error && error.message.includes("network")) {
-          saveLog(`Network error in playback monitoring: ${error.message}`, "WARNING");
+          saveLog(
+            `Type error in playback monitoring: ${error.message}`,
+            "ERROR",
+          );
+        } else if (
+          error instanceof Error &&
+          error.message.includes("network")
+        ) {
+          saveLog(
+            `Network error in playback monitoring: ${error.message}`,
+            "WARNING",
+          );
         } else {
           saveLog(`Error in playback monitoring: ${error}`, "ERROR");
         }
@@ -334,10 +348,13 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
       clearInterval(monitoringInterval);
       monitoringInterval = null;
       saveLog("Stopped Spotify playback monitoring", "INFO");
-      
+
       // Log summary info if we were tracking a song
       if (currentTrackId) {
-        saveLog(`Last tracked song was: ${currentTrackId} at ${Math.round(lastPlaybackTime * 100)}% progress`, "DEBUG");
+        saveLog(
+          `Last tracked song was: ${currentTrackId} at ${Math.round(lastPlaybackTime * 100)}% progress`,
+          "DEBUG",
+        );
       }
     } else {
       saveLog("No active monitoring session to stop", "DEBUG");
@@ -408,8 +425,14 @@ function createWindow() {
       const settings = getSettings();
       console.log("Loaded initial settings:", settings);
       // Log configuration info that might be useful for diagnostics
-      saveLog(`Application initialized with log level: ${settings.logLevel}`, "DEBUG");
-      saveLog(`Skip threshold set to: ${settings.skipThreshold * 100}%`, "DEBUG");
+      saveLog(
+        `Application initialized with log level: ${settings.logLevel}`,
+        "DEBUG",
+      );
+      saveLog(
+        `Skip threshold set to: ${settings.skipThreshold * 100}%`,
+        "DEBUG",
+      );
     } catch (error) {
       console.error("Error loading initial settings:", error);
       saveLog(`Error loading initial settings: ${error}`, "ERROR");

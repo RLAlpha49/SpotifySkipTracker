@@ -153,7 +153,10 @@ export default function SettingsPage() {
       };
 
       // Log settings changes
-      await window.spotify.saveLog(`Updating settings - log level: ${newSettings.logLevel}, skip threshold: ${newSettings.skipThreshold}`, "DEBUG");
+      await window.spotify.saveLog(
+        `Updating settings - log level: ${newSettings.logLevel}, skip threshold: ${newSettings.skipThreshold}`,
+        "DEBUG",
+      );
 
       // Save settings to persistent storage
       const success = await window.spotify.saveSettings(newSettings);
@@ -171,14 +174,17 @@ export default function SettingsPage() {
 
         // Check if restart is needed
         if (requiresRestart(newSettings)) {
-          await window.spotify.saveLog("Settings change requires application restart", "WARNING");
+          await window.spotify.saveLog(
+            "Settings change requires application restart",
+            "WARNING",
+          );
           setShowRestartDialog(true);
         }
       } else {
         // Dismiss loading toast and show error toast
         toast.dismiss();
         toast.error("Failed to save settings");
-        
+
         // Log error
         await window.spotify.saveLog("Failed to save settings", "ERROR");
       }
@@ -313,7 +319,8 @@ export default function SettingsPage() {
                               </SelectContent>
                             </Select>
                             <FormDescription>
-                              Controls which log messages are displayed (DEBUG shows all, CRITICAL shows only critical messages)
+                              Controls which log messages are displayed (DEBUG
+                              shows all, CRITICAL shows only critical messages)
                             </FormDescription>
                             <FormMessage />
                           </FormItem>

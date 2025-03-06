@@ -4,7 +4,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
 interface PlaybackInfo {
   albumArt: string;
@@ -31,9 +37,9 @@ export default function HomePage() {
       try {
         // Load settings first
         const savedSettings = await window.spotify.getSettings();
-        setSettings(prevSettings => ({
+        setSettings((prevSettings) => ({
           ...prevSettings,
-          logLevel: savedSettings.logLevel
+          logLevel: savedSettings.logLevel,
         }));
 
         // Then load logs
@@ -60,7 +66,10 @@ export default function HomePage() {
           // Add a log when track is in playlist for skip tracking
           if (isInPlaylist && (!playbackInfo || !playbackInfo.isInPlaylist)) {
             // Only log when the playlist status changes to avoid duplication
-            addLog("Current track is in a playlist - skips will be tracked", "INFO");
+            addLog(
+              "Current track is in a playlist - skips will be tracked",
+              "INFO",
+            );
           }
 
           setPlaybackInfo({
@@ -79,7 +88,7 @@ export default function HomePage() {
           if (!playbackInfo || !playbackInfo.isPlaying) {
             addLog(
               `Now playing: Lorem Ipsum Track by Artist Name${isInPlaylist ? " (in playlist)" : ""}`,
-              "DEBUG"
+              "DEBUG",
             );
           }
         } else {
@@ -96,7 +105,10 @@ export default function HomePage() {
   }, [isAuthenticated]);
 
   // Function to add a log entry - now persists to storage
-  const addLog = async (message: string, level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" = "INFO") => {
+  const addLog = async (
+    message: string,
+    level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" = "INFO",
+  ) => {
     // Save to persistent storage
     await window.spotify.saveLog(message, level);
 
@@ -110,7 +122,7 @@ export default function HomePage() {
       if (prevLogs.includes(formattedMessage)) {
         return prevLogs; // Don't add duplicates
       }
-      
+
       const newLogs = [...prevLogs, formattedMessage];
       // Keep only the most recent logs in state (match settings)
       if (newLogs.length > 100) {
@@ -178,40 +190,40 @@ export default function HomePage() {
   const getFilteredLogs = () => {
     const logLevels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
     const currentLevelIndex = logLevels.indexOf(settings.logLevel);
-    
+
     // If we have an invalid log level, just return all logs but ensure they're unique
     if (currentLevelIndex === -1) {
       const uniqueLogs: string[] = [];
-      logs.forEach(log => {
+      logs.forEach((log) => {
         if (!uniqueLogs.includes(log)) {
           uniqueLogs.push(log);
         }
       });
       return uniqueLogs;
     }
-    
+
     // First filter by log level
-    const filtered = logs.filter(log => {
+    const filtered = logs.filter((log) => {
       // Parse log level from log entry (expected format: "[timestamp] [LEVEL] message")
       // The log format is like "[12:34:56] [INFO] Message"
       const levelMatch = log.match(/\[.*?\]\s+\[([A-Z]+)\]/);
       if (!levelMatch) return true; // No level found, include by default
-      
+
       const logLevel = levelMatch[1];
       const logLevelIndex = logLevels.indexOf(logLevel);
-      
+
       // Show logs that have level >= current selected level
       return logLevelIndex >= currentLevelIndex;
     });
-    
+
     // Then remove duplicate logs (same exact content)
     const uniqueLogs: string[] = [];
-    filtered.forEach(log => {
+    filtered.forEach((log) => {
       if (!uniqueLogs.includes(log)) {
         uniqueLogs.push(log);
       }
     });
-    
+
     return uniqueLogs;
   };
 
@@ -298,16 +310,21 @@ export default function HomePage() {
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-lg font-medium">Logs</h3>
               <div className="flex gap-2">
-                <Select 
+                <Select
                   value={settings.logLevel}
-                  onValueChange={(value) => 
-                    setSettings(prev => ({ 
-                      ...prev, 
-                      logLevel: value as "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" 
+                  onValueChange={(value) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      logLevel: value as
+                        | "DEBUG"
+                        | "INFO"
+                        | "WARNING"
+                        | "ERROR"
+                        | "CRITICAL",
                     }))
                   }
                 >
-                  <SelectTrigger className="w-[120px] h-8">
+                  <SelectTrigger className="h-8 w-[120px]">
                     <SelectValue placeholder="Log Level" />
                   </SelectTrigger>
                   <SelectContent>

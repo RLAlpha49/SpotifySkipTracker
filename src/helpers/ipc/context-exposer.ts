@@ -31,8 +31,10 @@ export default function exposeContexts() {
     getSettings: () => ipcRenderer.invoke("spotify:getSettings"),
 
     // Logs - New
-    saveLog: (message: string, level?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL") =>
-      ipcRenderer.invoke("spotify:saveLog", message, level),
+    saveLog: (
+      message: string,
+      level?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
+    ) => ipcRenderer.invoke("spotify:saveLog", message, level),
     getLogs: (count?: number) => ipcRenderer.invoke("spotify:getLogs", count),
     clearLogs: () => ipcRenderer.invoke("spotify:clearLogs"),
 
