@@ -26,16 +26,16 @@ import {
   isTokenValid,
   refreshAccessToken,
 } from "./services/spotify-api";
-import { 
-  startPlaybackMonitoring, 
+import {
+  startPlaybackMonitoring,
   stopPlaybackMonitoring,
-  isMonitoringActive
+  isMonitoringActive,
 } from "./services/playback-monitor";
 import { startAuthFlow, cancelAuthFlow } from "./services/oauth-handler";
-import { 
-  saveTokens, 
-  loadTokens, 
-  clearTokens as clearStoredTokens 
+import {
+  saveTokens,
+  loadTokens,
+  clearTokens as clearStoredTokens,
 } from "./services/token-storage";
 
 const inDevelopment = process.env.NODE_ENV === "development";
@@ -46,7 +46,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   ipcMain.handle("spotify:authenticate", async (_, credentials) => {
     try {
       console.log("Authenticating with Spotify...", credentials);
-      
+
       // Check if we have stored tokens
       const storedTokens = loadTokens();
       if (storedTokens) {
@@ -54,64 +54,71 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
         try {
           if (isTokenValid()) {
             // Set the tokens in the API service
-            setApiTokens(storedTokens.accessToken, storedTokens.refreshToken, 3600);
-            saveLog('Using existing valid tokens', 'DEBUG');
+            setApiTokens(
+              storedTokens.accessToken,
+              storedTokens.refreshToken,
+              3600,
+            );
+            saveLog("Using existing valid tokens", "DEBUG");
             return true;
           } else {
             // Try to refresh the token
-            await refreshAccessToken(credentials.clientId, credentials.clientSecret);
-            saveLog('Successfully refreshed access token', 'INFO');
+            await refreshAccessToken(
+              credentials.clientId,
+              credentials.clientSecret,
+            );
+            saveLog("Successfully refreshed access token", "INFO");
             return true;
           }
         } catch (error) {
-          saveLog(`Failed to use stored tokens: ${error}`, 'DEBUG');
+          saveLog(`Failed to use stored tokens: ${error}`, "DEBUG");
           // Continue to new authentication
         }
       }
-      
+
       // Start the authentication flow
       try {
         const tokens = await startAuthFlow(
           mainWindow,
           credentials.clientId,
           credentials.clientSecret,
-          credentials.redirectUri
+          credentials.redirectUri,
         );
-        
+
         // Save tokens
         saveTokens({
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,
-          expiresAt: Date.now() + tokens.expiresIn * 1000
+          expiresAt: Date.now() + tokens.expiresIn * 1000,
         });
-        
+
         // Also set them in the API service
         setApiTokens(tokens.accessToken, tokens.refreshToken, tokens.expiresIn);
-        
-        saveLog('Successfully authenticated with Spotify', 'INFO');
+
+        saveLog("Successfully authenticated with Spotify", "INFO");
         return true;
       } catch (error) {
-        saveLog(`Authentication failed: ${error}`, 'ERROR');
+        saveLog(`Authentication failed: ${error}`, "ERROR");
         return false;
       }
     } catch (error) {
-      saveLog(`Authentication error: ${error}`, 'ERROR');
+      saveLog(`Authentication error: ${error}`, "ERROR");
       return false;
     }
   });
 
   ipcMain.handle("spotify:logout", async () => {
     console.log("Logging out from Spotify");
-    
+
     // Stop monitoring if active
     if (isMonitoringActive()) {
       stopPlaybackMonitoring();
     }
-    
+
     // Clear tokens
     clearApiTokens();
     clearStoredTokens();
-    
+
     // Log the logout
     saveLog("Logged out from Spotify", "INFO");
 
@@ -121,19 +128,19 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   ipcMain.handle("spotify:isAuthenticated", async () => {
     // Try to load tokens from storage
     const storedTokens = loadTokens();
-    
+
     if (storedTokens) {
       // Set tokens in the API service
       setApiTokens(
         storedTokens.accessToken,
         storedTokens.refreshToken,
-        Math.floor((storedTokens.expiresAt - Date.now()) / 1000)
+        Math.floor((storedTokens.expiresAt - Date.now()) / 1000),
       );
-      
+
       // Check if token is valid
       return isTokenValid();
     }
-    
+
     return false;
   });
 
@@ -141,11 +148,11 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   ipcMain.handle("spotify:getCurrentPlayback", async () => {
     try {
       const settings = getSettings();
-      
+
       // Get current playback from Spotify API
       return await getCurrentPlayback(
         settings.clientId || "",
-        settings.clientSecret || ""
+        settings.clientSecret || "",
       );
     } catch (error) {
       saveLog(`Error getting current playback: ${error}`, "ERROR");
@@ -155,7 +162,6 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
 
   // Skipped tracks handlers
   ipcMain.handle("spotify:getSkippedTracks", async () => {
-    console.log("Getting skipped tracks...");
     const tracks = getSkippedTracks();
     saveLog(`Loaded ${tracks.length} skipped tracks from storage`, "DEBUG");
     return tracks;
@@ -204,24 +210,12 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   ipcMain.handle("spotify:saveLog", async (_, message, level = "INFO") => {
     console.log(`Saving log [${level}]:`, message);
 
-    // Avoid duplicate logs by checking the most recent log
-    const recentLogs = getLogs(1);
-    if (recentLogs.length > 0) {
-      // Extract just the message part without timestamp and level
-      const lastLogMessageMatch = recentLogs[0].match(
-        /\[.*?\]\s+\[.*?\]\s+(.*)/,
-      );
-      if (lastLogMessageMatch && lastLogMessageMatch[1] === message) {
-        console.log("Preventing duplicate log:", message);
-        return true; // Don't save duplicate, but return success
-      }
-    }
-
+    // Let the saveLog function in store.ts handle all deduplication logic
+    // No need to duplicate the deduplication logic here
     return saveLog(message, level);
   });
 
   ipcMain.handle("spotify:getLogs", async (_, count) => {
-    console.log("Getting logs, count:", count);
     return getLogs(count);
   });
 
@@ -251,15 +245,15 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
 
     // Get current settings
     const settings = getSettings();
-    
+
     try {
       // Start monitoring
       const success = startPlaybackMonitoring(
         mainWindow,
         settings.clientId,
-        settings.clientSecret
+        settings.clientSecret,
       );
-      
+
       if (success) {
         return true;
       } else {
@@ -351,7 +345,6 @@ function createWindow() {
     // Load configuration when app starts
     try {
       const settings = getSettings();
-      console.log("Loaded initial settings:", settings);
       // Log configuration info that might be useful for diagnostics
       saveLog(
         `Application initialized with log level: ${settings.logLevel}`,
@@ -370,12 +363,12 @@ function createWindow() {
   // Handle window closed
   mainWindow.on("closed", () => {
     saveLog("Application closed", "INFO");
-    
+
     // Stop monitoring if active
     if (isMonitoringActive()) {
       stopPlaybackMonitoring();
     }
-    
+
     // Cancel auth flow if in progress
     cancelAuthFlow();
   });
@@ -425,7 +418,7 @@ app.on("window-all-closed", () => {
 
 app.on("quit", () => {
   saveLog("Application quit");
-  
+
   // Make sure monitoring is stopped
   if (isMonitoringActive()) {
     stopPlaybackMonitoring();

@@ -91,7 +91,6 @@ export function getSettings(): SettingsSchema {
     if (fs.existsSync(settingsFilePath)) {
       const settingsData = fs.readFileSync(settingsFilePath, "utf-8");
       const settings = JSON.parse(settingsData);
-      console.log("Loaded settings from:", settingsFilePath);
       return settings;
     }
 
@@ -111,18 +110,55 @@ export function saveLog(
   level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" = "INFO",
 ): boolean {
   try {
+    // Messages that we want to deduplicate more aggressively
+    const commonMessages = [
+      "Loaded skipped tracks from storage",
+      "Settings loaded from storage",
+      "Successfully loaded tokens from storage",
+    ];
+
+    // Check if this is a "Now playing" message
+    const isNowPlayingMessage = message.startsWith("Now playing:");
+
     // Check for recent duplicate logs (anti-spam)
-    const recentLogs = getLogs(1);
+    const recentLogs = getLogs(5); // Check last 5 logs for better deduplication
     if (recentLogs.length > 0) {
-      // Extract message part from most recent log
+      // For common repeating messages, check if any of the recent logs match
+      if (commonMessages.some((common) => message.includes(common))) {
+        for (const recentLog of recentLogs) {
+          const logMatch = recentLog.match(/\[.*?\]\s+\[([A-Z]+)\]\s+(.*)/);
+          if (logMatch && logMatch[2].includes(message)) {
+            return true; // Pretend we saved it
+          }
+        }
+      }
+
+      // For "Now playing" messages, deduplicate more aggressively
+      if (isNowPlayingMessage) {
+        const songInfo = message.substring("Now playing: ".length);
+        for (const recentLog of recentLogs) {
+          if (
+            recentLog.includes(songInfo) &&
+            recentLog.includes("Now playing:")
+          ) {
+            return true;
+          }
+        }
+      }
+
+      // General deduplication for the most recent log
       const lastLogMatch = recentLogs[0].match(/\[.*?\]\s+\[([A-Z]+)\]\s+(.*)/);
       if (lastLogMatch) {
         const lastLogLevel = lastLogMatch[1];
         const lastLogMessage = lastLogMatch[2];
 
         // If same message and level within the last log, don't duplicate it
-        if (lastLogMessage === message && lastLogLevel === level) {
-          console.log(`Preventing duplicate log: [${level}] ${message}`);
+        // But make an exception for track skipped messages which should always be logged
+        if (
+          lastLogMessage === message &&
+          lastLogLevel === level &&
+          !message.includes("Track skipped:")
+        ) {
           return true; // Pretend we saved it
         }
       }

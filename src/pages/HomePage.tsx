@@ -28,6 +28,7 @@ export default function HomePage() {
   const [logs, setLogs] = useState<string[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isMonitoring, setIsMonitoring] = useState(false);
+  const [isRefreshingLogs, setIsRefreshingLogs] = useState(false);
   const [settings, setSettings] = useState({
     logLevel: "INFO" as "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
   });
@@ -44,13 +45,15 @@ export default function HomePage() {
         }));
 
         // Then load logs
+        setIsRefreshingLogs(true);
         const savedLogs = await window.spotify.getLogs();
         setLogs(savedLogs);
-        
+        setIsRefreshingLogs(false);
+
         // Check if already authenticated
         const authStatus = await window.spotify.isAuthenticated();
         setIsAuthenticated(authStatus);
-        
+
         // Check if monitoring is active
         if (authStatus) {
           const isActive = await window.spotify.isMonitoringActive();
@@ -58,10 +61,39 @@ export default function HomePage() {
         }
       } catch (error) {
         console.error("Failed to load settings or logs:", error);
+        setIsRefreshingLogs(false);
       }
     };
 
     loadSettingsAndLogs();
+
+    // Set up a polling interval to refresh logs every second
+    const logRefreshInterval = setInterval(async () => {
+      try {
+        setIsRefreshingLogs(true);
+        const savedLogs = await window.spotify.getLogs();
+
+        // When new logs arrive, check specifically for any skip messages that might have been missed
+        const hasNewSkipMessages = savedLogs.some(
+          (log) => log.includes("Track skipped:") && !logs.includes(log),
+        );
+
+        if (hasNewSkipMessages) {
+          console.log("Found new skip messages in logs");
+        }
+
+        setLogs(savedLogs);
+        setIsRefreshingLogs(false);
+      } catch (error) {
+        console.error("Failed to refresh logs:", error);
+        setIsRefreshingLogs(false);
+      }
+    }, 500); // Refresh twice per second for more responsive skip detection
+
+    // Clean up interval on component unmount
+    return () => {
+      clearInterval(logRefreshInterval);
+    };
   }, []);
 
   // Set up playback update listener
@@ -84,7 +116,7 @@ export default function HomePage() {
           setPlaybackInfo(null);
         }
       });
-      
+
       return () => {
         // Clean up listener when component unmounts or auth state changes
         unsubscribe();
@@ -106,8 +138,11 @@ export default function HomePage() {
 
     setLogs((prevLogs) => {
       // Check if this exact log message already exists in our recent logs
-      // This prevents UI duplication
-      if (prevLogs.includes(formattedMessage)) {
+      // This prevents UI duplication, but allow track skipped messages to always show
+      if (
+        prevLogs.includes(formattedMessage) &&
+        !message.includes("Track skipped:")
+      ) {
         return prevLogs; // Don't add duplicates
       }
 
@@ -127,17 +162,20 @@ export default function HomePage() {
     try {
       // Get settings for credentials
       const settings = await window.spotify.getSettings();
-      
+
       const success = await window.spotify.authenticate({
         clientId: settings.clientId,
         clientSecret: settings.clientSecret,
         redirectUri: settings.redirectUri,
       });
-      
+
       if (success) {
         setIsAuthenticated(true);
       } else {
-        addLog("Authentication failed - check your Spotify credentials in settings", "ERROR");
+        addLog(
+          "Authentication failed - check your Spotify credentials in settings",
+          "ERROR",
+        );
       }
     } catch (error) {
       console.error("Authentication error:", error);
@@ -151,7 +189,7 @@ export default function HomePage() {
       if (isMonitoring) {
         await handleStopMonitoring();
       }
-      
+
       await window.spotify.logout();
       setIsAuthenticated(false);
       setPlaybackInfo(null);
@@ -160,7 +198,7 @@ export default function HomePage() {
       addLog("Error during logout", "ERROR");
     }
   };
-  
+
   // Monitoring functions
   const handleStartMonitoring = async () => {
     try {
@@ -176,7 +214,7 @@ export default function HomePage() {
       addLog("Error starting monitoring", "ERROR");
     }
   };
-  
+
   const handleStopMonitoring = async () => {
     try {
       const success = await window.spotify.stopMonitoring();
@@ -224,7 +262,8 @@ export default function HomePage() {
           uniqueLogs.push(log);
         }
       });
-      return uniqueLogs;
+      // Sort logs by timestamp (expected format: "[timestamp] [LEVEL] message")
+      return sortLogsByTimestamp(uniqueLogs);
     }
 
     // First filter by log level
@@ -249,7 +288,37 @@ export default function HomePage() {
       }
     });
 
-    return uniqueLogs;
+    // Finally, sort logs by timestamp
+    return sortLogsByTimestamp(uniqueLogs);
+  };
+
+  // Helper function to sort logs by timestamp
+  const sortLogsByTimestamp = (logsToSort: string[]): string[] => {
+    return logsToSort.sort((a, b) => {
+      // Extract timestamps from log entries
+      const timestampA = a.match(/\[(.*?)\]/)?.[1] || "";
+      const timestampB = b.match(/\[(.*?)\]/)?.[1] || "";
+
+      // Parse timestamps (format is typically HH:MM:SS)
+      const timeA = timestampA.split(":").map(Number);
+      const timeB = timestampB.split(":").map(Number);
+
+      // Convert to seconds for comparison
+      const secondsA =
+        (timeA[0] || 0) * 3600 + (timeA[1] || 0) * 60 + (timeA[2] || 0);
+      const secondsB =
+        (timeB[0] || 0) * 3600 + (timeB[1] || 0) * 60 + (timeB[2] || 0);
+
+      // Handle day rollover (if timestamps span midnight)
+      if (Math.abs(secondsA - secondsB) > 43200) {
+        // 12 hours in seconds
+        // If the difference is more than 12 hours, assume day rollover
+        return secondsA > secondsB ? -1 : 1;
+      }
+
+      // Regular chronological comparison
+      return secondsA - secondsB;
+    });
   };
 
   return (
@@ -332,7 +401,7 @@ export default function HomePage() {
               <div className="flex flex-1 flex-col items-center justify-center">
                 <p className="text-muted-foreground">
                   {isAuthenticated
-                    ? isMonitoring 
+                    ? isMonitoring
                       ? "No active playback"
                       : "Monitoring not started"
                     : "Not connected to Spotify"}
@@ -346,7 +415,12 @@ export default function HomePage() {
         <Card className="flex h-full flex-col">
           <CardContent className="flex flex-1 flex-col p-6">
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-lg font-medium">Logs</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-medium">Logs</h3>
+                {isRefreshingLogs && (
+                  <div className="border-primary h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"></div>
+                )}
+              </div>
               <div className="flex gap-2">
                 <Select
                   value={settings.logLevel}

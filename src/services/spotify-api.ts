@@ -1,11 +1,11 @@
-import axios from 'axios';
-import querystring from 'querystring';
-import { saveLog } from '../helpers/storage/store';
+import axios from "axios";
+import querystring from "querystring";
+import { saveLog } from "../helpers/storage/store";
 
 // Spotify API endpoints
-const AUTH_URL = 'https://accounts.spotify.com/authorize';
-const TOKEN_URL = 'https://accounts.spotify.com/api/token';
-const API_BASE_URL = 'https://api.spotify.com/v1';
+const AUTH_URL = "https://accounts.spotify.com/authorize";
+const TOKEN_URL = "https://accounts.spotify.com/api/token";
+const API_BASE_URL = "https://api.spotify.com/v1";
 
 // Token storage
 let accessToken: string | null = null;
@@ -18,15 +18,15 @@ let tokenExpiryTime: number = 0;
 export function getAuthorizationUrl(
   clientId: string,
   redirectUri: string,
-  scope: string = 'user-read-playback-state user-library-modify user-read-recently-played'
+  scope: string = "user-read-playback-state user-library-modify user-read-recently-played",
 ): string {
   const authQuery = {
-    response_type: 'code',
+    response_type: "code",
     client_id: clientId,
     scope: scope,
     redirect_uri: redirectUri,
   };
-  
+
   const queryParams = querystring.stringify(authQuery);
   return `${AUTH_URL}?${queryParams}`;
 }
@@ -38,13 +38,13 @@ export async function exchangeCodeForTokens(
   code: string,
   clientId: string,
   clientSecret: string,
-  redirectUri: string
+  redirectUri: string,
 ): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
   try {
     const response = await axios.post(
       TOKEN_URL,
       querystring.stringify({
-        grant_type: 'authorization_code',
+        grant_type: "authorization_code",
         code,
         redirect_uri: redirectUri,
         client_id: clientId,
@@ -52,24 +52,24 @@ export async function exchangeCodeForTokens(
       }),
       {
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          "Content-Type": "application/x-www-form-urlencoded",
         },
-      }
+      },
     );
 
     accessToken = response.data.access_token;
     refreshToken = response.data.refresh_token;
     tokenExpiryTime = Date.now() + response.data.expires_in * 1000;
 
-    saveLog('Successfully exchanged authorization code for tokens', 'INFO');
-    
+    saveLog("Successfully exchanged authorization code for tokens", "INFO");
+
     return {
       accessToken: response.data.access_token,
       refreshToken: response.data.refresh_token,
       expiresIn: response.data.expires_in,
     };
   } catch (error) {
-    saveLog(`Failed to exchange code for tokens: ${error}`, 'ERROR');
+    saveLog(`Failed to exchange code for tokens: ${error}`, "ERROR");
     throw error;
   }
 }
@@ -79,41 +79,41 @@ export async function exchangeCodeForTokens(
  */
 export async function refreshAccessToken(
   clientId: string,
-  clientSecret: string
+  clientSecret: string,
 ): Promise<string> {
   if (!refreshToken) {
-    throw new Error('No refresh token available');
+    throw new Error("No refresh token available");
   }
 
   try {
     const response = await axios.post(
       TOKEN_URL,
       querystring.stringify({
-        grant_type: 'refresh_token',
+        grant_type: "refresh_token",
         refresh_token: refreshToken,
         client_id: clientId,
         client_secret: clientSecret,
       }),
       {
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          "Content-Type": "application/x-www-form-urlencoded",
         },
-      }
+      },
     );
 
     accessToken = response.data.access_token;
     tokenExpiryTime = Date.now() + response.data.expires_in * 1000;
-    
+
     // If we receive a new refresh token, update it
     if (response.data.refresh_token) {
       refreshToken = response.data.refresh_token;
     }
 
-    saveLog('Successfully refreshed access token', 'DEBUG');
-    
+    saveLog("Successfully refreshed access token", "DEBUG");
+
     return accessToken;
   } catch (error) {
-    saveLog(`Failed to refresh access token: ${error}`, 'ERROR');
+    saveLog(`Failed to refresh access token: ${error}`, "ERROR");
     throw error;
   }
 }
@@ -131,7 +131,7 @@ export function isTokenValid(): boolean {
 export function setTokens(
   newAccessToken: string,
   newRefreshToken: string,
-  expiresIn: number
+  expiresIn: number,
 ): void {
   accessToken = newAccessToken;
   refreshToken = newRefreshToken;
@@ -152,10 +152,10 @@ export function clearTokens(): void {
  */
 export async function getCurrentUser(
   clientId: string,
-  clientSecret: string
+  clientSecret: string,
 ): Promise<any> {
   await ensureValidToken(clientId, clientSecret);
-  
+
   try {
     const response = await axios.get(`${API_BASE_URL}/me`, {
       headers: {
@@ -164,7 +164,7 @@ export async function getCurrentUser(
     });
     return response.data;
   } catch (error) {
-    saveLog(`Failed to get current user: ${error}`, 'ERROR');
+    saveLog(`Failed to get current user: ${error}`, "ERROR");
     throw error;
   }
 }
@@ -174,25 +174,25 @@ export async function getCurrentUser(
  */
 export async function getCurrentPlayback(
   clientId: string,
-  clientSecret: string
+  clientSecret: string,
 ): Promise<any> {
   await ensureValidToken(clientId, clientSecret);
-  
+
   try {
     const response = await axios.get(`${API_BASE_URL}/me/player`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     });
-    
+
     // No active playback returns 204 No Content
     if (response.status === 204) {
       return null;
     }
-    
+
     return response.data;
   } catch (error) {
-    saveLog(`Failed to get current playback: ${error}`, 'ERROR');
+    saveLog(`Failed to get current playback: ${error}`, "ERROR");
     throw error;
   }
 }
@@ -203,20 +203,23 @@ export async function getCurrentPlayback(
 export async function getRecentlyPlayedTracks(
   clientId: string,
   clientSecret: string,
-  limit: number = 5
+  limit: number = 5,
 ): Promise<any> {
   await ensureValidToken(clientId, clientSecret);
-  
+
   try {
-    const response = await axios.get(`${API_BASE_URL}/me/player/recently-played`, {
-      params: { limit },
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
+    const response = await axios.get(
+      `${API_BASE_URL}/me/player/recently-played`,
+      {
+        params: { limit },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       },
-    });
+    );
     return response.data;
   } catch (error) {
-    saveLog(`Failed to get recently played tracks: ${error}`, 'ERROR');
+    saveLog(`Failed to get recently played tracks: ${error}`, "ERROR");
     throw error;
   }
 }
@@ -227,10 +230,10 @@ export async function getRecentlyPlayedTracks(
 export async function isTrackInLibrary(
   clientId: string,
   clientSecret: string,
-  trackId: string
+  trackId: string,
 ): Promise<boolean> {
   await ensureValidToken(clientId, clientSecret);
-  
+
   try {
     const response = await axios.get(`${API_BASE_URL}/me/tracks/contains`, {
       params: { ids: trackId },
@@ -240,7 +243,7 @@ export async function isTrackInLibrary(
     });
     return response.data[0] || false;
   } catch (error) {
-    saveLog(`Failed to check if track is in library: ${error}`, 'ERROR');
+    saveLog(`Failed to check if track is in library: ${error}`, "ERROR");
     return false;
   }
 }
@@ -251,10 +254,10 @@ export async function isTrackInLibrary(
 export async function unlikeTrack(
   clientId: string,
   clientSecret: string,
-  trackId: string
+  trackId: string,
 ): Promise<boolean> {
   await ensureValidToken(clientId, clientSecret);
-  
+
   try {
     await axios.delete(`${API_BASE_URL}/me/tracks`, {
       params: { ids: trackId },
@@ -262,10 +265,10 @@ export async function unlikeTrack(
         Authorization: `Bearer ${accessToken}`,
       },
     });
-    saveLog(`Removed track ${trackId} from library`, 'INFO');
+    saveLog(`Removed track ${trackId} from library`, "INFO");
     return true;
   } catch (error) {
-    saveLog(`Failed to unlike track: ${error}`, 'ERROR');
+    saveLog(`Failed to unlike track: ${error}`, "ERROR");
     return false;
   }
 }
@@ -273,12 +276,15 @@ export async function unlikeTrack(
 /**
  * Ensure the token is valid before making API calls
  */
-async function ensureValidToken(clientId: string, clientSecret: string): Promise<void> {
+async function ensureValidToken(
+  clientId: string,
+  clientSecret: string,
+): Promise<void> {
   if (!isTokenValid()) {
     if (refreshToken) {
       await refreshAccessToken(clientId, clientSecret);
     } else {
-      throw new Error('No valid token or refresh token available');
+      throw new Error("No valid token or refresh token available");
     }
   }
 }
@@ -286,10 +292,14 @@ async function ensureValidToken(clientId: string, clientSecret: string): Promise
 /**
  * Get current token information
  */
-export function getTokenInfo(): { accessToken: string | null; refreshToken: string | null; expiryTime: number } {
+export function getTokenInfo(): {
+  accessToken: string | null;
+  refreshToken: string | null;
+  expiryTime: number;
+} {
   return {
     accessToken,
     refreshToken,
     expiryTime: tokenExpiryTime,
   };
-} 
+}
