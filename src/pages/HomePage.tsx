@@ -183,6 +183,19 @@ export default function HomePage() {
         // Update UI to show monitoring has stopped
         setIsMonitoring(false);
 
+        // Clear the playback information
+        setPlaybackInfo({
+          albumArt: "",
+          trackName: "Monitoring Stopped",
+          artist: "",
+          album: "",
+          progress: 0,
+          duration: 0,
+          currentTimeSeconds: 0,
+          isPlaying: false,
+          isInPlaylist: false,
+        });
+
         // Notify the user
         addLog(
           "Spotify playback monitoring has stopped due to persistent API errors",
@@ -193,7 +206,7 @@ export default function HomePage() {
             "Spotify monitoring stopped due to API errors. Please try again later.",
         });
 
-        return; // Skip updating playback info since it's not valid
+        return;
       }
 
       setPlaybackInfo({
@@ -349,8 +362,20 @@ export default function HomePage() {
       if (success) {
         // Update authentication state
         setIsAuthenticated(false);
-        // Clear playback info
-        setPlaybackInfo(null);
+
+        // Set playback info to logged-out state
+        setPlaybackInfo({
+          albumArt: "",
+          trackName: "Not Logged In",
+          artist: "Please authenticate with Spotify",
+          album: "Authentication required to track playback",
+          progress: 0,
+          duration: 0,
+          currentTimeSeconds: 0,
+          isPlaying: false,
+          isInPlaylist: false,
+        });
+
         addLog("Logout successful", "INFO");
       } else {
         addLog("Logout failed", "ERROR");
@@ -398,6 +423,19 @@ export default function HomePage() {
       if (success) {
         // Update monitoring state
         setIsMonitoring(false);
+
+        // Clear the playback information to indicate monitoring is stopped
+        setPlaybackInfo({
+          albumArt: "",
+          trackName: "Monitoring Stopped",
+          artist: "Playback updates paused",
+          album: "Start monitoring to resume tracking",
+          progress: 0,
+          duration: 0,
+          currentTimeSeconds: 0,
+          isPlaying: false,
+          isInPlaylist: false,
+        });
       } else {
         addLog("Failed to stop monitoring", "ERROR");
       }
