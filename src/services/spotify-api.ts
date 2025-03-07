@@ -257,7 +257,7 @@ export async function exchangeCodeForTokens(
     refreshToken = response.data.refresh_token;
     tokenExpiryTime = Date.now() + response.data.expires_in * 1000;
 
-    saveLog("Successfully exchanged authorization code for tokens", "INFO");
+    saveLog("Successfully exchanged authorization code for tokens", "DEBUG");
 
     return {
       accessToken: response.data.access_token,

@@ -58,6 +58,33 @@ export default function HomePage() {
   const [settings, setSettings] = useState({
     logLevel: "INFO" as "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
   });
+  // Reference for the logs refresh interval
+  const logsRefreshIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  /**
+   * Get initial playback information
+   */
+  const getInitialPlayback = async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      const playback = await window.spotify.getCurrentPlayback();
+      if (playback) {
+        setPlaybackInfo({
+          albumArt: playback.albumArt,
+          trackName: playback.trackName,
+          artist: playback.artistName,
+          album: playback.albumName,
+          progress: playback.progress,
+          duration: playback.duration,
+          isPlaying: playback.isPlaying,
+          isInPlaylist: playback.isInPlaylist,
+        });
+      }
+    } catch (error) {
+      console.error("Error getting playback:", error);
+    }
+  };
 
   /**
    * Load settings, logs, and check authentication status on component mount
@@ -92,7 +119,42 @@ export default function HomePage() {
     };
 
     loadSettingsAndLogs();
+
+    // Start playback updates if authenticated
+    getInitialPlayback();
+
+    // Start auto-refresh for logs
+    startLogsRefresh();
+
+    // Clean up on unmount
+    return () => {
+      if (logsRefreshIntervalRef.current) {
+        clearInterval(logsRefreshIntervalRef.current);
+        logsRefreshIntervalRef.current = null;
+      }
+    };
   }, []);
+
+  /**
+   * Start automatic logs refresh at regular intervals
+   */
+  const startLogsRefresh = () => {
+    // Clear any existing interval
+    if (logsRefreshIntervalRef.current) {
+      clearInterval(logsRefreshIntervalRef.current);
+    }
+
+    // Create new interval to refresh logs every 500ms
+    logsRefreshIntervalRef.current = setInterval(async () => {
+      try {
+        const updatedLogs = await window.spotify.getLogs();
+        setLogs(updatedLogs);
+      } catch (error) {
+        console.error("Error refreshing logs:", error);
+        // Don't log this error to avoid recursive error logs
+      }
+    }, 500);
+  };
 
   /**
    * Set up playback update listener when authenticated
@@ -115,26 +177,6 @@ export default function HomePage() {
     });
 
     // Get initial playback state
-    const getInitialPlayback = async () => {
-      try {
-        const playback = await window.spotify.getCurrentPlayback();
-        if (playback) {
-          setPlaybackInfo({
-            albumArt: playback.albumArt,
-            trackName: playback.trackName,
-            artist: playback.artistName,
-            album: playback.albumName,
-            progress: playback.progress,
-            duration: playback.duration,
-            isPlaying: playback.isPlaying,
-            isInPlaylist: playback.isInPlaylist,
-          });
-        }
-      } catch (error) {
-        console.error("Error getting current playback:", error);
-      }
-    };
-
     getInitialPlayback();
 
     // Cleanup: unsubscribe when component unmounts

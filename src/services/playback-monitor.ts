@@ -152,7 +152,7 @@ export function startPlaybackMonitoring(
 
     saveLog(
       `Started Spotify playback monitoring (skip threshold: ${skipProgressThreshold * 100}%)`,
-      "INFO",
+      "DEBUG",
     );
 
     // Initialize recent tracks
@@ -289,7 +289,7 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
     ) {
       saveLog(
         `Track "${trackName}" by ${artistName} is in your library - skips will be tracked`,
-        "INFO",
+        "DEBUG",
       );
       playbackState.libraryStatusLogged = true;
     }
@@ -328,7 +328,7 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
 
     // Log first play of a track or periodic update
     if (shouldLogNowPlaying) {
-      saveLog(`Now playing: ${trackName} by ${artistName}`, "DEBUG");
+      saveLog(`Now playing: ${trackName} by ${artistName}`, "INFO");
     }
 
     // Send playback update to renderer
@@ -386,7 +386,7 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
           // This is a skip - record it
           saveLog(
             `Track skipped: ${playbackState.trackName} by ${playbackState.artistName} (${Math.round(progressPercentage * 100)}% played)`,
-            progressPercentage < 0.1 ? "DEBUG" : "INFO",
+            "INFO",
           );
 
           try {

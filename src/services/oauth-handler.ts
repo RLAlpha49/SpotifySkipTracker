@@ -146,7 +146,7 @@ export function startAuthFlow(
         // Exchange the code for tokens
         exchangeCodeForTokens(code, clientId, clientSecret, redirectUri)
           .then((tokens) => {
-            saveLog("Successfully retrieved tokens from Spotify", "INFO");
+            saveLog("Successfully retrieved tokens from Spotify", "DEBUG");
             resolve(tokens);
           })
           .catch((err) => {
@@ -194,7 +194,7 @@ export function startAuthFlow(
         authWindow.on("closed", () => {
           authWindow = null;
           if (!isProcessingTokens) {
-            saveLog("Authentication window closed by user", "INFO");
+            saveLog("Authentication window closed by user", "DEBUG");
             reject(new Error("Authentication window closed by user"));
             cleanup();
           }
