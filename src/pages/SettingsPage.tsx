@@ -121,7 +121,7 @@ export default function SettingsPage() {
           logLineCount: settings.logLineCount || 100,
           skipThreshold: settings.skipThreshold || 3,
           timeframeInDays: settings.timeframeInDays || 30,
-          autoStartMonitoring: settings.autoStartMonitoring || true,
+          autoStartMonitoring: settings.autoStartMonitoring ?? true,
         });
 
         // Update the skip progress slider
