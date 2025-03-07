@@ -145,32 +145,113 @@ export function getSettings(): SettingsSchema {
  *
  * @param message - The log message to save
  * @param level - Severity level of the log message
+ * @param fromRenderer - Indicates if the log is coming from the renderer process
  * @returns True if log was saved (or deduplicated), false on error
  */
 export function saveLog(
   message: string,
   level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" = "INFO",
+  fromRenderer: boolean = false,
 ): boolean {
   try {
-    // Messages that we want to deduplicate more aggressively
+    // Get timestamp with milliseconds for more precise deduplication
+    const now = new Date();
+    const timestamp =
+      now.toLocaleTimeString() +
+      `.${now.getMilliseconds().toString().padStart(3, "0")}`;
+
+    // If this log is coming from the renderer process, check the last few logs
+    // to see if the main process has already logged this exact message
+    if (fromRenderer) {
+      const recentLogs = getLogs(5); // Just need to check recent logs
+      for (const recentLog of recentLogs) {
+        const logMatch = recentLog.match(/\[.*?\]\s+\[([A-Z]+)\]\s+(.*)/);
+        if (logMatch && logMatch[2] === message && logMatch[1] === level) {
+          // Check if this identical log was within the last 500ms
+          const logTimestamp = recentLog.match(/\[(.*?)\]/)?.[1];
+          if (logTimestamp) {
+            try {
+              // Handle possible parsing errors by putting this in a try/catch
+              const logTime = new Date(`${now.toDateString()} ${logTimestamp}`);
+              const timeDiff = now.getTime() - logTime.getTime();
+              if (timeDiff < 500) {
+                return true; // Skip duplicate from renderer
+              }
+            } catch {
+              // If parsing fails, continue with regular checks
+            }
+          }
+        }
+      }
+    }
+
+    // Standard deduplication for common messages
     const commonMessages = [
       "Loaded skipped tracks from storage",
+      "Loaded 28 skipped tracks from storage", // Add specific count version
       "Settings loaded from storage",
       "Successfully loaded tokens from storage",
+      "No stored tokens found",
+      "Spotify tokens loaded from secure storage",
+      "Logged out from Spotify",
+      "Logout successful",
+      "Application started",
+      "Application initialized",
     ];
+
+    // Special patterns that should be considered the same message (like "Loaded X skipped tracks")
+    const messagePatterns = [/Loaded \d+ skipped tracks from storage/];
 
     // Check if this is a "Now playing" message
     const isNowPlayingMessage = message.startsWith("Now playing:");
 
     // Check for recent duplicate logs (anti-spam)
-    const recentLogs = getLogs(5); // Check last 5 logs for better deduplication
+    const recentLogs = getLogs(15); // Check more logs to better catch duplicates
     if (recentLogs.length > 0) {
       // For common repeating messages, check if any of the recent logs match
       if (commonMessages.some((common) => message.includes(common))) {
         for (const recentLog of recentLogs) {
           const logMatch = recentLog.match(/\[.*?\]\s+\[([A-Z]+)\]\s+(.*)/);
           if (logMatch && logMatch[2].includes(message)) {
-            return true; // Pretend we saved it
+            // For these common messages, deduplicate more aggressively - up to 3 seconds
+            const logTime = recentLog.match(/\[(.*?)\]/)?.[1];
+            if (logTime) {
+              try {
+                const parsedTime = new Date(`${now.toDateString()} ${logTime}`);
+                if (now.getTime() - parsedTime.getTime() < 3000) {
+                  return true; // Deduplicate if the same message appeared in the last 3 seconds
+                }
+              } catch {
+                // If date parsing fails, continue with regular processing
+              }
+            }
+          }
+
+          // Also check for pattern-based matches (like "Loaded X skipped tracks")
+          const logContent = logMatch?.[2];
+          if (logContent) {
+            // Check if current log matches any patterns
+            for (const pattern of messagePatterns) {
+              if (pattern.test(message)) {
+                // If the log message matches the pattern, check if recent log also matches the same pattern
+                if (pattern.test(logContent)) {
+                  // If both match the same pattern, check time difference
+                  const logTime = recentLog.match(/\[(.*?)\]/)?.[1];
+                  if (logTime) {
+                    try {
+                      const parsedTime = new Date(
+                        `${now.toDateString()} ${logTime}`,
+                      );
+                      if (now.getTime() - parsedTime.getTime() < 3000) {
+                        return true; // Deduplicate if similar messages appeared in the last 3 seconds
+                      }
+                    } catch {
+                      // If date parsing fails, continue with regular processing
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -187,27 +268,8 @@ export function saveLog(
           }
         }
       }
-
-      // General deduplication for the most recent log
-      const lastLogMatch = recentLogs[0].match(/\[.*?\]\s+\[([A-Z]+)\]\s+(.*)/);
-      if (lastLogMatch) {
-        const lastLogLevel = lastLogMatch[1];
-        const lastLogMessage = lastLogMatch[2];
-
-        // If same message and level within the last log, don't duplicate it
-        // But make an exception for track skipped messages which should always be logged
-        if (
-          lastLogMessage === message &&
-          lastLogLevel === level &&
-          !message.includes("Track skipped:")
-        ) {
-          return true; // Pretend we saved it
-        }
-      }
     }
 
-    const now = new Date();
-    const timestamp = now.toLocaleTimeString();
     const logEntry = `[${timestamp}] [${level}] ${message}\n`;
 
     // Save to latest.log (current session log)

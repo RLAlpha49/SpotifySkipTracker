@@ -19,6 +19,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
 import { saveLog } from "../helpers/storage/store";
+import { Warning } from "postcss";
 
 // Constants for token storage
 const TOKEN_FILE = "spotify-tokens.json";
@@ -124,6 +125,11 @@ function encrypt(text: string): { encryptedData: string; iv: string } {
 function decrypt(encryptedData: string, iv: string): string {
   const key = getEncryptionKey();
   const ivBuffer = Buffer.from(iv, "hex");
+
+  // Check if encryptedData is defined
+  if (!encryptedData) {
+    throw new Warning("Encrypted data is undefined or empty");
+  }
 
   // Split the data and authentication tag
   const encryptedParts = encryptedData.split(":");

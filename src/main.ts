@@ -240,9 +240,8 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   ipcMain.handle("spotify:saveLog", async (_, message, level = "INFO") => {
     console.log(`Saving log [${level}]:`, message);
 
-    // Let the saveLog function in store.ts handle all deduplication logic
-    // No need to duplicate the deduplication logic here
-    return saveLog(message, level);
+    // Add a flag to indicate this log came from the renderer process
+    return saveLog(message, level, true);
   });
 
   ipcMain.handle("spotify:getLogs", async (_, count) => {
@@ -346,8 +345,8 @@ function createWindow() {
 
   const preload = path.join(__dirname, "preload.js");
   const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1000,
+    height: 800,
     webPreferences: {
       devTools: inDevelopment,
       contextIsolation: true,
@@ -376,7 +375,7 @@ function createWindow() {
   // Once the window is ready, show it
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
-    saveLog("Application started", "INFO");
+    saveLog("Application started", "DEBUG");
 
     // Load configuration when app starts
     try {
@@ -398,7 +397,7 @@ function createWindow() {
 
   // Handle window closed
   mainWindow.on("closed", () => {
-    saveLog("Application closed", "INFO");
+    saveLog("Application closed", "DEBUG");
 
     // Stop monitoring if active
     if (isMonitoringActive()) {
@@ -433,7 +432,7 @@ async function installExtensions() {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
-  saveLog("Application initializing");
+  saveLog("Application initializing", "DEBUG");
 
   await installExtensions();
   createWindow();
@@ -449,14 +448,14 @@ app.whenReady().then(async () => {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on("window-all-closed", () => {
-  saveLog("All windows closed");
+  saveLog("All windows closed", "DEBUG");
   if (process.platform !== "darwin") {
     app.quit();
   }
 });
 
 app.on("quit", () => {
-  saveLog("Application quit");
+  saveLog("Application quit", "DEBUG");
 
   // Make sure monitoring is stopped
   if (isMonitoringActive()) {

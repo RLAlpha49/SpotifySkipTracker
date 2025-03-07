@@ -53,9 +53,6 @@ export default function SkippedTracksPage() {
     try {
       const tracks = await window.spotify.getSkippedTracks();
       setSkippedTracks(tracks);
-      
-      // The main process already logs this, so we don't need to log it again here
-      // window.spotify.saveLog("Loaded skipped tracks from storage", "DEBUG");
     } catch (error) {
       console.error("Failed to load skipped tracks:", error);
       toast.error("Failed to load data", {
@@ -134,34 +131,50 @@ export default function SkippedTracksPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-full">Track</TableHead>
-                    <TableHead className="text-right w-[100px] whitespace-nowrap">Skips</TableHead>
-                    <TableHead className="text-right w-[100px] whitespace-nowrap">Completed</TableHead>
-                    <TableHead className="text-right w-[100px] whitespace-nowrap">Skip Ratio</TableHead>
-                    <TableHead className="text-right w-[140px] whitespace-nowrap">Last Skipped</TableHead>
+                    <TableHead className="w-[100px] text-right whitespace-nowrap">
+                      Skips
+                    </TableHead>
+                    <TableHead className="w-[100px] text-right whitespace-nowrap">
+                      Completed
+                    </TableHead>
+                    <TableHead className="w-[100px] text-right whitespace-nowrap">
+                      Skip Ratio
+                    </TableHead>
+                    <TableHead className="w-[140px] text-right whitespace-nowrap">
+                      Last Skipped
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {skippedTracks.length > 0 ? (
                     [...skippedTracks].sort(sortBySkipCount).map((track) => (
                       <TableRow key={track.id}>
-                        <TableCell className="max-w-[200px] md:max-w-none w-full">
+                        <TableCell className="w-full max-w-[200px] md:max-w-none">
                           <div className="overflow-hidden">
-                            <div className="font-medium overflow-hidden text-ellipsis" title={track.name}>{track.name}</div>
-                            <div className="text-muted-foreground text-sm overflow-hidden text-ellipsis" title={track.artist}>
+                            <div
+                              className="overflow-hidden font-medium text-ellipsis"
+                              title={track.name}
+                            >
+                              {track.name}
+                            </div>
+                            <div
+                              className="text-muted-foreground overflow-hidden text-sm text-ellipsis"
+                              title={track.artist}
+                            >
                               {track.artist}
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right w-[100px] whitespace-nowrap">
+                        <TableCell className="w-[100px] text-right whitespace-nowrap">
                           {track.skipCount}
                         </TableCell>
-                        <TableCell className="text-right w-[100px] whitespace-nowrap">
+                        <TableCell className="w-[100px] text-right whitespace-nowrap">
                           {track.notSkippedCount}
                         </TableCell>
-                        <TableCell className="text-right w-[100px] whitespace-nowrap">
+                        <TableCell className="w-[100px] text-right whitespace-nowrap">
                           {calculateSkipRatio(track)}
                         </TableCell>
-                        <TableCell className="text-right w-[140px] whitespace-nowrap">
+                        <TableCell className="w-[140px] text-right whitespace-nowrap">
                           {formatDate(track.lastSkipped)}
                         </TableCell>
                       </TableRow>

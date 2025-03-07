@@ -327,7 +327,7 @@ export default function HomePage() {
       if (success) {
         // Update logs state
         setLogs([]);
-        addLog("Logs cleared", "INFO");
+        addLog("Logs cleared", "DEBUG");
       } else {
         addLog("Failed to clear logs", "ERROR");
       }
@@ -358,8 +358,35 @@ export default function HomePage() {
     const logLevels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
     const selectedLevelIndex = logLevels.indexOf(settings.logLevel);
 
+    // Deduplicate logs first - create a Map with timestamp+message as key
+    const uniqueLogs = new Map<string, string>();
+
+    logs.forEach((log) => {
+      // Create a unique key based on timestamp and message content
+      const matches = log.match(/\[(.*?)\]\s+\[([A-Z]+)\]\s+(.*)/);
+      if (matches && matches.length >= 4) {
+        const timestamp = matches[1];
+        // We only need timestamp and message for the key
+        const message = matches[3];
+
+        // Use the timestamp+message as a unique key
+        const key = `${timestamp}-${message}`;
+
+        // Only add if this exact key doesn't exist yet
+        if (!uniqueLogs.has(key)) {
+          uniqueLogs.set(key, log);
+        }
+      } else {
+        // If log doesn't match expected format, use the whole log as key
+        uniqueLogs.set(log, log);
+      }
+    });
+
+    // Convert back to array
+    const deduplicatedLogs = Array.from(uniqueLogs.values());
+
     // Only show logs at or above the selected level
-    const filteredLogs = logs.filter((log) => {
+    const filteredLogs = deduplicatedLogs.filter((log) => {
       // Parse log level from the log string
       const match = log.match(/\[.*?\]\s+\[([A-Z]+)\]/);
       if (!match) return false;
@@ -580,22 +607,25 @@ export default function HomePage() {
           </div>
           <Separator className="my-2" />
           <ScrollArea className="h-60 w-full rounded-md border p-4">
-            {getFilteredLogs().length > 0 ? (
-              <div className="space-y-1">
-                {getFilteredLogs().map((log, index) => (
-                  <div
-                    key={index}
-                    className={`font-mono text-xs ${getLogLevelClass(log)}`}
-                  >
-                    {log}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-center text-sm">
-                No logs to display
-              </p>
-            )}
+            {(() => {
+              const filteredLogs = getFilteredLogs();
+              return filteredLogs.length > 0 ? (
+                <div className="space-y-1">
+                  {filteredLogs.map((log, index) => (
+                    <div
+                      key={index}
+                      className={`font-mono text-xs ${getLogLevelClass(log)}`}
+                    >
+                      {log}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-center text-sm">
+                  No logs to display
+                </p>
+              );
+            })()}
           </ScrollArea>
         </CardContent>
       </Card>
