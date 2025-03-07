@@ -53,9 +53,9 @@ export default function SkippedTracksPage() {
     try {
       const tracks = await window.spotify.getSkippedTracks();
       setSkippedTracks(tracks);
-
-      // Log successful load
-      window.spotify.saveLog("Loaded skipped tracks from storage", "DEBUG");
+      
+      // The main process already logs this, so we don't need to log it again here
+      // window.spotify.saveLog("Loaded skipped tracks from storage", "DEBUG");
     } catch (error) {
       console.error("Failed to load skipped tracks:", error);
       toast.error("Failed to load data", {
@@ -128,56 +128,58 @@ export default function SkippedTracksPage() {
 
       <Card>
         <CardContent className="p-2 sm:p-6">
-          <ScrollArea className="h-[70vh]">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Track</TableHead>
-                  <TableHead className="text-right">Skips</TableHead>
-                  <TableHead className="text-right">Completed</TableHead>
-                  <TableHead className="text-right">Skip Ratio</TableHead>
-                  <TableHead className="text-right">Last Skipped</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {skippedTracks.length > 0 ? (
-                  [...skippedTracks].sort(sortBySkipCount).map((track) => (
-                    <TableRow key={track.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{track.name}</div>
-                          <div className="text-muted-foreground text-sm">
-                            {track.artist}
+          <ScrollArea className="h-[70vh] w-full pr-2" type="always">
+            <div className="w-full overflow-x-hidden">
+              <Table className="w-full">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-full">Track</TableHead>
+                    <TableHead className="text-right w-[100px] whitespace-nowrap">Skips</TableHead>
+                    <TableHead className="text-right w-[100px] whitespace-nowrap">Completed</TableHead>
+                    <TableHead className="text-right w-[100px] whitespace-nowrap">Skip Ratio</TableHead>
+                    <TableHead className="text-right w-[140px] whitespace-nowrap">Last Skipped</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {skippedTracks.length > 0 ? (
+                    [...skippedTracks].sort(sortBySkipCount).map((track) => (
+                      <TableRow key={track.id}>
+                        <TableCell className="max-w-[200px] md:max-w-none w-full">
+                          <div className="overflow-hidden">
+                            <div className="font-medium overflow-hidden text-ellipsis" title={track.name}>{track.name}</div>
+                            <div className="text-muted-foreground text-sm overflow-hidden text-ellipsis" title={track.artist}>
+                              {track.artist}
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {track.skipCount}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {track.notSkippedCount}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {calculateSkipRatio(track)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatDate(track.lastSkipped)}
+                        </TableCell>
+                        <TableCell className="text-right w-[100px] whitespace-nowrap">
+                          {track.skipCount}
+                        </TableCell>
+                        <TableCell className="text-right w-[100px] whitespace-nowrap">
+                          {track.notSkippedCount}
+                        </TableCell>
+                        <TableCell className="text-right w-[100px] whitespace-nowrap">
+                          {calculateSkipRatio(track)}
+                        </TableCell>
+                        <TableCell className="text-right w-[140px] whitespace-nowrap">
+                          {formatDate(track.lastSkipped)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="py-6 text-center">
+                        {loading ? (
+                          <p>Loading skipped tracks data...</p>
+                        ) : (
+                          <p>No skipped tracks data available.</p>
+                        )}
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="py-6 text-center">
-                      {loading ? (
-                        <p>Loading skipped tracks data...</p>
-                      ) : (
-                        <p>No skipped tracks data available.</p>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </ScrollArea>
         </CardContent>
       </Card>
