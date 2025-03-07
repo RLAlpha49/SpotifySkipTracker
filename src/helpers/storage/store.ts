@@ -71,6 +71,7 @@ interface SettingsSchema {
   skipThreshold: number; // Number of skips before suggesting removal
   timeframeInDays: number; // Time window for skip analysis
   skipProgress: number; // Progress percentage threshold to count as skip
+  autoStartMonitoring: boolean; // Whether to automatically start monitoring on app launch
 }
 
 // Default settings applied when no settings file exists
@@ -83,6 +84,7 @@ const defaultSettings: SettingsSchema = {
   skipThreshold: 3,
   timeframeInDays: 30,
   skipProgress: 70,
+  autoStartMonitoring: false, // Default to manual start for backward compatibility
 };
 
 // Path to settings file

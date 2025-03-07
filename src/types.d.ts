@@ -87,6 +87,7 @@ interface SpotifySettings {
   skipThreshold: number; // Number of skips before suggesting removal
   timeframeInDays: number; // Time window for skip analysis
   skipProgress: number; // Progress percentage threshold to count as skip
+  autoStartMonitoring: boolean; // Whether to automatically start monitoring on app launch
 }
 
 /**

@@ -109,10 +109,22 @@ export default function HomePage() {
         const authStatus = await window.spotify.isAuthenticated();
         setIsAuthenticated(authStatus);
 
-        // If authenticated, check if monitoring is active
+        // If authenticated, check if monitoring is active or should be auto-started
         if (authStatus) {
           const monitoringStatus = await window.spotify.isMonitoringActive();
           setIsMonitoring(monitoringStatus);
+
+          // Auto-start monitoring if configured and not already active
+          if (savedSettings.autoStartMonitoring && !monitoringStatus) {
+            addLog("Auto-starting Spotify playback monitoring...", "INFO");
+            const success = await window.spotify.startMonitoring();
+            if (success) {
+              setIsMonitoring(true);
+              addLog("Monitoring auto-started successfully", "INFO");
+            } else {
+              addLog("Failed to auto-start monitoring", "ERROR");
+            }
+          }
         }
       } catch (error) {
         console.error("Error loading initial data:", error);
@@ -276,6 +288,21 @@ export default function HomePage() {
         // Update authentication state
         setIsAuthenticated(true);
         addLog("Authentication successful", "INFO");
+
+        // Auto-start monitoring if configured
+        if (currentSettings.autoStartMonitoring) {
+          addLog(
+            "Auto-starting Spotify playback monitoring after login...",
+            "INFO",
+          );
+          const monitoringStarted = await window.spotify.startMonitoring();
+          if (monitoringStarted) {
+            setIsMonitoring(true);
+            addLog("Monitoring auto-started successfully", "INFO");
+          } else {
+            addLog("Failed to auto-start monitoring", "ERROR");
+          }
+        }
       } else {
         addLog("Authentication failed", "ERROR");
       }

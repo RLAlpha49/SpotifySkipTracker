@@ -50,6 +50,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
 
 /**
  * Zod schema for validating settings form inputs
@@ -66,6 +67,7 @@ const settingsFormSchema = z.object({
   logLineCount: z.coerce.number().int().min(10).max(1000),
   skipThreshold: z.coerce.number().int().min(1).max(10),
   timeframeInDays: z.coerce.number().int().min(1).max(365),
+  autoStartMonitoring: z.boolean().default(false),
 });
 
 /**
@@ -98,6 +100,7 @@ export default function SettingsPage() {
       logLineCount: 100,
       skipThreshold: 3,
       timeframeInDays: 30,
+      autoStartMonitoring: false,
     },
   });
 
@@ -118,6 +121,7 @@ export default function SettingsPage() {
           logLineCount: settings.logLineCount || 100,
           skipThreshold: settings.skipThreshold || 3,
           timeframeInDays: settings.timeframeInDays || 30,
+          autoStartMonitoring: settings.autoStartMonitoring || false,
         });
 
         // Update the skip progress slider
@@ -445,29 +449,54 @@ export default function SettingsPage() {
                               field.onChange(value);
                               setSettingsChanged(true);
                             }}
-                            defaultValue={field.value}
                             value={field.value}
                           >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select log level" />
-                              </SelectTrigger>
-                            </FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select log level" />
+                            </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="DEBUG">DEBUG</SelectItem>
-                              <SelectItem value="INFO">INFO</SelectItem>
-                              <SelectItem value="WARNING">WARNING</SelectItem>
-                              <SelectItem value="ERROR">ERROR</SelectItem>
-                              <SelectItem value="CRITICAL">CRITICAL</SelectItem>
+                              <SelectItem value="DEBUG">Debug</SelectItem>
+                              <SelectItem value="INFO">Info</SelectItem>
+                              <SelectItem value="WARNING">Warning</SelectItem>
+                              <SelectItem value="ERROR">Error</SelectItem>
+                              <SelectItem value="CRITICAL">Critical</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormDescription>
-                            Minimum log level to display
+                            Controls the verbosity of application logs
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+
+                    <FormField
+                      control={form.control}
+                      name="autoStartMonitoring"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">
+                              Auto-Start Monitoring
+                            </FormLabel>
+                            <FormDescription>
+                              Automatically start monitoring when the app
+                              launches or when you log in
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={(checked) => {
+                                field.onChange(checked);
+                                setSettingsChanged(true);
+                              }}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
                     <FormField
                       control={form.control}
                       name="logLineCount"
