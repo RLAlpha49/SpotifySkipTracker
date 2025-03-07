@@ -38,7 +38,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "sonner";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import ToggleTheme from "@/components/ToggleTheme";
 import {
   AlertDialog,
@@ -243,31 +242,28 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <ScrollArea className="h-[calc(100vh-200px)]">
-            <div className="space-y-6 pr-4">
-              {/* Spotify API Settings */}
-              <div>
-                <h2 className="text-lg font-semibold">
-                  Spotify API Credentials
-                </h2>
-                <p className="text-muted-foreground mb-4 text-sm">
-                  Enter your Spotify Developer credentials. You can get these
-                  from the{" "}
-                  <a
-                    href="https://developer.spotify.com/dashboard"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline"
-                  >
-                    Spotify Developer Dashboard
-                  </a>
-                  .
-                </p>
-
-                <Card>
-                  <CardContent className="space-y-4 p-6">
+      <CardContent className="p-2 sm:p-6">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            {/* Spotify API Settings */}
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold">Spotify API Credentials</h2>
+              <p className="text-muted-foreground mb-4 text-sm">
+                Enter your Spotify Developer credentials. You can get these from
+                the{" "}
+                <a
+                  href="https://developer.spotify.com/dashboard"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline"
+                >
+                  Spotify Developer Dashboard
+                </a>
+                .
+              </p>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="mb-4">
                     <FormField
                       control={form.control}
                       name="clientId"
@@ -291,6 +287,9 @@ export default function SettingsPage() {
                         </FormItem>
                       )}
                     />
+                  </div>
+
+                  <div className="mb-4">
                     <FormField
                       control={form.control}
                       name="clientSecret"
@@ -315,6 +314,9 @@ export default function SettingsPage() {
                         </FormItem>
                       )}
                     />
+                  </div>
+
+                  <div>
                     <FormField
                       control={form.control}
                       name="redirectUri"
@@ -339,21 +341,21 @@ export default function SettingsPage() {
                         </FormItem>
                       )}
                     />
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-              {/* Skip Detection Settings */}
-              <div>
-                <h2 className="text-lg font-semibold">
-                  Skip Detection Settings
-                </h2>
-                <p className="text-muted-foreground mb-4 text-sm">
-                  Configure how skips are detected and when tracks are removed
-                </p>
+            {/* Skip Detection Settings */}
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold">Skip Detection Settings</h2>
+              <p className="text-muted-foreground mb-4 text-sm">
+                Configure how skips are detected and when tracks are removed
+              </p>
 
-                <Card>
-                  <CardContent className="space-y-4 p-6">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="mb-4">
                     <FormField
                       control={form.control}
                       name="skipThreshold"
@@ -380,6 +382,9 @@ export default function SettingsPage() {
                         </FormItem>
                       )}
                     />
+                  </div>
+
+                  <div className="mb-4">
                     <FormField
                       control={form.control}
                       name="timeframeInDays"
@@ -405,7 +410,10 @@ export default function SettingsPage() {
                         </FormItem>
                       )}
                     />
-                    <div className="space-y-2">
+                  </div>
+
+                  <div>
+                    <div className="mb-2">
                       <Label htmlFor="skipProgress">
                         Skip Progress Threshold: {skipProgress}%
                       </Label>
@@ -420,24 +428,26 @@ export default function SettingsPage() {
                           setSettingsChanged(true);
                         }}
                       />
-                      <p className="text-muted-foreground text-xs">
-                        If a track is played beyond this percentage, it
-                        won&apos;t be considered skipped
-                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                    <p className="text-muted-foreground text-xs">
+                      If a track is played beyond this percentage, it won&apos;t
+                      be considered skipped
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-              {/* Application Settings */}
-              <div>
-                <h2 className="text-lg font-semibold">Application Settings</h2>
-                <p className="text-muted-foreground mb-4 text-sm">
-                  Configure general application behavior
-                </p>
+            {/* Application Settings */}
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold">Application Settings</h2>
+              <p className="text-muted-foreground mb-4 text-sm">
+                Configure general application behavior
+              </p>
 
-                <Card>
-                  <CardContent className="space-y-4 p-6">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="mb-4">
                     <FormField
                       control={form.control}
                       name="logLevel"
@@ -469,7 +479,9 @@ export default function SettingsPage() {
                         </FormItem>
                       )}
                     />
+                  </div>
 
+                  <div className="mb-4">
                     <FormField
                       control={form.control}
                       name="autoStartMonitoring"
@@ -496,7 +508,9 @@ export default function SettingsPage() {
                         </FormItem>
                       )}
                     />
+                  </div>
 
+                  <div className="mb-4">
                     <FormField
                       control={form.control}
                       name="logLineCount"
@@ -522,28 +536,28 @@ export default function SettingsPage() {
                         </FormItem>
                       )}
                     />
-                    <div className="space-y-2">
-                      <Label>Theme</Label>
-                      <div className="flex items-center space-x-2">
-                        <ToggleTheme />
-                        <span className="text-sm">Toggle dark/light mode</span>
-                      </div>
+                  </div>
+
+                  <div>
+                    <Label>Theme</Label>
+                    <div className="mt-2 flex items-center space-x-2">
+                      <ToggleTheme />
+                      <span className="text-sm">Toggle dark/light mode</span>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </ScrollArea>
 
-          <div className="flex justify-end">
-            <Button type="submit" disabled={!settingsChanged}>
-              Save Settings
-            </Button>
-          </div>
-        </form>
-      </Form>
+            <div className="mt-6 flex justify-end">
+              <Button type="submit" disabled={!settingsChanged}>
+                Save Settings
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </CardContent>
 
-      {/* Application Restart Dialog */}
       <AlertDialog open={showRestartDialog} onOpenChange={setShowRestartDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

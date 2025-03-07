@@ -52,7 +52,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       </header>
 
       {/* Main Content - scrollable */}
-      <ScrollArea className="flex-1 overflow-auto">{children}</ScrollArea>
+      <ScrollArea className="flex-1 overflow-hidden">{children}</ScrollArea>
 
       {/* Bottom Navigation - fixed at the bottom */}
       <nav className="bg-background border-t">
