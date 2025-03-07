@@ -18,6 +18,7 @@
 import axios from "axios";
 import querystring from "querystring";
 import { saveLog } from "../helpers/storage/store";
+import { retryApiCall } from "./api-retry";
 
 // Spotify API endpoints
 const AUTH_URL = "https://accounts.spotify.com/authorize";
@@ -319,7 +320,8 @@ export async function refreshAccessToken(
 
     return accessToken as string;
   } catch (error) {
-    saveLog(`Failed to refresh access token: ${error}`, "ERROR");
+    // Log this as a warning initially, since it will be retried by the retryApiCall function
+    saveLog(`Failed to refresh access token: ${error}`, "WARNING");
     throw error;
   }
 }
@@ -365,7 +367,7 @@ export function clearTokens(): void {
  * @param clientId - Spotify Developer client ID
  * @param clientSecret - Spotify Developer client secret
  * @returns User profile data
- * @throws Error if API request fails
+ * @throws Error if API request fails after all retry attempts
  */
 export async function getCurrentUser(
   clientId: string,
@@ -373,17 +375,14 @@ export async function getCurrentUser(
 ): Promise<SpotifyUserProfile> {
   await ensureValidToken(clientId, clientSecret);
 
-  try {
+  return retryApiCall(async () => {
     const response = await axios.get(`${API_BASE_URL}/me`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     });
     return response.data;
-  } catch (error) {
-    saveLog(`Failed to get current user: ${error}`, "ERROR");
-    throw error;
-  }
+  });
 }
 
 /**
@@ -392,7 +391,7 @@ export async function getCurrentUser(
  * @param clientId - Spotify Developer client ID
  * @param clientSecret - Spotify Developer client secret
  * @returns Current playback state or null if nothing is playing
- * @throws Error if API request fails
+ * @throws Error if API request fails after all retry attempts
  */
 export async function getCurrentPlayback(
   clientId: string,
@@ -400,7 +399,7 @@ export async function getCurrentPlayback(
 ): Promise<SpotifyPlaybackState | null> {
   await ensureValidToken(clientId, clientSecret);
 
-  try {
+  return retryApiCall(async () => {
     const response = await axios.get(`${API_BASE_URL}/me/player`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -413,10 +412,7 @@ export async function getCurrentPlayback(
     }
 
     return response.data;
-  } catch (error) {
-    saveLog(`Failed to get current playback: ${error}`, "ERROR");
-    throw error;
-  }
+  });
 }
 
 /**
@@ -426,7 +422,7 @@ export async function getCurrentPlayback(
  * @param clientSecret - Spotify Developer client secret
  * @param limit - Maximum number of tracks to return (default: 5)
  * @returns Recently played tracks data
- * @throws Error if API request fails
+ * @throws Error if API request fails after all retry attempts
  */
 export async function getRecentlyPlayedTracks(
   clientId: string,
@@ -435,7 +431,7 @@ export async function getRecentlyPlayedTracks(
 ): Promise<SpotifyRecentlyPlayedResponse> {
   await ensureValidToken(clientId, clientSecret);
 
-  try {
+  return retryApiCall(async () => {
     const response = await axios.get(
       `${API_BASE_URL}/me/player/recently-played`,
       {
@@ -446,10 +442,7 @@ export async function getRecentlyPlayedTracks(
       },
     );
     return response.data;
-  } catch (error) {
-    saveLog(`Failed to get recently played tracks: ${error}`, "ERROR");
-    throw error;
-  }
+  });
 }
 
 /**
@@ -468,15 +461,21 @@ export async function isTrackInLibrary(
   await ensureValidToken(clientId, clientSecret);
 
   try {
-    const response = await axios.get(`${API_BASE_URL}/me/tracks/contains`, {
-      params: { ids: trackId },
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+    return await retryApiCall(async () => {
+      const response = await axios.get(`${API_BASE_URL}/me/tracks/contains`, {
+        params: { ids: trackId },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      return response.data[0] || false;
     });
-    return response.data[0] || false;
   } catch (error) {
-    saveLog(`Failed to check if track is in library: ${error}`, "ERROR");
+    // Handle all errors by returning false rather than throwing
+    saveLog(
+      `Failed to check if track is in library after multiple attempts: ${error}`,
+      "WARNING",
+    );
     return false;
   }
 }
@@ -497,16 +496,21 @@ export async function unlikeTrack(
   await ensureValidToken(clientId, clientSecret);
 
   try {
-    await axios.delete(`${API_BASE_URL}/me/tracks`, {
-      params: { ids: trackId },
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+    await retryApiCall(async () => {
+      await axios.delete(`${API_BASE_URL}/me/tracks`, {
+        params: { ids: trackId },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
     });
     saveLog(`Removed track ${trackId} from library`, "INFO");
     return true;
   } catch (error) {
-    saveLog(`Failed to unlike track: ${error}`, "ERROR");
+    saveLog(
+      `Failed to remove track from library after multiple attempts: ${error}`,
+      "ERROR",
+    );
     return false;
   }
 }
@@ -517,7 +521,7 @@ export async function unlikeTrack(
  *
  * @param clientId - Spotify Developer client ID
  * @param clientSecret - Spotify Developer client secret
- * @throws Error if no valid token or refresh token is available
+ * @throws Error if no valid token or refresh token is available after retries
  */
 async function ensureValidToken(
   clientId: string,
@@ -525,7 +529,18 @@ async function ensureValidToken(
 ): Promise<void> {
   if (!isTokenValid()) {
     if (refreshToken) {
-      await refreshAccessToken(clientId, clientSecret);
+      try {
+        await retryApiCall(
+          async () => {
+            await refreshAccessToken(clientId, clientSecret);
+          },
+          3, // Fewer retries for token refresh
+        );
+      } catch (error) {
+        throw new Error(
+          `Failed to refresh token after multiple attempts: ${error}`,
+        );
+      }
     } else {
       throw new Error("No valid token or refresh token available");
     }

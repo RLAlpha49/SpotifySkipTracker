@@ -60,6 +60,7 @@ interface SpotifyPlaybackInfo {
   currentTimeSeconds?: number;
   currentTimeMs?: number;
   isInPlaylist?: boolean;
+  monitoringStopped?: boolean;
 }
 
 /**

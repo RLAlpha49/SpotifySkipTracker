@@ -178,6 +178,24 @@ export default function HomePage() {
 
     // Subscribe to playback updates from Spotify
     const unsubscribe = window.spotify.onPlaybackUpdate((data) => {
+      // Check if monitoring was stopped due to API errors
+      if (data.monitoringStopped) {
+        // Update UI to show monitoring has stopped
+        setIsMonitoring(false);
+
+        // Notify the user
+        addLog(
+          "Spotify playback monitoring has stopped due to persistent API errors",
+          "ERROR",
+        );
+        toast.error("Monitoring stopped", {
+          description:
+            "Spotify monitoring stopped due to API errors. Please try again later.",
+        });
+
+        return; // Skip updating playback info since it's not valid
+      }
+
       setPlaybackInfo({
         albumArt: data.albumArt,
         trackName: data.trackName,

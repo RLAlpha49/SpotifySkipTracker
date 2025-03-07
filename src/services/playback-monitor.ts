@@ -313,45 +313,35 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
     let playback;
     try {
       playback = await getCurrentPlayback(clientId, clientSecret);
+      // If we reach here, the API call was successful after potential retries
     } catch (error: unknown) {
-      // Type guard for error
-      const authError = error as Error;
-      const errorMessage = authError.message || String(authError);
+      // After all retries, if we still have an error, stop monitoring
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      saveLog(`Error in playback monitoring: ${errorMessage}`, "ERROR");
+      saveLog(
+        "Stopping playback monitoring due to persistent API errors",
+        "ERROR",
+      );
 
-      // If we get an authentication error, attempt to refresh the token
-      if (
-        errorMessage.includes("401") ||
-        errorMessage.includes("unauthorized") ||
-        errorMessage.includes("expired")
-      ) {
-        saveLog(
-          "Auth token expired during playback check, attempting refresh...",
-          "DEBUG",
-        );
+      // Stop the monitoring intervals
+      stopPlaybackMonitoring();
 
-        try {
-          // Try to refresh the token silently
-          await refreshAccessToken(clientId, clientSecret);
-          saveLog(
-            "Successfully refreshed token during playback check",
-            "DEBUG",
-          );
+      // Notify the UI that monitoring has stopped
+      mainWindow.webContents.send("spotify:playbackUpdate", {
+        isPlaying: false,
+        trackId: "",
+        trackName: "",
+        artistName: "",
+        albumName: "",
+        albumArt: "",
+        progress: 0,
+        duration: 0,
+        isInPlaylist: false,
+        monitoringStopped: true, // Add flag to indicate monitoring was stopped due to errors
+      });
 
-          // Retry with the new token
-          playback = await getCurrentPlayback(clientId, clientSecret);
-        } catch (error: unknown) {
-          const refreshError = error as Error;
-          saveLog(
-            `Failed to refresh token during playback check: ${refreshError.message || String(refreshError)}`,
-            "ERROR",
-          );
-          // Rethrow to stop this cycle
-          throw refreshError;
-        }
-      } else {
-        saveLog(`Playback check error: ${errorMessage}`, "ERROR");
-        throw authError;
-      }
+      return;
     }
 
     if (!playback) {
@@ -747,49 +737,17 @@ async function updateRecentTracks(): Promise<void> {
     let recentlyPlayed: RecentlyPlayedResponse | null = null;
 
     try {
+      // Use the API function with built-in retry mechanism
       recentlyPlayed = (await getRecentlyPlayedTracks(
         clientId,
         clientSecret,
       )) as RecentlyPlayedResponse;
     } catch (error: unknown) {
-      const authError = error as Error;
-      const errorMessage = authError.message || String(authError);
-
-      // If we get an authentication error, attempt to refresh the token
-      if (
-        errorMessage.includes("401") ||
-        errorMessage.includes("unauthorized") ||
-        errorMessage.includes("expired")
-      ) {
-        saveLog(
-          "Auth token expired during recent tracks check, attempting refresh...",
-          "DEBUG",
-        );
-
-        try {
-          // Try to refresh the token silently
-          await refreshAccessToken(clientId, clientSecret);
-          saveLog(
-            "Successfully refreshed token during recent tracks check",
-            "DEBUG",
-          );
-
-          // Retry with the new token
-          recentlyPlayed = (await getRecentlyPlayedTracks(
-            clientId,
-            clientSecret,
-          )) as RecentlyPlayedResponse;
-        } catch (error: unknown) {
-          const refreshError = error as Error;
-          saveLog(
-            `Failed to refresh token during recent tracks check: ${refreshError.message || String(refreshError)}`,
-            "ERROR",
-          );
-          // Continue with recentlyPlayed = null
-        }
-      } else {
-        saveLog(`Recent tracks check error: ${errorMessage}`, "ERROR");
-      }
+      // All retries failed, log the error but continue with null recent tracks
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      saveLog(`Unable to get recently played tracks: ${errorMessage}`, "ERROR");
+      // Continue with recentlyPlayed = null
     }
 
     if (recentlyPlayed && recentlyPlayed.items) {
