@@ -31,6 +31,9 @@ if (!fs.existsSync(logsPath)) {
   fs.mkdirSync(logsPath, { recursive: true });
 }
 
+// Export paths for use in other modules
+export { appDataPath, logsPath };
+
 /**
  * Log Rotation System
  *

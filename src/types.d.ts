@@ -124,6 +124,7 @@ declare interface Window {
     ) => Promise<boolean>;
     getLogs: (count?: number) => Promise<string[]>;
     clearLogs: () => Promise<boolean>;
+    openLogsDirectory: () => Promise<boolean>;
 
     // App Control
     restartApp: () => Promise<boolean>;

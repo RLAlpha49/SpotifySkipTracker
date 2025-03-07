@@ -19,7 +19,7 @@
  * - Services - Modules handling specific functionality (auth, playback, storage)
  */
 
-import { app, BrowserWindow, ipcMain, Menu } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, shell } from "electron";
 import registerListeners from "./helpers/ipc/listeners-register";
 // "electron-squirrel-startup" seems broken when packaging with vite
 //import started from "electron-squirrel-startup";
@@ -37,6 +37,7 @@ import {
   getSkippedTracks,
   saveSkippedTracks,
   updateSkippedTrack,
+  logsPath,
 } from "./helpers/storage/store";
 
 // Import Spotify services
@@ -252,6 +253,23 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     console.log("Clearing logs");
     const result = clearLogs();
     return result;
+  });
+
+  ipcMain.handle("spotify:openLogsDirectory", async () => {
+    console.log("Opening logs directory:", logsPath);
+
+    // Use shell to open the directory with the default file explorer
+    shell.openPath(logsPath).then((error) => {
+      if (error) {
+        console.error("Failed to open logs directory:", error);
+        saveLog(`Failed to open logs directory: ${error}`, "ERROR");
+        return false;
+      }
+      saveLog("Opened logs directory", "INFO");
+      return true;
+    });
+
+    return true;
   });
 
   // App control handlers

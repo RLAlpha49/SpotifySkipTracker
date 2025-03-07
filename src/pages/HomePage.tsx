@@ -22,6 +22,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
+import { FolderOpen } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -317,23 +318,31 @@ export default function HomePage() {
   };
 
   /**
-   * Clear application logs
+   * Handle clearing logs
    */
   const handleClearLogs = async () => {
     try {
-      // Attempt to clear logs
-      const success = await window.spotify.clearLogs();
-
-      if (success) {
-        // Update logs state
-        setLogs([]);
-        addLog("Logs cleared", "DEBUG");
+      const result = await window.spotify.clearLogs();
+      if (result) {
+        addLog("Logs cleared", "INFO");
       } else {
         addLog("Failed to clear logs", "ERROR");
       }
     } catch (error) {
       console.error("Error clearing logs:", error);
       addLog(`Error clearing logs: ${error}`, "ERROR");
+    }
+  };
+
+  /**
+   * Handle opening logs directory in file explorer
+   */
+  const handleOpenLogsDirectory = async () => {
+    try {
+      await window.spotify.openLogsDirectory();
+    } catch (error) {
+      console.error("Error opening logs directory:", error);
+      addLog(`Error opening logs directory: ${error}`, "ERROR");
     }
   };
 
@@ -600,6 +609,16 @@ export default function HomePage() {
                   <SelectItem value="CRITICAL">CRITICAL</SelectItem>
                 </SelectContent>
               </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenLogsDirectory}
+                title="Open logs directory in file explorer"
+                className="flex items-center gap-1"
+              >
+                <FolderOpen className="h-4 w-4" />
+                <span>Open Logs</span>
+              </Button>
               <Button variant="outline" size="sm" onClick={handleClearLogs}>
                 Clear Logs
               </Button>
