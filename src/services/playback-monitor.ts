@@ -43,6 +43,8 @@ interface PlaybackState {
   lastUpdateTime?: number;
   lastSyncTime?: number;
   isPlaying: boolean;
+  pauseStartTime?: number;
+  totalPauseDuration: number;
 }
 
 let playbackState: PlaybackState = {
@@ -58,7 +60,7 @@ let playbackState: PlaybackState = {
   recentTracks: [],
   libraryStatusLogged: false,
   isPlaying: false,
-  lastUpdateTime: Date.now(),
+  totalPauseDuration: 0,
 };
 
 // Monitoring state variables
@@ -316,35 +318,39 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
       const authError = error as Error;
       const errorMessage = authError.message || String(authError);
 
-      // If we get an authentication error, it might be due to expired token
+      // If we get an authentication error, attempt to refresh the token
       if (
         errorMessage.includes("401") ||
         errorMessage.includes("unauthorized") ||
         errorMessage.includes("expired")
       ) {
         saveLog(
-          "Auth token expired during monitoring, attempting refresh...",
+          "Auth token expired during playback check, attempting refresh...",
           "DEBUG",
         );
 
         try {
           // Try to refresh the token silently
           await refreshAccessToken(clientId, clientSecret);
-          saveLog("Successfully refreshed token during monitoring", "DEBUG");
+          saveLog(
+            "Successfully refreshed token during playback check",
+            "DEBUG",
+          );
 
-          // Retry getting playback with the new token
+          // Retry with the new token
           playback = await getCurrentPlayback(clientId, clientSecret);
         } catch (error: unknown) {
           const refreshError = error as Error;
           saveLog(
-            `Failed to refresh token during monitoring: ${refreshError.message || String(refreshError)}`,
+            `Failed to refresh token during playback check: ${refreshError.message || String(refreshError)}`,
             "ERROR",
           );
-          // Continue with playback = null, which will just send an empty update
+          // Rethrow to stop this cycle
+          throw refreshError;
         }
       } else {
-        // Other API errors
-        saveLog(`Playback API error: ${errorMessage}`, "ERROR");
+        saveLog(`Playback check error: ${errorMessage}`, "ERROR");
+        throw authError;
       }
     }
 
@@ -387,13 +393,41 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
     const progress = playback.progress_ms;
     const duration = item.duration_ms;
 
+    // Handle pause/play state changes
+    const now = Date.now();
+
+    // Track was previously playing but is now paused
+    if (playbackState.isPlaying && !isPlaying) {
+      // Record when the pause started
+      playbackState.pauseStartTime = now;
+      saveLog(`Track "${trackName}" was paused`, "DEBUG");
+    }
+    // Track was previously paused but is now playing
+    else if (
+      !playbackState.isPlaying &&
+      isPlaying &&
+      playbackState.pauseStartTime
+    ) {
+      // Calculate how long the track was paused and add to total
+      const pauseDuration = now - playbackState.pauseStartTime;
+      playbackState.totalPauseDuration += pauseDuration;
+
+      // Reset pause start time
+      playbackState.pauseStartTime = undefined;
+
+      saveLog(
+        `Track "${trackName}" resumed after ${Math.round(pauseDuration / 1000)} seconds paused`,
+        "DEBUG",
+      );
+    }
+
     // Update the isPlaying state for local progress tracking
     playbackState.isPlaying = isPlaying;
     // Use API progress as the base progress
     playbackState.progress = progress;
     playbackState.albumArt = albumArt;
     // Set the sync time to now (used for local progress computation)
-    playbackState.lastSyncTime = Date.now();
+    playbackState.lastSyncTime = now;
 
     // Check if track is in library (need to check if in a playlist in this implementation)
     let isInLibrary = false;
@@ -459,7 +493,6 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
     }
 
     // Store the current timestamp for logging purposes
-    const now = Date.now();
     const lastNowPlayingLog = playbackState.lastNowPlayingLog || 0;
 
     // Log "Now playing" only when:
@@ -523,7 +556,8 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
  *
  * This is the core of the skip detection logic:
  * - When a track changes, check how far through the previous track the user was
- * - If below the threshold, count it as a skip
+ * - If below the threshold, check if the track was paused for at least 15 seconds
+ * - If it wasn't paused for long enough, count it as a skip
  * - Update statistics and potentially remove from library if skip count exceeds threshold
  *
  * @param newTrackId - The ID of the new track being played
@@ -533,6 +567,7 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
     // Skip detection logic
     const settings = getSettings();
     const skipProgressThreshold = settings.skipProgress / 100 || 0.7; // Convert from percentage to decimal
+    const PAUSE_THRESHOLD_MS = 15 * 1000; // 15 seconds in milliseconds
 
     const progressPercentage =
       playbackState.lastProgress / playbackState.duration;
@@ -542,14 +577,29 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
       playbackState.trackId &&
       !playbackState.recentTracks.includes(newTrackId)
     ) {
-      // Check if track was skipped
-      if (progressPercentage < skipProgressThreshold) {
+      // Calculate the current pause duration if the track is paused
+      let currentPauseDuration = 0;
+      if (!playbackState.isPlaying && playbackState.pauseStartTime) {
+        currentPauseDuration = Date.now() - playbackState.pauseStartTime;
+      }
+
+      // Total pause duration including current pause if track is paused
+      const totalPauseDuration =
+        playbackState.totalPauseDuration + currentPauseDuration;
+
+      // Check if track was skipped - only if not paused for long enough
+      if (
+        progressPercentage < skipProgressThreshold &&
+        totalPauseDuration < PAUSE_THRESHOLD_MS
+      ) {
         console.log(
           "Track skipped:",
           playbackState.trackName,
           playbackState.artistName,
           progressPercentage,
           skipProgressThreshold,
+          "Pause duration:",
+          Math.round(totalPauseDuration / 1000) + "s",
         );
         // If track was in library, record the skip
         if (playbackState.isInLibrary) {
@@ -602,7 +652,7 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
                   errorMessage.includes("expired")
                 ) {
                   saveLog(
-                    "Auth token expired during unlike operation, attempting refresh...",
+                    "Auth token expired during unlike, attempting refresh...",
                     "DEBUG",
                   );
 
@@ -610,7 +660,7 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
                     // Try to refresh the token silently
                     await refreshAccessToken(clientId, clientSecret);
                     saveLog(
-                      "Successfully refreshed token during unlike operation",
+                      "Successfully refreshed token during unlike",
                       "DEBUG",
                     );
 
@@ -623,27 +673,36 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
                   } catch (error: unknown) {
                     const refreshError = error as Error;
                     saveLog(
-                      `Failed to refresh token during unlike operation: ${refreshError.message || String(refreshError)}`,
+                      `Failed to refresh token during unlike: ${refreshError.message || String(refreshError)}`,
                       "ERROR",
                     );
                   }
                 } else {
-                  saveLog(`Unlike track error: ${errorMessage}`, "ERROR");
+                  saveLog(`Error unliking track: ${errorMessage}`, "ERROR");
                 }
               }
             }
-          } catch (error) {
-            saveLog(`Error updating skipped track data: ${error}`, "ERROR");
+          } catch (error: unknown) {
+            saveLog(`Error updating skip count: ${error}`, "ERROR");
           }
         }
-      } else {
-        // Track was played sufficiently
+      } else if (
+        progressPercentage < skipProgressThreshold &&
+        totalPauseDuration >= PAUSE_THRESHOLD_MS
+      ) {
+        // The track was paused for a significant time, so we don't count it as a skip
         saveLog(
-          `Track completed: ${playbackState.trackName} by ${playbackState.artistName} (${Math.round(progressPercentage * 100)}%)`,
-          "DEBUG",
+          `Track change after pause: ${playbackState.trackName} by ${playbackState.artistName} (paused for ${Math.round(totalPauseDuration / 1000)}s)`,
+          "INFO",
+        );
+      } else if (progressPercentage >= skipProgressThreshold) {
+        // Track was played enough to not be considered a skip
+        saveLog(
+          `Track played: ${playbackState.trackName} by ${playbackState.artistName} (${Math.round(progressPercentage * 100)}% played)`,
+          "INFO",
         );
 
-        // If track was in library, record the completion
+        // If track is in library, record it as played
         if (playbackState.isInLibrary) {
           try {
             // Update not skipped count in storage
@@ -652,20 +711,30 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
               id: playbackState.trackId,
               name: playbackState.trackName || "",
               artist: playbackState.artistName || "",
-              // Don't specify skipCount or lastSkipped to preserve existing values
+              skipCount: 0,
               notSkippedCount: 1,
+              lastSkipped: "", // This wasn't skipped
             } as SkippedTrackInfo);
-          } catch (error) {
-            saveLog(`Error updating not skipped track data: ${error}`, "ERROR");
+          } catch (error: unknown) {
+            saveLog(`Error updating not skipped count: ${error}`, "ERROR");
           }
         }
       }
     }
 
-    // Update recent tracks list
-    await updateRecentTracks();
-  } catch (error) {
-    saveLog(`Error handling track change: ${error}`, "ERROR");
+    // Reset pause timing for new track
+    playbackState.pauseStartTime = undefined;
+    playbackState.totalPauseDuration = 0;
+
+    // Update recent tracks list (maintain last 5)
+    if (playbackState.trackId) {
+      playbackState.recentTracks = [
+        playbackState.trackId,
+        ...playbackState.recentTracks.slice(0, 4),
+      ];
+    }
+  } catch (error: unknown) {
+    saveLog(`Track change error: ${error}`, "ERROR");
   }
 }
 
@@ -734,8 +803,8 @@ async function updateRecentTracks(): Promise<void> {
 }
 
 /**
- * Resets the playback state when tracking stops or nothing is playing.
- * Clears all track information and progress data.
+ * Reset playback state to defaults
+ * Called when playback stops or errors occur
  */
 function resetPlaybackState(): void {
   playbackState = {
@@ -748,10 +817,11 @@ function resetPlaybackState(): void {
     duration: 0,
     isInLibrary: false,
     lastProgress: 0,
-    recentTracks: playbackState.recentTracks,
+    recentTracks: playbackState.recentTracks || [],
     libraryStatusLogged: false,
     isPlaying: false,
-    lastSyncTime: Date.now(),
+    pauseStartTime: undefined,
+    totalPauseDuration: 0,
   };
 }
 

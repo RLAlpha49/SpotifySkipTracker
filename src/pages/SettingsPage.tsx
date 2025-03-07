@@ -67,7 +67,7 @@ const settingsFormSchema = z.object({
   logLineCount: z.coerce.number().int().min(10).max(1000),
   skipThreshold: z.coerce.number().int().min(1).max(10),
   timeframeInDays: z.coerce.number().int().min(1).max(365),
-  autoStartMonitoring: z.boolean().default(false),
+  autoStartMonitoring: z.boolean().default(true),
 });
 
 /**
@@ -100,7 +100,7 @@ export default function SettingsPage() {
       logLineCount: 100,
       skipThreshold: 3,
       timeframeInDays: 30,
-      autoStartMonitoring: false,
+      autoStartMonitoring: true,
     },
   });
 
@@ -121,7 +121,7 @@ export default function SettingsPage() {
           logLineCount: settings.logLineCount || 100,
           skipThreshold: settings.skipThreshold || 3,
           timeframeInDays: settings.timeframeInDays || 30,
-          autoStartMonitoring: settings.autoStartMonitoring || false,
+          autoStartMonitoring: settings.autoStartMonitoring || true,
         });
 
         // Update the skip progress slider

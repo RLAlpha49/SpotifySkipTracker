@@ -116,7 +116,7 @@ export default function HomePage() {
 
           // Auto-start monitoring if configured and not already active
           if (savedSettings.autoStartMonitoring && !monitoringStatus) {
-            addLog("Auto-starting Spotify playback monitoring...", "INFO");
+            addLog("Auto-starting Spotify playback monitoring...", "DEBUG");
             const success = await window.spotify.startMonitoring();
             if (success) {
               setIsMonitoring(true);
@@ -245,7 +245,7 @@ export default function HomePage() {
       });
 
       // Log the change
-      addLog(`Log level changed to ${value}`, "INFO");
+      addLog(`Log level changed to ${value}`, "DEBUG");
     } catch (error) {
       console.error("Error changing log level:", error);
       addLog(`Error changing log level: ${error}`, "ERROR");
@@ -293,7 +293,7 @@ export default function HomePage() {
         if (currentSettings.autoStartMonitoring) {
           addLog(
             "Auto-starting Spotify playback monitoring after login...",
-            "INFO",
+            "DEBUG",
           );
           const monitoringStarted = await window.spotify.startMonitoring();
           if (monitoringStarted) {

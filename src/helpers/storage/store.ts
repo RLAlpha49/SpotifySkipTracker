@@ -84,7 +84,7 @@ const defaultSettings: SettingsSchema = {
   skipThreshold: 3,
   timeframeInDays: 30,
   skipProgress: 70,
-  autoStartMonitoring: false, // Default to manual start for backward compatibility
+  autoStartMonitoring: true,
 };
 
 // Path to settings file

@@ -270,7 +270,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
 
     // Log the settings save operation
     if (result) {
-      saveLog("Settings saved successfully", "INFO");
+      saveLog("Settings saved successfully", "DEBUG");
     } else {
       saveLog("Failed to save settings", "ERROR");
     }
