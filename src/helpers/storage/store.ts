@@ -143,20 +143,15 @@ export function getSettings(): SettingsSchema {
 }
 
 /**
- * Application Logging System
- *
- * Saves log entries to both a current session log (latest.log) and daily log files
- * for historical tracking. Includes smart deduplication to prevent log spam.
+ * Save a log message to the application log files
  *
  * @param message - The log message to save
  * @param level - Severity level of the log message
- * @param fromRenderer - Indicates if the log is coming from the renderer process
  * @returns True if log was saved (or deduplicated), false on error
  */
 export function saveLog(
   message: string,
   level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" = "INFO",
-  fromRenderer: boolean = false,
 ): boolean {
   try {
     // Get timestamp with milliseconds for more precise deduplication
@@ -165,22 +160,28 @@ export function saveLog(
       now.toLocaleTimeString() +
       `.${now.getMilliseconds().toString().padStart(3, "0")}`;
 
-    // If this log is coming from the renderer process, check the last few logs
-    // to see if the main process has already logged this exact message
-    if (fromRenderer) {
-      const recentLogs = getLogs(5); // Just need to check recent logs
-      for (const recentLog of recentLogs) {
-        const logMatch = recentLog.match(/\[.*?\]\s+\[([A-Z]+)\]\s+(.*)/);
-        if (logMatch && logMatch[2] === message && logMatch[1] === level) {
-          // Check if this identical log was within the last 500ms
+    // Get recent logs for deduplication checks
+    const recentLogs = getLogs(20);
+
+    // Universal deduplication for all log types
+    for (const recentLog of recentLogs) {
+      const logMatch = recentLog.match(/\[.*?\]\s+\[([A-Z]+)\]\s+(.*)/);
+      if (logMatch && logMatch[1] === level) {
+        const recentMessage = logMatch[2];
+
+        // Check for exact duplicate
+        if (recentMessage === message) {
+          // Get log timestamp
           const logTimestamp = recentLog.match(/\[(.*?)\]/)?.[1];
           if (logTimestamp) {
             try {
-              // Handle possible parsing errors by putting this in a try/catch
+              // Try to parse the timestamp
               const logTime = new Date(`${now.toDateString()} ${logTimestamp}`);
               const timeDiff = now.getTime() - logTime.getTime();
-              if (timeDiff < 500) {
-                return true; // Skip duplicate from renderer
+
+              // Deduplicate if identical message within the last 2 seconds
+              if (timeDiff < 2000) {
+                return true; // Skip duplicate
               }
             } catch {
               // If parsing fails, continue with regular checks
@@ -190,86 +191,98 @@ export function saveLog(
       }
     }
 
-    // Standard deduplication for common messages
-    const commonMessages = [
-      "Loaded skipped tracks from storage",
-      "Loaded 28 skipped tracks from storage", // Add specific count version
-      "Settings loaded from storage",
-      "Successfully loaded tokens from storage",
-      "No stored tokens found",
-      "Spotify tokens loaded from secure storage",
-      "Logged out from Spotify",
-      "Logout successful",
-      "Application started",
-      "Application initialized",
+    // Special case for "Now playing" messages - deduplicate more aggressively
+    if (message.startsWith("Now playing:")) {
+      const songInfo = message.substring("Now playing: ".length);
+      for (const recentLog of recentLogs) {
+        if (
+          recentLog.includes(songInfo) &&
+          recentLog.includes("Now playing:")
+        ) {
+          return true; // Always deduplicate duplicate "Now playing" messages
+        }
+      }
+    }
+
+    // Special case for track status messages about the same track
+    const trackStatusPatterns = [
+      /Track "(.*?)" by (.*?) is in your library/,
+      /Track "(.*?)" by (.*?) was paused/,
+      /Track "(.*?)" by (.*?) resumed after/,
     ];
 
-    // Special patterns that should be considered the same message (like "Loaded X skipped tracks")
-    const messagePatterns = [/Loaded \d+ skipped tracks from storage/];
+    for (const pattern of trackStatusPatterns) {
+      const trackMatch = message.match(pattern);
+      if (trackMatch) {
+        const [, trackName, artistName] = trackMatch;
 
-    // Check if this is a "Now playing" message
-    const isNowPlayingMessage = message.startsWith("Now playing:");
-
-    // Check for recent duplicate logs (anti-spam)
-    const recentLogs = getLogs(15); // Check more logs to better catch duplicates
-    if (recentLogs.length > 0) {
-      // For common repeating messages, check if any of the recent logs match
-      if (commonMessages.some((common) => message.includes(common))) {
+        // Look for other log messages about the same track
         for (const recentLog of recentLogs) {
-          const logMatch = recentLog.match(/\[.*?\]\s+\[([A-Z]+)\]\s+(.*)/);
-          if (logMatch && logMatch[2].includes(message)) {
-            // For these common messages, deduplicate more aggressively - up to 3 seconds
-            const logTime = recentLog.match(/\[(.*?)\]/)?.[1];
-            if (logTime) {
-              try {
-                const parsedTime = new Date(`${now.toDateString()} ${logTime}`);
-                if (now.getTime() - parsedTime.getTime() < 3000) {
-                  return true; // Deduplicate if the same message appeared in the last 3 seconds
-                }
-              } catch {
-                // If date parsing fails, continue with regular processing
-              }
-            }
-          }
+          // Check if any recent log contains same track and artist
+          if (
+            recentLog.includes(`"${trackName}"`) &&
+            recentLog.includes(`by ${artistName}`)
+          ) {
+            const logMatch = recentLog.match(/\[.*?\]\s+\[([A-Z]+)\]\s+(.*)/);
+            if (logMatch && logMatch[2] !== message) {
+              // Different message about same track
+              const logTimestamp = recentLog.match(/\[(.*?)\]/)?.[1];
+              if (logTimestamp) {
+                try {
+                  const logTime = new Date(
+                    `${now.toDateString()} ${logTimestamp}`,
+                  );
+                  const timeDiff = now.getTime() - logTime.getTime();
 
-          // Also check for pattern-based matches (like "Loaded X skipped tracks")
-          const logContent = logMatch?.[2];
-          if (logContent) {
-            // Check if current log matches any patterns
-            for (const pattern of messagePatterns) {
-              if (pattern.test(message)) {
-                // If the log message matches the pattern, check if recent log also matches the same pattern
-                if (pattern.test(logContent)) {
-                  // If both match the same pattern, check time difference
-                  const logTime = recentLog.match(/\[(.*?)\]/)?.[1];
-                  if (logTime) {
-                    try {
-                      const parsedTime = new Date(
-                        `${now.toDateString()} ${logTime}`,
-                      );
-                      if (now.getTime() - parsedTime.getTime() < 3000) {
-                        return true; // Deduplicate if similar messages appeared in the last 3 seconds
-                      }
-                    } catch {
-                      // If date parsing fails, continue with regular processing
-                    }
+                  // If message about same track within 500ms, deduplicate
+                  if (timeDiff < 500) {
+                    return true;
                   }
+                } catch {
+                  // If parsing fails, continue
                 }
               }
             }
           }
         }
       }
+    }
 
-      // For "Now playing" messages, deduplicate more aggressively
-      if (isNowPlayingMessage) {
-        const songInfo = message.substring("Now playing: ".length);
+    // Added pattern-based deduplication for common repeating messages
+    const commonPatterns = [
+      /Loaded \d+ skipped tracks from storage/,
+      /Settings loaded from storage/,
+      /Spotify tokens loaded from secure storage/,
+      /Using existing valid tokens/,
+      /Started Spotify playback monitoring/,
+      /Monitoring auto-started/,
+      /Successfully refreshed .* token/,
+      /Auto-starting Spotify playback monitoring/,
+      /Application initialized/,
+    ];
+
+    for (const pattern of commonPatterns) {
+      if (pattern.test(message)) {
         for (const recentLog of recentLogs) {
-          if (
-            recentLog.includes(songInfo) &&
-            recentLog.includes("Now playing:")
-          ) {
-            return true;
+          const logMatch = recentLog.match(/\[.*?\]\s+\[([A-Z]+)\]\s+(.*)/);
+          if (logMatch && pattern.test(logMatch[2])) {
+            // If similar pattern message exists, check timing
+            const logTimestamp = recentLog.match(/\[(.*?)\]/)?.[1];
+            if (logTimestamp) {
+              try {
+                const logTime = new Date(
+                  `${now.toDateString()} ${logTimestamp}`,
+                );
+                const timeDiff = now.getTime() - logTime.getTime();
+
+                // Deduplicate common messages within 3 seconds
+                if (timeDiff < 3000) {
+                  return true;
+                }
+              } catch {
+                // If parsing fails, continue
+              }
+            }
           }
         }
       }

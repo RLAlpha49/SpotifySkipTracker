@@ -698,7 +698,7 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
       } else if (progressPercentage >= skipProgressThreshold) {
         // Track was played enough to not be considered a skip
         saveLog(
-          `Track played: ${playbackState.trackName} by ${playbackState.artistName} (${Math.round(progressPercentage * 100)}% played)`,
+          `Track Completed: ${playbackState.trackName} by ${playbackState.artistName} (${Math.round(progressPercentage * 100)}% played)`,
           "INFO",
         );
 

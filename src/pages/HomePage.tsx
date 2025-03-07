@@ -439,24 +439,34 @@ export default function HomePage() {
     const logLevels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
     const selectedLevelIndex = logLevels.indexOf(settings.logLevel);
 
-    // Deduplicate logs first - create a Map with timestamp+message as key
     const uniqueLogs = new Map<string, string>();
+    const seenMessages = new Set<string>(); // Track messages for smarter deduplication
 
+    // Group logs by message content, ignoring minor timestamp differences
     logs.forEach((log) => {
-      // Create a unique key based on timestamp and message content
+      // Parse the log components
       const matches = log.match(/\[(.*?)\]\s+\[([A-Z]+)\]\s+(.*)/);
       if (matches && matches.length >= 4) {
-        const timestamp = matches[1];
-        // We only need timestamp and message for the key
+        // We're only using level and message for deduplication
+        const level = matches[2];
         const message = matches[3];
 
-        // Use the timestamp+message as a unique key
-        const key = `${timestamp}-${message}`;
+        // Create a key using just the message and level
+        // This will group identical messages regardless of timestamp
+        const contentKey = `${level}-${message}`;
 
-        // Only add if this exact key doesn't exist yet
-        if (!uniqueLogs.has(key)) {
-          uniqueLogs.set(key, log);
+        // If this is a duplicate message, only keep the most recent one
+        if (seenMessages.has(contentKey)) {
+          // New logs are processed in reverse chronological order (newest first)
+          // So we keep the first occurrence we see of each message
+          return;
         }
+
+        // Mark this message as seen
+        seenMessages.add(contentKey);
+
+        // Add to the unique logs map with original log including timestamp
+        uniqueLogs.set(contentKey, log);
       } else {
         // If log doesn't match expected format, use the whole log as key
         uniqueLogs.set(log, log);
@@ -478,7 +488,7 @@ export default function HomePage() {
       return logLevelIndex >= selectedLevelIndex;
     });
 
-    // Sort logs by timestamp
+    // Return sorted logs (newest first)
     return sortLogsByTimestamp(filteredLogs);
   };
 

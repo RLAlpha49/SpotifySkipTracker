@@ -289,8 +289,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   ipcMain.handle("spotify:saveLog", async (_, message, level = "INFO") => {
     console.log(`Saving log [${level}]:`, message);
 
-    // Add a flag to indicate this log came from the renderer process
-    return saveLog(message, level, true);
+    return saveLog(message, level);
   });
 
   ipcMain.handle("spotify:getLogs", async (_, count) => {
