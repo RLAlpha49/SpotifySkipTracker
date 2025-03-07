@@ -47,6 +47,7 @@ import {
   clearTokens as clearApiTokens,
   isTokenValid,
   refreshAccessToken,
+  getTokenInfo,
 } from "./services/spotify-api";
 import {
   startPlaybackMonitoring,
@@ -96,7 +97,18 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
               credentials.clientId,
               credentials.clientSecret,
             );
-            saveLog("Successfully refreshed access token", "INFO");
+
+            // Get the new tokens and save them to disk
+            const tokenInfo = getTokenInfo();
+            if (tokenInfo.accessToken && tokenInfo.refreshToken) {
+              saveTokens({
+                accessToken: tokenInfo.accessToken,
+                refreshToken: tokenInfo.refreshToken,
+                expiresAt: tokenInfo.expiryTime,
+              });
+            }
+
+            saveLog("Successfully refreshed and saved access token", "INFO");
             return true;
           }
         } catch (error) {
@@ -157,22 +169,58 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
 
   // Authentication status check handler
   ipcMain.handle("spotify:isAuthenticated", async () => {
-    // Try to load tokens from storage
-    const storedTokens = loadTokens();
+    try {
+      // Try to load tokens from storage
+      const storedTokens = loadTokens();
 
-    if (storedTokens) {
-      // Set tokens in the API service
-      setApiTokens(
-        storedTokens.accessToken,
-        storedTokens.refreshToken,
-        Math.floor((storedTokens.expiresAt - Date.now()) / 1000),
-      );
+      if (storedTokens) {
+        // Set tokens in the API service
+        setApiTokens(
+          storedTokens.accessToken,
+          storedTokens.refreshToken,
+          Math.floor((storedTokens.expiresAt - Date.now()) / 1000),
+        );
 
-      // Check if token is valid
-      return isTokenValid();
+        // Check if token is valid
+        if (isTokenValid()) {
+          saveLog("Using existing valid tokens from storage", "DEBUG");
+          return true;
+        } else {
+          // Token expired, try to refresh it
+          try {
+            // Get settings to access client credentials
+            const settings = getSettings();
+            if (settings.clientId && settings.clientSecret) {
+              await refreshAccessToken(
+                settings.clientId,
+                settings.clientSecret,
+              );
+
+              // Update stored tokens with the refreshed token
+              const tokenInfo = await getTokenInfo();
+              if (tokenInfo.accessToken && tokenInfo.refreshToken) {
+                saveTokens({
+                  accessToken: tokenInfo.accessToken,
+                  refreshToken: tokenInfo.refreshToken,
+                  expiresAt: tokenInfo.expiryTime,
+                });
+
+                saveLog("Successfully refreshed and saved tokens", "DEBUG");
+                return true;
+              }
+            }
+          } catch (error) {
+            saveLog(`Failed to refresh token: ${error}`, "WARNING");
+            // Continue to return false
+          }
+        }
+      }
+
+      return false;
+    } catch (error) {
+      saveLog(`Error checking authentication status: ${error}`, "ERROR");
+      return false;
     }
-
-    return false;
   });
 
   // Current playback information handler

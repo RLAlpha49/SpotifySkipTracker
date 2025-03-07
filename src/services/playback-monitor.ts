@@ -19,6 +19,7 @@ import {
   getRecentlyPlayedTracks,
   isTrackInLibrary,
   unlikeTrack,
+  refreshAccessToken,
 } from "./spotify-api";
 import { saveLog, getSettings } from "../helpers/storage/store";
 
@@ -31,6 +32,7 @@ interface PlaybackState {
   trackName: string | null;
   artistName: string | null;
   albumName: string | null;
+  albumArt: string;
   progress: number;
   duration: number;
   isInLibrary: boolean;
@@ -38,6 +40,9 @@ interface PlaybackState {
   recentTracks: string[];
   libraryStatusLogged: boolean;
   lastNowPlayingLog?: number;
+  lastUpdateTime?: number;
+  lastSyncTime?: number;
+  isPlaying: boolean;
 }
 
 let playbackState: PlaybackState = {
@@ -45,13 +50,15 @@ let playbackState: PlaybackState = {
   trackName: null,
   artistName: null,
   albumName: null,
+  albumArt: "",
   progress: 0,
   duration: 0,
   isInLibrary: false,
   lastProgress: 0,
   recentTracks: [],
   libraryStatusLogged: false,
-  lastNowPlayingLog: 0,
+  isPlaying: false,
+  lastUpdateTime: Date.now(),
 };
 
 // Monitoring state variables
@@ -123,11 +130,14 @@ interface SkippedTrackInfo {
   lastSkipped: string;
 }
 
+// Add a variable for the progress update interval
+let progressUpdateInterval: NodeJS.Timeout | null = null;
+
 /**
- * Starts monitoring Spotify playback to detect skips and track listening behavior.
- * Sets up a polling interval to check playback state every second.
+ * Starts the playback monitoring process.
+ * Sets up regular intervals to check current playback and track skips.
  *
- * @param mainWindow - The main application window for sending updates
+ * @param mainWindow - Electron BrowserWindow instance for sending updates
  * @param spotifyClientId - Spotify API client ID
  * @param spotifyClientSecret - Spotify API client secret
  * @returns boolean - Success status of starting the monitoring
@@ -141,6 +151,12 @@ export function startPlaybackMonitoring(
     if (monitoringInterval) {
       clearInterval(monitoringInterval);
       saveLog("Restarting existing playback monitoring session", "DEBUG");
+    }
+
+    // Clear the progress update interval if it exists
+    if (progressUpdateInterval) {
+      clearInterval(progressUpdateInterval);
+      progressUpdateInterval = null;
     }
 
     clientId = spotifyClientId;
@@ -158,10 +174,13 @@ export function startPlaybackMonitoring(
     // Initialize recent tracks
     updateRecentTracks();
 
-    // Start monitoring interval
+    // Start the progress update interval (updates more frequently than API calls)
+    startProgressUpdateInterval(mainWindow);
+
+    // Start monitoring interval for API calls
     monitoringInterval = setInterval(() => {
       monitorPlayback(mainWindow);
-    }, 1000); // Check every 1 second
+    }, 1000);
 
     return true;
   } catch (error) {
@@ -181,24 +200,18 @@ export function stopPlaybackMonitoring(): boolean {
     if (monitoringInterval) {
       clearInterval(monitoringInterval);
       monitoringInterval = null;
-
       saveLog("Stopped Spotify playback monitoring", "INFO");
-
-      // Log summary info if we were tracking a song
-      if (playbackState.trackId) {
-        saveLog(
-          `Last tracked song was: ${playbackState.trackName} by ${playbackState.artistName} at ${Math.round(
-            (playbackState.lastProgress / playbackState.duration) * 100,
-          )}% progress`,
-          "DEBUG",
-        );
-      }
-
-      return true;
     } else {
       saveLog("No active monitoring session to stop", "DEBUG");
-      return true;
     }
+
+    // Clear the progress update interval when stopping monitoring
+    if (progressUpdateInterval) {
+      clearInterval(progressUpdateInterval);
+      progressUpdateInterval = null;
+    }
+
+    return true;
   } catch (error) {
     saveLog(`Failed to stop playback monitoring: ${error}`, "ERROR");
     return false;
@@ -215,17 +228,125 @@ export function isMonitoringActive(): boolean {
 }
 
 /**
- * Main monitoring function that polls the Spotify API for current playback.
- * This function is called at regular intervals (typically 1 second) when monitoring is active.
+ * Starts the interval that updates the progress locally between API calls
+ * This provides smoother progress updates in the UI
  *
- * It detects track changes, updates playback state, and sends updates to the renderer process.
+ * @param mainWindow - Electron BrowserWindow instance for sending updates
+ */
+function startProgressUpdateInterval(mainWindow: BrowserWindow): void {
+  // Clear any existing interval
+  if (progressUpdateInterval) {
+    clearInterval(progressUpdateInterval);
+  }
+
+  // Update UI every 250ms
+  progressUpdateInterval = setInterval(() => {
+    // Only update if track is playing
+    if (
+      playbackState.isPlaying &&
+      playbackState.trackId &&
+      playbackState.duration > 0
+    ) {
+      const now = Date.now();
+
+      // Initialize lastSyncTime if needed
+      if (!playbackState.lastSyncTime) {
+        playbackState.lastSyncTime = now;
+        return; // Skip this cycle
+      }
+
+      // Calculate elapsed time since last API sync in milliseconds
+      const elapsedSinceSync = now - playbackState.lastSyncTime;
+
+      // Calculate the absolute progress position in milliseconds
+      const absProgressMs = playbackState.progress + elapsedSinceSync;
+
+      // Cap progress at song duration
+      const currentProgressMs = Math.min(absProgressMs, playbackState.duration);
+
+      // Calculate progress in seconds for UI display
+      const currentTimeSeconds = Math.floor(currentProgressMs / 1000);
+
+      // Always send an update to the UI on each interval cycle
+      // This ensures consistent update frequency regardless of song length
+      if (playbackState.trackName && playbackState.artistName) {
+        // First calculate precise progress as a percentage
+        const progressPercent =
+          (currentProgressMs / playbackState.duration) * 100;
+
+        // Round to 2 decimal places for smoother updates
+        const roundedProgressPercent = Math.min(
+          Math.round(progressPercent * 100) / 100,
+          100,
+        );
+
+        // Send absolute values to the UI
+        mainWindow.webContents.send("spotify:playbackUpdate", {
+          isPlaying: true,
+          trackId: playbackState.trackId,
+          trackName: playbackState.trackName,
+          artistName: playbackState.artistName,
+          albumName: playbackState.albumName || "",
+          albumArt: playbackState.albumArt,
+          progress: roundedProgressPercent,
+          duration: Math.round(playbackState.duration / 1000),
+          currentTimeMs: currentProgressMs,
+          currentTimeSeconds: currentTimeSeconds,
+          isInPlaylist: playbackState.isInLibrary,
+        });
+      }
+    }
+  }, 250);
+}
+
+/**
+ * Main playback monitoring function.
+ * Polls the Spotify API for current playback, detects track changes, and handles skip logic.
  *
- * @param mainWindow - The main application window for sending updates
+ * @param mainWindow - Electron BrowserWindow instance for sending updates
  */
 async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
   try {
     // Get current playback from Spotify
-    const playback = await getCurrentPlayback(clientId, clientSecret);
+    let playback;
+    try {
+      playback = await getCurrentPlayback(clientId, clientSecret);
+    } catch (error: unknown) {
+      // Type guard for error
+      const authError = error as Error;
+      const errorMessage = authError.message || String(authError);
+
+      // If we get an authentication error, it might be due to expired token
+      if (
+        errorMessage.includes("401") ||
+        errorMessage.includes("unauthorized") ||
+        errorMessage.includes("expired")
+      ) {
+        saveLog(
+          "Auth token expired during monitoring, attempting refresh...",
+          "DEBUG",
+        );
+
+        try {
+          // Try to refresh the token silently
+          await refreshAccessToken(clientId, clientSecret);
+          saveLog("Successfully refreshed token during monitoring", "DEBUG");
+
+          // Retry getting playback with the new token
+          playback = await getCurrentPlayback(clientId, clientSecret);
+        } catch (error: unknown) {
+          const refreshError = error as Error;
+          saveLog(
+            `Failed to refresh token during monitoring: ${refreshError.message || String(refreshError)}`,
+            "ERROR",
+          );
+          // Continue with playback = null, which will just send an empty update
+        }
+      } else {
+        // Other API errors
+        saveLog(`Playback API error: ${errorMessage}`, "ERROR");
+      }
+    }
 
     if (!playback) {
       // Nothing is playing, reset tracking and notify renderer
@@ -248,27 +369,70 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
     }
 
     // Extract playback data
-    const isPlaying = playback.is_playing || false;
-    const item = playback.item as SpotifyTrack;
+    const isPlaying = playback.is_playing;
+    const item = playback.item;
 
-    if (!isPlaying || !item) {
+    if (!item) {
+      // No track data, reset and return
       resetPlaybackState();
       return;
     }
 
-    // Extract track details
+    // Get track details
     const trackId = item.id;
     const trackName = item.name;
-    const artistName = item.artists
-      .map((artist: SpotifyArtist) => artist.name)
-      .join(", ");
+    const artistName = item.artists[0].name;
     const albumName = item.album.name;
     const albumArt = item.album.images[0]?.url || "";
     const progress = playback.progress_ms;
     const duration = item.duration_ms;
 
+    // Update the isPlaying state for local progress tracking
+    playbackState.isPlaying = isPlaying;
+    // Use API progress as the base progress
+    playbackState.progress = progress;
+    playbackState.albumArt = albumArt;
+    // Set the sync time to now (used for local progress computation)
+    playbackState.lastSyncTime = Date.now();
+
     // Check if track is in library (need to check if in a playlist in this implementation)
-    const isInLibrary = await isTrackInLibrary(clientId, clientSecret, trackId);
+    let isInLibrary = false;
+    try {
+      isInLibrary = await isTrackInLibrary(clientId, clientSecret, trackId);
+    } catch (error: unknown) {
+      const authError = error as Error;
+      const errorMessage = authError.message || String(authError);
+
+      // If we get an authentication error, attempt to refresh the token
+      if (
+        errorMessage.includes("401") ||
+        errorMessage.includes("unauthorized") ||
+        errorMessage.includes("expired")
+      ) {
+        saveLog(
+          "Auth token expired during library check, attempting refresh...",
+          "DEBUG",
+        );
+
+        try {
+          // Try to refresh the token silently
+          await refreshAccessToken(clientId, clientSecret);
+          saveLog("Successfully refreshed token during library check", "DEBUG");
+
+          // Retry with the new token
+          isInLibrary = await isTrackInLibrary(clientId, clientSecret, trackId);
+        } catch (error: unknown) {
+          const refreshError = error as Error;
+          saveLog(
+            `Failed to refresh token during library check: ${refreshError.message || String(refreshError)}`,
+            "ERROR",
+          );
+          // Continue with isInLibrary = false
+        }
+      } else {
+        saveLog(`Library check error: ${errorMessage}`, "ERROR");
+      }
+    }
 
     // If track changed, check for skip
     if (playbackState.trackId && playbackState.trackId !== trackId) {
@@ -305,9 +469,7 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
     const shouldLogNowPlaying =
       !playbackState.recentTracks.includes(trackId) ||
       trackId !== playbackState.trackId ||
-      now - lastNowPlayingLog > 30000; // 30 seconds
-
-    // Update playback state
+      now - lastNowPlayingLog > 30000;
     playbackState = {
       ...playbackState,
       trackId,
@@ -318,9 +480,7 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
       duration,
       isInLibrary,
       lastProgress: progress,
-      // Maintain the libraryStatusLogged flag
       libraryStatusLogged: playbackState.libraryStatusLogged,
-      // Update the timestamp for the last "Now playing" log if we're logging it
       lastNowPlayingLog: shouldLogNowPlaying
         ? now
         : playbackState.lastNowPlayingLog || now,
@@ -331,18 +491,28 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
       saveLog(`Now playing: ${trackName} by ${artistName}`, "INFO");
     }
 
-    // Send playback update to renderer
-    mainWindow.webContents.send("spotify:playbackUpdate", {
-      isPlaying: true,
-      trackId,
-      trackName,
-      artistName,
-      albumName,
-      albumArt,
-      progress: Math.round((progress / duration) * 100),
-      duration: Math.round(duration / 1000), // Convert to seconds
-      isInPlaylist: isInLibrary,
-    });
+    // Update state with latest API values
+    playbackState.trackId = trackId;
+    playbackState.trackName = trackName;
+    playbackState.artistName = artistName;
+    playbackState.albumName = albumName;
+    playbackState.progress = progress;
+    playbackState.duration = duration;
+    playbackState.lastProgress = progress;
+
+    if (!isPlaying) {
+      mainWindow.webContents.send("spotify:playbackUpdate", {
+        isPlaying: false,
+        trackId: "",
+        trackName: "",
+        artistName: "",
+        albumName: "",
+        albumArt: "",
+        progress: 0,
+        duration: 0,
+        isInPlaylist: false,
+      });
+    }
   } catch (error) {
     saveLog(`Error in playback monitoring: ${error}`, "ERROR");
   }
@@ -415,7 +585,52 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
                 "INFO",
               );
 
-              await unlikeTrack(clientId, clientSecret, playbackState.trackId);
+              try {
+                await unlikeTrack(
+                  clientId,
+                  clientSecret,
+                  playbackState.trackId,
+                );
+              } catch (error: unknown) {
+                const authError = error as Error;
+                const errorMessage = authError.message || String(authError);
+
+                // If we get an authentication error, attempt to refresh the token
+                if (
+                  errorMessage.includes("401") ||
+                  errorMessage.includes("unauthorized") ||
+                  errorMessage.includes("expired")
+                ) {
+                  saveLog(
+                    "Auth token expired during unlike operation, attempting refresh...",
+                    "DEBUG",
+                  );
+
+                  try {
+                    // Try to refresh the token silently
+                    await refreshAccessToken(clientId, clientSecret);
+                    saveLog(
+                      "Successfully refreshed token during unlike operation",
+                      "DEBUG",
+                    );
+
+                    // Retry with the new token
+                    await unlikeTrack(
+                      clientId,
+                      clientSecret,
+                      playbackState.trackId,
+                    );
+                  } catch (error: unknown) {
+                    const refreshError = error as Error;
+                    saveLog(
+                      `Failed to refresh token during unlike operation: ${refreshError.message || String(refreshError)}`,
+                      "ERROR",
+                    );
+                  }
+                } else {
+                  saveLog(`Unlike track error: ${errorMessage}`, "ERROR");
+                }
+              }
             }
           } catch (error) {
             saveLog(`Error updating skipped track data: ${error}`, "ERROR");
@@ -460,14 +675,57 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
  */
 async function updateRecentTracks(): Promise<void> {
   try {
-    const recentlyPlayed = (await getRecentlyPlayedTracks(
-      clientId,
-      clientSecret,
-    )) as RecentlyPlayedResponse;
+    let recentlyPlayed: RecentlyPlayedResponse | null = null;
+
+    try {
+      recentlyPlayed = (await getRecentlyPlayedTracks(
+        clientId,
+        clientSecret,
+      )) as RecentlyPlayedResponse;
+    } catch (error: unknown) {
+      const authError = error as Error;
+      const errorMessage = authError.message || String(authError);
+
+      // If we get an authentication error, attempt to refresh the token
+      if (
+        errorMessage.includes("401") ||
+        errorMessage.includes("unauthorized") ||
+        errorMessage.includes("expired")
+      ) {
+        saveLog(
+          "Auth token expired during recent tracks check, attempting refresh...",
+          "DEBUG",
+        );
+
+        try {
+          // Try to refresh the token silently
+          await refreshAccessToken(clientId, clientSecret);
+          saveLog(
+            "Successfully refreshed token during recent tracks check",
+            "DEBUG",
+          );
+
+          // Retry with the new token
+          recentlyPlayed = (await getRecentlyPlayedTracks(
+            clientId,
+            clientSecret,
+          )) as RecentlyPlayedResponse;
+        } catch (error: unknown) {
+          const refreshError = error as Error;
+          saveLog(
+            `Failed to refresh token during recent tracks check: ${refreshError.message || String(refreshError)}`,
+            "ERROR",
+          );
+          // Continue with recentlyPlayed = null
+        }
+      } else {
+        saveLog(`Recent tracks check error: ${errorMessage}`, "ERROR");
+      }
+    }
 
     if (recentlyPlayed && recentlyPlayed.items) {
       playbackState.recentTracks = recentlyPlayed.items.map(
-        (item: SpotifyPlaybackItem) => item.track.id,
+        (item) => item.track.id,
       );
     }
   } catch (error) {
@@ -476,20 +734,24 @@ async function updateRecentTracks(): Promise<void> {
 }
 
 /**
- * Resets the playback state when nothing is playing or playback is stopped.
- * Maintains any existing recent tracks list.
+ * Resets the playback state when tracking stops or nothing is playing.
+ * Clears all track information and progress data.
  */
 function resetPlaybackState(): void {
   playbackState = {
-    ...playbackState,
     trackId: null,
     trackName: null,
     artistName: null,
     albumName: null,
+    albumArt: "",
     progress: 0,
     duration: 0,
+    isInLibrary: false,
     lastProgress: 0,
+    recentTracks: playbackState.recentTracks,
     libraryStatusLogged: false,
+    isPlaying: false,
+    lastSyncTime: Date.now(),
   };
 }
 

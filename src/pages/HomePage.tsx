@@ -41,6 +41,7 @@ interface PlaybackInfo {
   album: string;
   progress: number;
   duration: number;
+  currentTimeSeconds?: number;
   isPlaying: boolean;
   isInPlaylist?: boolean;
 }
@@ -77,6 +78,7 @@ export default function HomePage() {
           album: playback.albumName,
           progress: playback.progress,
           duration: playback.duration,
+          currentTimeSeconds: playback.currentTimeSeconds,
           isPlaying: playback.isPlaying,
           isInPlaylist: playback.isInPlaylist,
         });
@@ -171,6 +173,7 @@ export default function HomePage() {
         album: data.albumName,
         progress: data.progress,
         duration: data.duration,
+        currentTimeSeconds: data.currentTimeSeconds,
         isPlaying: data.isPlaying,
         isInPlaylist: data.isInPlaylist,
       });
@@ -611,9 +614,12 @@ export default function HomePage() {
                   />
                   <div className="text-muted-foreground mt-1 flex justify-between text-xs">
                     <span>
-                      {formatTime(
-                        (playbackInfo.progress / 100) * playbackInfo.duration,
-                      )}
+                      {playbackInfo.currentTimeSeconds !== undefined
+                        ? formatTime(playbackInfo.currentTimeSeconds)
+                        : formatTime(
+                            (playbackInfo.progress / 100) *
+                              playbackInfo.duration,
+                          )}
                     </span>
                     <span>{formatTime(playbackInfo.duration)}</span>
                   </div>

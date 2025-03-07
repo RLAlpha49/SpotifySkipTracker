@@ -55,9 +55,11 @@ interface SpotifyPlaybackInfo {
   artistName: string;
   albumName: string;
   albumArt: string;
-  progress: number; // Current playback position as percentage (0-100)
-  duration: number; // Total duration in seconds
-  isInPlaylist?: boolean; // Whether track is in user's library
+  progress: number;
+  duration: number;
+  currentTimeSeconds?: number;
+  currentTimeMs?: number;
+  isInPlaylist?: boolean;
 }
 
 /**
