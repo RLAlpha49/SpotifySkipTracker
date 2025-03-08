@@ -1,22 +1,21 @@
 /**
- * Storage Service for Spotify Skip Tracker
+ * Persistent storage module for Spotify Skip Tracker
  *
- * This module provides persistent storage functionality for the application,
- * handling settings, logs, and skip statistics. It uses the Electron app's
- * user data directory to store files securely on the user's machine.
+ * Provides data persistence functionality for application settings,
+ * logging, and skip statistics. Utilizes Electron's user data directory
+ * for secure file storage.
  *
- * Key Features:
- * - Application settings management
- * - Logging system with configurable verbosity
- * - Storage for skipped track statistics
- * - Automatic log rotation and archiving
+ * Core functionality:
+ * - Settings persistence and retrieval
+ * - Logging system with rotation and deduplication
+ * - Skip statistics tracking and analysis
  */
 
 import { app } from "electron";
 import path from "path";
 import fs from "fs";
 
-// Create app data directory if it doesn't exist
+// Initialize application data directories
 const appDataPath = path.join(app.getPath("userData"), "data");
 console.log("App data directory:", app.getPath("userData"));
 console.log("Full data path:", appDataPath);
@@ -25,7 +24,7 @@ if (!fs.existsSync(appDataPath)) {
   fs.mkdirSync(appDataPath, { recursive: true });
 }
 
-// Create logs directory if it doesn't exist
+// Initialize logs directory
 const logsPath = path.join(appDataPath, "logs");
 if (!fs.existsSync(logsPath)) {
   fs.mkdirSync(logsPath, { recursive: true });
@@ -37,10 +36,10 @@ const skipsPath = path.join(appDataPath, "skipped-tracks.json");
 export { appDataPath, logsPath, skipsPath };
 
 /**
- * Log Rotation System
+ * Log rotation system
  *
- * At application startup, we archive the previous session's log file
- * with a timestamp to maintain history while keeping the current log clean
+ * Archives previous session's log file with timestamp
+ * to maintain history while starting with a clean log
  */
 const latestLogPath = path.join(logsPath, "latest.log");
 if (fs.existsSync(latestLogPath)) {
@@ -60,23 +59,21 @@ if (fs.existsSync(latestLogPath)) {
 }
 
 /**
- * Application Settings Schema
- *
- * Defines the structure and types for application settings
+ * Application settings schema interface
  */
 interface SettingsSchema {
-  clientId: string; // Spotify API Client ID
-  clientSecret: string; // Spotify API Client Secret
-  redirectUri: string; // OAuth redirect URI
-  logLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL"; // Log verbosity
-  logLineCount: number; // Number of log lines to show in UI
-  skipThreshold: number; // Number of skips before suggesting removal
-  timeframeInDays: number; // Time window for skip analysis
-  skipProgress: number; // Progress percentage threshold to count as skip
-  autoStartMonitoring: boolean; // Whether to automatically start monitoring on app launch
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+  logLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  logLineCount: number;
+  skipThreshold: number;
+  timeframeInDays: number;
+  skipProgress: number;
+  autoStartMonitoring: boolean;
 }
 
-// Default settings applied when no settings file exists
+// Default settings configuration
 const defaultSettings: SettingsSchema = {
   clientId: "",
   clientSecret: "",
@@ -89,23 +86,22 @@ const defaultSettings: SettingsSchema = {
   autoStartMonitoring: true,
 };
 
-// Path to settings file
+// Settings file location
 const settingsFilePath = path.join(appDataPath, "settings.json");
 
 /**
- * Save application settings to disk
+ * Persists application settings to disk
  *
  * @param settings - Application settings to save
- * @returns True if settings were saved successfully, false otherwise
+ * @returns Boolean indicating success or failure
  */
 export function saveSettings(settings: SettingsSchema): boolean {
   try {
-    // Create settings file if it doesn't exist
+    // Create settings directory if needed
     if (!fs.existsSync(path.dirname(settingsFilePath))) {
       fs.mkdirSync(path.dirname(settingsFilePath), { recursive: true });
     }
 
-    // Write settings to file
     fs.writeFileSync(
       settingsFilePath,
       JSON.stringify(settings, null, 2),
@@ -120,21 +116,19 @@ export function saveSettings(settings: SettingsSchema): boolean {
 }
 
 /**
- * Get application settings from disk
- * If no settings file exists, creates one with default values
+ * Retrieves application settings from disk
+ * Creates default settings file if none exists
  *
- * @returns Current application settings
+ * @returns Current application settings object
  */
 export function getSettings(): SettingsSchema {
   try {
-    // Read settings from file
     if (fs.existsSync(settingsFilePath)) {
       const settingsData = fs.readFileSync(settingsFilePath, "utf-8");
       const settings = JSON.parse(settingsData);
       return settings;
     }
 
-    // If file doesn't exist, return default settings and save them
     console.log("No settings file found, using defaults");
     saveSettings(defaultSettings);
     return defaultSettings;
@@ -145,24 +139,25 @@ export function getSettings(): SettingsSchema {
 }
 
 /**
- * Save a log message to the application log files
+ * Writes a log message to application log files
+ * Implements intelligent deduplication to prevent log spam
  *
- * @param message - The log message to save
+ * @param message - Log message content
  * @param level - Severity level of the log message
- * @returns True if log was saved (or deduplicated), false on error
+ * @returns Boolean indicating success or failure
  */
 export function saveLog(
   message: string,
   level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" = "INFO",
 ): boolean {
   try {
-    // Get timestamp with milliseconds for more precise deduplication
+    // Generate timestamp with millisecond precision
     const now = new Date();
     const timestamp =
       now.toLocaleTimeString() +
       `.${now.getMilliseconds().toString().padStart(3, "0")}`;
 
-    // Get recent logs for deduplication checks
+    // Get recent logs for deduplication
     const recentLogs = getLogs(20);
 
     // Universal deduplication for all log types
@@ -177,23 +172,23 @@ export function saveLog(
           const logTimestamp = recentLog.match(/\[(.*?)\]/)?.[1];
           if (logTimestamp) {
             try {
-              // Try to parse the timestamp
+              // Parse timestamp
               const logTime = new Date(`${now.toDateString()} ${logTimestamp}`);
               const timeDiff = now.getTime() - logTime.getTime();
 
-              // Deduplicate if identical message within the last 2 seconds
+              // Deduplicate identical messages within 2 seconds
               if (timeDiff < 2000) {
                 return true; // Skip duplicate
               }
             } catch {
-              // If parsing fails, continue with regular checks
+              // Continue if parsing fails
             }
           }
         }
       }
     }
 
-    // Special case for "Now playing" messages - deduplicate more aggressively
+    // Special case for "Now playing" messages
     if (message.startsWith("Now playing:")) {
       const songInfo = message.substring("Now playing: ".length);
       for (const recentLog of recentLogs) {
@@ -201,12 +196,12 @@ export function saveLog(
           recentLog.includes(songInfo) &&
           recentLog.includes("Now playing:")
         ) {
-          return true; // Always deduplicate duplicate "Now playing" messages
+          return true; // Deduplicate "Now playing" messages
         }
       }
     }
 
-    // Special case for track status messages about the same track
+    // Special case for track status messages
     const trackStatusPatterns = [
       /Track "(.*?)" by (.*?) is in your library/,
       /Track "(.*?)" by (.*?) was paused/,
@@ -218,9 +213,8 @@ export function saveLog(
       if (trackMatch) {
         const [, trackName, artistName] = trackMatch;
 
-        // Look for other log messages about the same track
+        // Check for messages about the same track
         for (const recentLog of recentLogs) {
-          // Check if any recent log contains same track and artist
           if (
             recentLog.includes(`"${trackName}"`) &&
             recentLog.includes(`by ${artistName}`)
@@ -236,12 +230,12 @@ export function saveLog(
                   );
                   const timeDiff = now.getTime() - logTime.getTime();
 
-                  // If message about same track within 500ms, deduplicate
+                  // Deduplicate messages about same track within 500ms
                   if (timeDiff < 500) {
                     return true;
                   }
                 } catch {
-                  // If parsing fails, continue
+                  // Continue if parsing fails
                 }
               }
             }
@@ -250,7 +244,7 @@ export function saveLog(
       }
     }
 
-    // Added pattern-based deduplication for common repeating messages
+    // Pattern-based deduplication for common messages
     const commonPatterns = [
       /Loaded \d+ skipped tracks from storage/,
       /Settings loaded from storage/,
@@ -268,7 +262,6 @@ export function saveLog(
         for (const recentLog of recentLogs) {
           const logMatch = recentLog.match(/\[.*?\]\s+\[([A-Z]+)\]\s+(.*)/);
           if (logMatch && pattern.test(logMatch[2])) {
-            // If similar pattern message exists, check timing
             const logTimestamp = recentLog.match(/\[(.*?)\]/)?.[1];
             if (logTimestamp) {
               try {
@@ -282,7 +275,7 @@ export function saveLog(
                   return true;
                 }
               } catch {
-                // If parsing fails, continue
+                // Continue if parsing fails
               }
             }
           }
@@ -292,10 +285,10 @@ export function saveLog(
 
     const logEntry = `[${timestamp}] [${level}] ${message}\n`;
 
-    // Save to latest.log (current session log)
+    // Write to current session log
     fs.appendFileSync(latestLogPath, logEntry);
 
-    // Also save to dated log file for historical purposes
+    // Write to dated log file for historical records
     const formattedDate = now.toISOString().split("T")[0]; // YYYY-MM-DD
     const datedLogFileName = `spotify-skip-tracker-${formattedDate}.log`;
     const datedLogFilePath = path.join(logsPath, datedLogFileName);
@@ -309,19 +302,16 @@ export function saveLog(
 }
 
 /**
- * Retrieve recent application logs
- *
- * Gets logs from both the current session and historical log files,
- * merging them in chronological order.
+ * Retrieves application logs from current and historical files
  *
  * @param count - Maximum number of log entries to return
- * @returns Array of log entries, ordered from oldest to newest
+ * @returns Array of log entries in chronological order
  */
 export function getLogs(count: number = 100): string[] {
   try {
-    // Always check latest.log first
     let allLogs: string[] = [];
 
+    // Get logs from current session
     if (fs.existsSync(latestLogPath)) {
       const latestContent = fs.readFileSync(latestLogPath, "utf-8");
       const latestLogs = latestContent
@@ -332,13 +322,13 @@ export function getLogs(count: number = 100): string[] {
       allLogs = [...latestLogs];
     }
 
-    // Then check dated log files if we need more
+    // Get logs from historical files if needed
     if (allLogs.length < count) {
       const logFiles = fs
         .readdirSync(logsPath)
         .filter((file) => file !== "latest.log" && file.endsWith(".log"))
         .sort()
-        .reverse(); // Get most recent logs first
+        .reverse(); // Most recent first
 
       for (const file of logFiles) {
         if (allLogs.length >= count) break;
@@ -366,11 +356,9 @@ export function getLogs(count: number = 100): string[] {
 }
 
 /**
- * Clear all application logs
+ * Clears all application logs
  *
- * Removes all log files and creates a fresh, empty current session log
- *
- * @returns True if logs were successfully cleared, false on error
+ * @returns Boolean indicating success or failure
  */
 export function clearLogs(): boolean {
   try {
@@ -387,7 +375,7 @@ export function clearLogs(): boolean {
       }
     }
 
-    // Create a fresh latest.log
+    // Create empty current session log
     fs.writeFileSync(latestLogPath, "");
 
     console.log("All logs cleared successfully");
@@ -399,31 +387,28 @@ export function clearLogs(): boolean {
 }
 
 /**
- * Skipped Track Information
- *
- * Data structure for tracking skip statistics for a track
+ * Skipped track data structure
  */
 interface SkippedTrack {
-  id: string; // Spotify track ID
-  name: string; // Track name
-  artist: string; // Artist name
-  skipCount: number; // Number of times skipped
-  notSkippedCount: number; // Number of times played to completion
-  lastSkipped: string; // ISO date string of last skip
+  id: string;
+  name: string;
+  artist: string;
+  skipCount: number;
+  notSkippedCount: number;
+  lastSkipped: string;
 }
 
-// Path to skipped tracks storage
+// Skipped tracks storage location
 const skippedTracksFilePath = path.join(appDataPath, "skipped-tracks.json");
 
 /**
- * Save the full list of skipped tracks to storage
+ * Persists skipped tracks data to storage
  *
  * @param tracks - Array of track data with skip statistics
- * @returns True if saved successfully, false on error
+ * @returns Boolean indicating success or failure
  */
 export function saveSkippedTracks(tracks: SkippedTrack[]): boolean {
   try {
-    // Write tracks to file
     fs.writeFileSync(skippedTracksFilePath, JSON.stringify(tracks, null, 2));
     return true;
   } catch (error) {
@@ -433,19 +418,16 @@ export function saveSkippedTracks(tracks: SkippedTrack[]): boolean {
 }
 
 /**
- * Get all skipped tracks from storage
+ * Retrieves skipped tracks data from storage
  *
- * @returns Array of tracks with skip statistics, or empty array if none exist
+ * @returns Array of tracks with skip statistics
  */
 export function getSkippedTracks(): SkippedTrack[] {
   try {
-    // Read tracks from file
     if (fs.existsSync(skippedTracksFilePath)) {
       const tracksData = fs.readFileSync(skippedTracksFilePath, "utf-8");
       return JSON.parse(tracksData);
     }
-
-    // If file doesn't exist, return empty array
     return [];
   } catch (error) {
     console.error("Failed to read skipped tracks:", error);
@@ -454,11 +436,11 @@ export function getSkippedTracks(): SkippedTrack[] {
 }
 
 /**
- * Update skip count for a specific track
- * If the track doesn't exist in storage, it is added
+ * Updates skip count for a specific track
+ * Adds track to storage if it doesn't exist
  *
  * @param track - Track information to update
- * @returns True if updated successfully, false on error
+ * @returns Boolean indicating success or failure
  */
 export function updateSkippedTrack(track: SkippedTrack): boolean {
   try {
@@ -491,11 +473,11 @@ export function updateSkippedTrack(track: SkippedTrack): boolean {
 }
 
 /**
- * Update played-to-completion count for a specific track
- * If the track doesn't exist in storage, it is added
+ * Updates played-to-completion count for a track
+ * Adds track to storage if it doesn't exist
  *
  * @param track - Track information to update
- * @returns True if updated successfully, false on error
+ * @returns Boolean indicating success or failure
  */
 export function updateNotSkippedTrack(track: SkippedTrack): boolean {
   try {
@@ -530,10 +512,10 @@ export function updateNotSkippedTrack(track: SkippedTrack): boolean {
 }
 
 /**
- * Remove a track from the skipped tracks data
+ * Removes a track from skipped tracks storage
  *
- * @param trackId - ID of the track to remove
- * @returns True if removed successfully, false on error or if track not found
+ * @param trackId - Spotify ID of the track to remove
+ * @returns Boolean indicating success or failure
  */
 export function removeSkippedTrack(trackId: string): boolean {
   try {
@@ -558,7 +540,6 @@ export function removeSkippedTrack(trackId: string): boolean {
 }
 
 /**
- * Path to the application data directory
- * Exported for use by other modules that need to access storage
+ * Application data directory path
  */
 export const dataDirectory = appDataPath;

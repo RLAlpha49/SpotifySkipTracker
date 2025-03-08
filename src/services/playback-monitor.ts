@@ -1,31 +1,24 @@
 /**
- * Spotify Playback Monitoring Service
+ * Spotify playback monitoring module
  *
- * This service is responsible for monitoring Spotify playback in real-time and
- * detecting when tracks are skipped. It uses the Spotify Web API to poll the
- * current playback state and tracks user listening behavior.
+ * Monitors Spotify playback in real-time to track listening patterns and detect skipped tracks.
+ * Implements configurable thresholds for determining skip events and maintaining listening statistics.
  *
- * Key Features:
- * - Real-time monitoring of Spotify playback
+ * Core functionality:
+ * - Real-time playback state monitoring via Spotify Web API
  * - Skip detection based on configurable progress thresholds
- * - Tracking of play completion stats
- * - Integration with library management (removing frequently skipped tracks)
- * - Statistics collection and storage
+ * - Track completion statistics collection
+ * - Library management integration for frequently skipped tracks
+ * - Persistent storage of listening patterns
  */
 
 import { BrowserWindow } from "electron";
-import {
-  getCurrentPlayback,
-  getRecentlyPlayedTracks,
-  isTrackInLibrary,
-  unlikeTrack,
-  refreshAccessToken,
-} from "./spotify-api";
-import { saveLog, getSettings } from "../helpers/storage/store";
+import * as spotifyApi from "./spotify-api";
+import * as store from "../helpers/storage/store";
 
 /**
- * Internal state for tracking playback information
- * Maintains the current playback state and history between polling intervals
+ * Internal state interface for playback monitoring
+ * Maintains state between API polling intervals
  */
 interface PlaybackState {
   trackId: string | null;
@@ -63,14 +56,14 @@ let playbackState: PlaybackState = {
   totalPauseDuration: 0,
 };
 
-// Monitoring state variables
+// Monitoring state tracking
 let monitoringInterval: NodeJS.Timeout | null = null;
 let clientId: string;
 let clientSecret: string;
 
-// Define interfaces for Spotify API responses
+// Spotify API response interfaces
 /**
- * Represents an artist from the Spotify API
+ * Spotify artist entity
  */
 interface SpotifyArtist {
   name: string;
@@ -78,7 +71,7 @@ interface SpotifyArtist {
 }
 
 /**
- * Represents an image from the Spotify API
+ * Spotify image resource
  */
 interface SpotifyImage {
   url: string;
@@ -87,7 +80,7 @@ interface SpotifyImage {
 }
 
 /**
- * Represents an album from the Spotify API
+ * Spotify album entity
  */
 interface SpotifyAlbum {
   name: string;
@@ -136,13 +129,13 @@ interface SkippedTrackInfo {
 let progressUpdateInterval: NodeJS.Timeout | null = null;
 
 /**
- * Starts the playback monitoring process.
- * Sets up regular intervals to check current playback and track skips.
+ * Starts the Spotify playback monitoring process.
+ * Initializes polling intervals for playback state tracking and skip detection.
  *
- * @param mainWindow - Electron BrowserWindow instance for sending updates
+ * @param mainWindow - Electron BrowserWindow for sending UI updates
  * @param spotifyClientId - Spotify API client ID
  * @param spotifyClientSecret - Spotify API client secret
- * @returns boolean - Success status of starting the monitoring
+ * @returns Success status of the monitoring initialization
  */
 export function startPlaybackMonitoring(
   mainWindow: BrowserWindow,
@@ -152,7 +145,7 @@ export function startPlaybackMonitoring(
   try {
     if (monitoringInterval) {
       clearInterval(monitoringInterval);
-      saveLog("Restarting existing playback monitoring session", "DEBUG");
+      store.saveLog("Restarting existing playback monitoring session", "DEBUG");
     }
 
     // Clear the progress update interval if it exists
@@ -165,10 +158,10 @@ export function startPlaybackMonitoring(
     clientSecret = spotifyClientSecret;
 
     // Get settings for skip threshold
-    const settings = getSettings();
+    const settings = store.getSettings();
     const skipProgressThreshold = settings.skipProgress / 100 || 0.7; // Convert from percentage to decimal
 
-    saveLog(
+    store.saveLog(
       `Started Spotify playback monitoring (skip threshold: ${skipProgressThreshold * 100}%)`,
       "DEBUG",
     );
@@ -186,25 +179,25 @@ export function startPlaybackMonitoring(
 
     return true;
   } catch (error) {
-    saveLog(`Failed to start playback monitoring: ${error}`, "ERROR");
+    store.saveLog(`Failed to start playback monitoring: ${error}`, "ERROR");
     return false;
   }
 }
 
 /**
  * Stops the playback monitoring process.
- * Clears the monitoring interval and logs final state.
+ * Clears monitoring intervals and performs cleanup.
  *
- * @returns boolean - Success status of stopping the monitoring
+ * @returns Success status of the monitoring termination
  */
 export function stopPlaybackMonitoring(): boolean {
   try {
     if (monitoringInterval) {
       clearInterval(monitoringInterval);
       monitoringInterval = null;
-      saveLog("Stopped Spotify playback monitoring", "INFO");
+      store.saveLog("Stopped Spotify playback monitoring", "INFO");
     } else {
-      saveLog("No active monitoring session to stop", "DEBUG");
+      store.saveLog("No active monitoring session to stop", "DEBUG");
     }
 
     // Clear the progress update interval when stopping monitoring
@@ -215,25 +208,25 @@ export function stopPlaybackMonitoring(): boolean {
 
     return true;
   } catch (error) {
-    saveLog(`Failed to stop playback monitoring: ${error}`, "ERROR");
+    store.saveLog(`Failed to stop playback monitoring: ${error}`, "ERROR");
     return false;
   }
 }
 
 /**
- * Checks if the playback monitoring service is currently active.
+ * Checks if playback monitoring is currently active.
  *
- * @returns boolean - True if monitoring is active, false otherwise
+ * @returns Status of monitoring service
  */
 export function isMonitoringActive(): boolean {
   return monitoringInterval !== null;
 }
 
 /**
- * Starts the interval that updates the progress locally between API calls
- * This provides smoother progress updates in the UI
+ * Starts interval for smooth progress updates between API polls.
+ * Provides more frequent UI updates than API polling alone.
  *
- * @param mainWindow - Electron BrowserWindow instance for sending updates
+ * @param mainWindow - Electron BrowserWindow for sending UI updates
  */
 function startProgressUpdateInterval(mainWindow: BrowserWindow): void {
   // Clear any existing interval
@@ -302,24 +295,25 @@ function startProgressUpdateInterval(mainWindow: BrowserWindow): void {
 }
 
 /**
- * Main playback monitoring function.
- * Polls the Spotify API for current playback, detects track changes, and handles skip logic.
+ * Core playback monitoring function.
+ * Polls Spotify API for current playback state, processes track changes,
+ * and implements skip detection logic.
  *
- * @param mainWindow - Electron BrowserWindow instance for sending updates
+ * @param mainWindow - Electron BrowserWindow for sending UI updates
  */
 async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
   try {
     // Get current playback from Spotify
     let playback;
     try {
-      playback = await getCurrentPlayback(clientId, clientSecret);
+      playback = await spotifyApi.getCurrentPlayback(clientId, clientSecret);
       // If we reach here, the API call was successful after potential retries
     } catch (error: unknown) {
       // After all retries, if we still have an error, stop monitoring
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      saveLog(`Error in playback monitoring: ${errorMessage}`, "ERROR");
-      saveLog(
+      store.saveLog(`Error in playback monitoring: ${errorMessage}`, "ERROR");
+      store.saveLog(
         "Stopping playback monitoring due to persistent API errors",
         "ERROR",
       );
@@ -390,7 +384,7 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
     if (playbackState.isPlaying && !isPlaying) {
       // Record when the pause started
       playbackState.pauseStartTime = now;
-      saveLog(`Track "${trackName}" was paused`, "DEBUG");
+      store.saveLog(`Track "${trackName}" was paused`, "DEBUG");
     }
     // Track was previously paused but is now playing
     else if (
@@ -405,7 +399,7 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
       // Reset pause start time
       playbackState.pauseStartTime = undefined;
 
-      saveLog(
+      store.saveLog(
         `Track "${trackName}" resumed after ${Math.round(pauseDuration / 1000)} seconds paused`,
         "DEBUG",
       );
@@ -422,7 +416,11 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
     // Check if track is in library (need to check if in a playlist in this implementation)
     let isInLibrary = false;
     try {
-      isInLibrary = await isTrackInLibrary(clientId, clientSecret, trackId);
+      isInLibrary = await spotifyApi.isTrackInLibrary(
+        clientId,
+        clientSecret,
+        trackId,
+      );
     } catch (error: unknown) {
       const authError = error as Error;
       const errorMessage = authError.message || String(authError);
@@ -433,28 +431,35 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
         errorMessage.includes("unauthorized") ||
         errorMessage.includes("expired")
       ) {
-        saveLog(
+        store.saveLog(
           "Auth token expired during library check, attempting refresh...",
           "DEBUG",
         );
 
         try {
           // Try to refresh the token silently
-          await refreshAccessToken(clientId, clientSecret);
-          saveLog("Successfully refreshed token during library check", "DEBUG");
+          await spotifyApi.refreshAccessToken(clientId, clientSecret);
+          store.saveLog(
+            "Successfully refreshed token during library check",
+            "DEBUG",
+          );
 
           // Retry with the new token
-          isInLibrary = await isTrackInLibrary(clientId, clientSecret, trackId);
+          isInLibrary = await spotifyApi.isTrackInLibrary(
+            clientId,
+            clientSecret,
+            trackId,
+          );
         } catch (error: unknown) {
           const refreshError = error as Error;
-          saveLog(
+          store.saveLog(
             `Failed to refresh token during library check: ${refreshError.message || String(refreshError)}`,
             "ERROR",
           );
           // Continue with isInLibrary = false
         }
       } else {
-        saveLog(`Library check error: ${errorMessage}`, "ERROR");
+        store.saveLog(`Library check error: ${errorMessage}`, "ERROR");
       }
     }
 
@@ -475,7 +480,7 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
       (playbackState.trackId !== trackId ||
         playbackState.isInLibrary !== isInLibrary)
     ) {
-      saveLog(
+      store.saveLog(
         `Track "${trackName}" by ${artistName} is in your library - skips will be tracked`,
         "DEBUG",
       );
@@ -511,7 +516,7 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
 
     // Log first play of a track or periodic update
     if (shouldLogNowPlaying) {
-      saveLog(`Now playing: ${trackName} by ${artistName}`, "INFO");
+      store.saveLog(`Now playing: ${trackName} by ${artistName}`, "INFO");
     }
 
     // Update state with latest API values
@@ -537,25 +542,23 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
       });
     }
   } catch (error) {
-    saveLog(`Error in playback monitoring: ${error}`, "ERROR");
+    store.saveLog(`Error in playback monitoring: ${error}`, "ERROR");
   }
 }
 
 /**
- * Handles track changes and detects if a track was skipped.
+ * Processes track change events and implements skip detection.
+ * Core algorithm for determining if a track was skipped based on:
+ * - Playback progress percentage
+ * - Pause duration
+ * - Previously established patterns
  *
- * This is the core of the skip detection logic:
- * - When a track changes, check how far through the previous track the user was
- * - If below the threshold, check if the track was paused for at least 15 seconds
- * - If it wasn't paused for long enough, count it as a skip
- * - Update statistics and potentially remove from library if skip count exceeds threshold
- *
- * @param newTrackId - The ID of the new track being played
+ * @param newTrackId - Spotify ID of the new track being played
  */
 async function handleTrackChange(newTrackId: string): Promise<void> {
   try {
     // Skip detection logic
-    const settings = getSettings();
+    const settings = store.getSettings();
     const skipProgressThreshold = settings.skipProgress / 100 || 0.7; // Convert from percentage to decimal
     const PAUSE_THRESHOLD_MS = 15 * 1000; // 15 seconds in milliseconds
 
@@ -594,14 +597,13 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
         // If track was in library, record the skip
         if (playbackState.isInLibrary) {
           // This is a skip - record it
-          saveLog(
+          store.saveLog(
             `Track skipped: ${playbackState.trackName} by ${playbackState.artistName} (${Math.round(progressPercentage * 100)}% played)`,
             "INFO",
           );
 
           try {
             // Update skip count in storage
-            const store = await import("../helpers/storage/store");
             await store.updateSkippedTrack({
               id: playbackState.trackId,
               name: playbackState.trackName || "",
@@ -620,13 +622,13 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
 
             if (skippedTrack && skippedTrack.skipCount >= skipThresholdCount) {
               // Unlike track
-              saveLog(
+              store.saveLog(
                 `Track "${playbackState.trackName}" by ${playbackState.artistName} has been skipped ${skippedTrack.skipCount} times, removing from library`,
                 "INFO",
               );
 
               try {
-                await unlikeTrack(
+                await spotifyApi.unlikeTrack(
                   clientId,
                   clientSecret,
                   playbackState.trackId,
@@ -641,39 +643,42 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
                   errorMessage.includes("unauthorized") ||
                   errorMessage.includes("expired")
                 ) {
-                  saveLog(
+                  store.saveLog(
                     "Auth token expired during unlike, attempting refresh...",
                     "DEBUG",
                   );
 
                   try {
                     // Try to refresh the token silently
-                    await refreshAccessToken(clientId, clientSecret);
-                    saveLog(
+                    await spotifyApi.refreshAccessToken(clientId, clientSecret);
+                    store.saveLog(
                       "Successfully refreshed token during unlike",
                       "DEBUG",
                     );
 
                     // Retry with the new token
-                    await unlikeTrack(
+                    await spotifyApi.unlikeTrack(
                       clientId,
                       clientSecret,
                       playbackState.trackId,
                     );
                   } catch (error: unknown) {
                     const refreshError = error as Error;
-                    saveLog(
+                    store.saveLog(
                       `Failed to refresh token during unlike: ${refreshError.message || String(refreshError)}`,
                       "ERROR",
                     );
                   }
                 } else {
-                  saveLog(`Error unliking track: ${errorMessage}`, "ERROR");
+                  store.saveLog(
+                    `Error unliking track: ${errorMessage}`,
+                    "ERROR",
+                  );
                 }
               }
             }
           } catch (error: unknown) {
-            saveLog(`Error updating skip count: ${error}`, "ERROR");
+            store.saveLog(`Error updating skip count: ${error}`, "ERROR");
           }
         }
       } else if (
@@ -681,13 +686,13 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
         totalPauseDuration >= PAUSE_THRESHOLD_MS
       ) {
         // The track was paused for a significant time, so we don't count it as a skip
-        saveLog(
+        store.saveLog(
           `Track change after pause: ${playbackState.trackName} by ${playbackState.artistName} (paused for ${Math.round(totalPauseDuration / 1000)}s)`,
           "INFO",
         );
       } else if (progressPercentage >= skipProgressThreshold) {
         // Track was played enough to not be considered a skip
-        saveLog(
+        store.saveLog(
           `Track Completed: ${playbackState.trackName} by ${playbackState.artistName} (${Math.round(progressPercentage * 100)}% played)`,
           "INFO",
         );
@@ -696,7 +701,6 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
         if (playbackState.isInLibrary) {
           try {
             // Update not skipped count in storage
-            const store = await import("../helpers/storage/store");
             await store.updateNotSkippedTrack({
               id: playbackState.trackId,
               name: playbackState.trackName || "",
@@ -706,7 +710,10 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
               lastSkipped: "", // This wasn't skipped
             } as SkippedTrackInfo);
           } catch (error: unknown) {
-            saveLog(`Error updating not skipped count: ${error}`, "ERROR");
+            store.saveLog(
+              `Error updating not skipped count: ${error}`,
+              "ERROR",
+            );
           }
         }
       }
@@ -724,13 +731,13 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
       ];
     }
   } catch (error: unknown) {
-    saveLog(`Track change error: ${error}`, "ERROR");
+    store.saveLog(`Track change error: ${error}`, "ERROR");
   }
 }
 
 /**
- * Updates the list of recently played tracks from Spotify.
- * This helps avoid false skip detection when users revisit recent tracks.
+ * Fetches recently played tracks from Spotify API.
+ * Prevents false skip detection when users revisit recently played tracks.
  */
 async function updateRecentTracks(): Promise<void> {
   try {
@@ -738,7 +745,7 @@ async function updateRecentTracks(): Promise<void> {
 
     try {
       // Use the API function with built-in retry mechanism
-      recentlyPlayed = (await getRecentlyPlayedTracks(
+      recentlyPlayed = (await spotifyApi.getRecentlyPlayedTracks(
         clientId,
         clientSecret,
       )) as RecentlyPlayedResponse;
@@ -746,7 +753,10 @@ async function updateRecentTracks(): Promise<void> {
       // All retries failed, log the error but continue with null recent tracks
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      saveLog(`Unable to get recently played tracks: ${errorMessage}`, "ERROR");
+      store.saveLog(
+        `Unable to get recently played tracks: ${errorMessage}`,
+        "ERROR",
+      );
       // Continue with recentlyPlayed = null
     }
 
@@ -756,13 +766,13 @@ async function updateRecentTracks(): Promise<void> {
       );
     }
   } catch (error) {
-    saveLog(`Error updating recent tracks: ${error}`, "DEBUG");
+    store.saveLog(`Error updating recent tracks: ${error}`, "DEBUG");
   }
 }
 
 /**
- * Reset playback state to defaults
- * Called when playback stops or errors occur
+ * Resets playback state to default values.
+ * Called when playback stops or after significant errors.
  */
 function resetPlaybackState(): void {
   playbackState = {
@@ -784,17 +794,15 @@ function resetPlaybackState(): void {
 }
 
 /**
- * Gets the list of skipped tracks from storage.
+ * Retrieves skipped track information from persistent storage.
  *
- * @returns Promise<SkippedTrackInfo[]> - List of skipped tracks with counts and metadata
+ * @returns List of skipped tracks with metadata and counts
  */
 async function getSkippedTracks(): Promise<SkippedTrackInfo[]> {
   try {
-    // Import directly from the store module to avoid path issues
-    const store = await import("../helpers/storage/store");
     return store.getSkippedTracks();
   } catch (error) {
-    saveLog(`Error getting skipped tracks: ${error}`, "ERROR");
+    store.saveLog(`Error getting skipped tracks: ${error}`, "ERROR");
     return [];
   }
 }

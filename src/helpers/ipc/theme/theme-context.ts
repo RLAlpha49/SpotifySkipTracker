@@ -1,16 +1,16 @@
 /**
- * Theme Context Exposer
+ * Theme context bridge module
  *
- * This module exposes theme-related functionality to the renderer process
- * through Electron's contextBridge. It creates a 'themeMode' object in the
- * window global scope that provides methods for:
+ * Exposes theme-related functionality to the renderer process through Electron's
+ * contextBridge API. Creates a 'themeMode' object in the window global scope with
+ * methods for theme management.
  *
- * - Getting the current theme mode
- * - Toggling between light and dark mode
- * - Setting specific theme modes (dark, light, system)
- *
- * Each method communicates with the main process via IPC to perform
- * the actual theme changes using Electron's nativeTheme API.
+ * Available methods:
+ * - current: Gets the current theme setting
+ * - toggle: Toggles between light and dark mode
+ * - dark: Sets dark mode
+ * - light: Sets light mode
+ * - system: Sets system-dependent theme mode
  */
 
 import {
@@ -22,10 +22,11 @@ import {
 } from "./theme-channels";
 
 /**
- * Expose theme-related methods to the renderer process
- * This function is called from the preload script
+ * Exposes theme-related methods to the renderer process via contextBridge
+ *
+ * @returns void
  */
-export function exposeThemeContext() {
+export function exposeThemeContext(): void {
   const { contextBridge, ipcRenderer } = window.require("electron");
 
   // Create the themeMode object with methods that invoke IPC channels

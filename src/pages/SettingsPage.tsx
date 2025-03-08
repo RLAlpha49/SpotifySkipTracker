@@ -1,15 +1,14 @@
 /**
- * Settings Page
+ * SettingsPage Component
  *
- * This page provides a form for configuring the application's settings,
- * including:
- * - Spotify API credentials (Client ID, Client Secret, Redirect URI)
- * - Skip detection settings (threshold, timeframe, progress percentage)
- * - Application settings (log level, log line count)
- * - Theme preferences
+ * Configuration interface for application settings:
+ * - Spotify API authentication credentials
+ * - Skip detection parameters and thresholds
+ * - Log management and retention policies
+ * - Application behavior and automation preferences
  *
- * The form uses React Hook Form with Zod validation to ensure
- * all settings are valid before being saved.
+ * Uses Zod schema validation to ensure data integrity before
+ * persisting settings to storage.
  */
 
 import React, { useState, useEffect } from "react";
@@ -52,8 +51,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 
 /**
- * Zod schema for validating settings form inputs
- * Defines validation rules for all form fields
+ * Form validation schema
+ * Defines constraints and validation rules for all configurable settings
  */
 const settingsFormSchema = z.object({
   // Spotify API credentials
@@ -62,7 +61,7 @@ const settingsFormSchema = z.object({
   redirectUri: z.string().min(1, { message: "Redirect URI is required" }),
 
   // App settings
-  fileLogLevel: z.enum(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]), // Controls what gets saved to log files
+  fileLogLevel: z.enum(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
   logLineCount: z.coerce.number().int().min(10).max(10000),
   maxLogFiles: z.coerce.number().int().min(1).max(100),
   logRetentionDays: z.coerce.number().int().min(1).max(365),
@@ -73,9 +72,8 @@ const settingsFormSchema = z.object({
 });
 
 /**
- * Type definition for application settings
- * Includes all validated form fields plus the skipProgress setting
- * which is handled separately with a slider
+ * Application settings type definition
+ * Includes all application configuration parameters
  */
 export type SpotifySettings = {
   // Spotify API credentials
@@ -98,7 +96,7 @@ export type SpotifySettings = {
   displayLogLevel?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
   logAutoRefresh?: boolean;
 
-  // Support legacy format
+  // Legacy format support
   logLevel?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
 };
 
@@ -131,18 +129,17 @@ export default function SettingsPage() {
   });
 
   /**
-   * Load saved settings from storage when component mounts
+   * Loads saved settings from storage on component mount
    */
   useEffect(() => {
     const loadSettings = async () => {
       try {
         const settings = await window.spotify.getSettings();
 
-        // Map logLevel to fileLogLevel if old format settings exist
+        // Handle legacy settings format
         const fileLogLevel =
           settings.fileLogLevel || settings.logLevel || "INFO";
 
-        // Update form values with loaded settings
         form.reset({
           clientId: settings.clientId || "",
           clientSecret: settings.clientSecret || "",
@@ -157,10 +154,7 @@ export default function SettingsPage() {
           autoUnlike: settings.autoUnlike ?? true,
         });
 
-        // Update the skip progress slider
         setSkipProgress(settings.skipProgress || 70);
-
-        // Reset the settings changed flag
         setSettingsChanged(false);
       } catch (error) {
         console.error("Failed to load settings:", error);
@@ -174,15 +168,14 @@ export default function SettingsPage() {
   }, [form]);
 
   /**
-   * Check if the new settings require an application restart
+   * Determines if settings changes require application restart
    *
-   * @param newSettings - The new settings to be saved
-   * @returns True if restart is required, false otherwise
+   * @param newSettings - The modified settings to evaluate
+   * @returns Boolean indicating if restart is needed
    */
   const requiresRestart = (newSettings: SpotifySettings): boolean => {
     const currentValues = form.getValues();
 
-    // Only certain settings changes require a restart
     return (
       currentValues.clientId !== newSettings.clientId ||
       currentValues.clientSecret !== newSettings.clientSecret ||
@@ -191,20 +184,16 @@ export default function SettingsPage() {
   };
 
   /**
-   * Handle application restart
-   * Calls the restart API and shows a toast notification
+   * Initiates application restart process
    */
   const handleRestart = async () => {
     try {
-      // Close the restart dialog
       setShowRestartDialog(false);
 
-      // Show restart notification
       toast.info("Restarting application...", {
         description: "The application will restart now to apply changes.",
       });
 
-      // Trigger application restart
       await window.spotify.restartApp();
     } catch (error) {
       console.error("Failed to restart application:", error);
@@ -216,17 +205,14 @@ export default function SettingsPage() {
   };
 
   /**
-   * Form submission handler
-   * Saves settings and shows restart dialog if needed
+   * Form submission handler - persists settings and manages restart process
    *
-   * @param values - Form values from React Hook Form
+   * @param values - Form values from React Hook Form submission
    */
   async function onSubmit(values: z.infer<typeof settingsFormSchema>) {
     try {
-      // Get current settings to preserve any home page settings
       const currentSettings = await window.spotify.getSettings();
 
-      // Combine form values with skip progress setting and any existing settings
       const settings = {
         ...currentSettings,
         ...values,
@@ -234,24 +220,19 @@ export default function SettingsPage() {
         autoUnlike: values.autoUnlike,
       };
 
-      // Save settings to storage
       const success = await window.spotify.saveSettings(settings);
 
       if (success) {
-        // Show success notification
         toast.success("Settings saved", {
           description: "Your settings have been saved successfully.",
         });
 
-        // Check if restart is required
         if (requiresRestart(settings as SpotifySettings)) {
           setShowRestartDialog(true);
         }
 
-        // Reset settings changed flag
         setSettingsChanged(false);
       } else {
-        // Show error notification
         toast.error("Failed to save settings", {
           description: "Could not save settings. Please try again.",
         });
@@ -265,7 +246,7 @@ export default function SettingsPage() {
   }
 
   /**
-   * Track form changes to enable/disable save button
+   * Tracks form changes to enable/disable save button
    */
   useEffect(() => {
     const subscription = form.watch(() => setSettingsChanged(true));

@@ -1,13 +1,12 @@
 /**
- * Application Route Definitions
+ * Application route definitions
  *
- * This file defines all the application routes and exports them for use by the router.
- * It creates routes for the main pages of the application:
- * - Home: Dashboard showing current playback and monitoring controls
- * - Skipped Tracks: Analytics of skipped tracks and patterns
- * - Settings: Application configuration
+ * Defines all application routes and exports the combined route tree.
+ * Each route connects a URL path to its corresponding page component:
  *
- * Each route is associated with its corresponding page component and path.
+ * - / → HomePage - Dashboard for monitoring and playback controls
+ * - /skipped-tracks → SkippedTracksPage - Track statistics and analysis
+ * - /settings → SettingsPage - Application configuration
  */
 
 import { createRoute } from "@tanstack/react-router";
@@ -15,25 +14,6 @@ import { RootRoute } from "./__root";
 import HomePage from "../pages/HomePage";
 import SkippedTracksPage from "@/pages/SkippedTracksPage";
 import SettingsPage from "@/pages/SettingsPage";
-
-// TODO: Steps to add a new route:
-// 1. Create a new page component in the '../pages/' directory (e.g., NewPage.tsx)
-// 2. Import the new page component at the top of this file
-// 3. Define a new route for the page using createRoute()
-// 4. Add the new route to the routeTree in RootRoute.addChildren([...])
-// 5. Add a new Link in the navigation section of RootRoute if needed
-
-// Example of adding a new route:
-// 1. Create '../pages/NewPage.tsx'
-// 2. Import: import NewPage from '../pages/NewPage';
-// 3. Define route:
-//    const NewRoute = createRoute({
-//      getParentRoute: () => RootRoute,
-//      path: '/new',
-//      component: NewPage,
-//    });
-// 4. Add to routeTree: RootRoute.addChildren([HomeRoute, NewRoute, ...])
-// 5. Add Link: <Link to="/new">New Page</Link>
 
 /**
  * Home route - Dashboard with playback controls and monitoring
@@ -46,7 +26,7 @@ export const HomeRoute = createRoute({
 });
 
 /**
- * Skipped Tracks route - Analytics and stats for skipped tracks
+ * Skipped Tracks route - Analytics and statistics for skipped tracks
  * Path: "/skipped-tracks"
  */
 export const SkippedTracksRoute = createRoute({
@@ -66,8 +46,8 @@ export const SettingsRoute = createRoute({
 });
 
 /**
- * Combined route tree that includes all application routes
- * This is exported and used by the router
+ * Combined route tree for application routing
+ * Passed to the router configuration in router.tsx
  */
 export const rootTree = RootRoute.addChildren([
   HomeRoute,

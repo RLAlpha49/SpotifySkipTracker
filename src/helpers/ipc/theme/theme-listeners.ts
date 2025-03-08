@@ -1,17 +1,13 @@
 /**
- * Theme IPC Listeners
+ * Theme IPC listener module
  *
- * This module sets up IPC handlers in the main process to respond to
- * theme-related requests from the renderer process. It uses Electron's
- * nativeTheme API to control the application's appearance.
+ * Configures IPC handlers in the main process for theme-related operations.
+ * Uses Electron's nativeTheme API to control application appearance.
  *
- * The handlers allow the renderer to:
- * - Get the current theme mode
- * - Toggle between light and dark mode
- * - Set specific theme modes (dark, light, system)
- *
- * These handlers are registered when the application starts and remain
- * active throughout the application's lifecycle.
+ * Implements handlers for:
+ * - Getting current theme mode (dark/light/system)
+ * - Toggling between light and dark modes
+ * - Setting specific theme modes (dark, light, system)
  */
 
 import { nativeTheme } from "electron";
@@ -25,14 +21,15 @@ import {
 } from "./theme-channels";
 
 /**
- * Register all theme-related IPC event listeners
- * This function is called during application initialization
+ * Registers all theme-related IPC event listeners
+ *
+ * @returns void
  */
-export function addThemeEventListeners() {
-  // Get the current theme mode
+export function addThemeEventListeners(): void {
+  // Current theme mode handler
   ipcMain.handle(THEME_MODE_CURRENT_CHANNEL, () => nativeTheme.themeSource);
 
-  // Toggle between light and dark mode
+  // Theme toggle handler
   ipcMain.handle(THEME_MODE_TOGGLE_CHANNEL, () => {
     if (nativeTheme.shouldUseDarkColors) {
       nativeTheme.themeSource = "light";
@@ -42,19 +39,19 @@ export function addThemeEventListeners() {
     return nativeTheme.shouldUseDarkColors;
   });
 
-  // Set dark mode
+  // Dark mode handler
   ipcMain.handle(
     THEME_MODE_DARK_CHANNEL,
     () => (nativeTheme.themeSource = "dark"),
   );
 
-  // Set light mode
+  // Light mode handler
   ipcMain.handle(
     THEME_MODE_LIGHT_CHANNEL,
     () => (nativeTheme.themeSource = "light"),
   );
 
-  // Set system theme mode
+  // System theme handler
   ipcMain.handle(THEME_MODE_SYSTEM_CHANNEL, () => {
     nativeTheme.themeSource = "system";
     return nativeTheme.shouldUseDarkColors;

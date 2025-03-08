@@ -1,28 +1,35 @@
 /**
- * Window Control Helpers
+ * Window control module
  *
- * This module provides simple wrappers around Electron window control functions,
- * allowing the frontend to minimize, maximize, and close the application window.
- * These functions communicate with the main Electron process via IPC.
+ * Provides wrapper functions around Electron window control functionality.
+ * These functions communicate with the main Electron process via IPC
+ * to control the application window state.
  */
 
 /**
- * Minimize the application window
+ * Minimizes the application window
+ *
+ * @returns Promise that resolves when window is minimized
  */
-export async function minimizeWindow() {
+export async function minimizeWindow(): Promise<void> {
   await window.electronWindow.minimize();
 }
 
 /**
- * Maximize or restore the application window
+ * Maximizes or restores the application window
+ * Toggles between maximized and previous state
+ *
+ * @returns Promise that resolves when window state is changed
  */
-export async function maximizeWindow() {
+export async function maximizeWindow(): Promise<void> {
   await window.electronWindow.maximize();
 }
 
 /**
- * Close the application window
+ * Closes the application window
+ *
+ * @returns Promise that resolves when window close is initiated
  */
-export async function closeWindow() {
+export async function closeWindow(): Promise<void> {
   await window.electronWindow.close();
 }

@@ -1,14 +1,14 @@
 /**
- * Root Route Component
+ * Root route component
  *
- * This file defines the root route that serves as the parent for all other routes.
- * It wraps all route content in the MainLayout component, which provides:
- * - Header with application title
- * - Navigation bar
+ * Defines the base route that serves as the parent for all application routes.
+ * Wraps all route content in the MainLayout component, which provides:
+ * - Application header with title
+ * - Navigation between routes
  * - Theme controls
- * - Common layout structure
+ * - Consistent layout structure
  *
- * The Outlet component is where child route content will be rendered.
+ * Child routes are rendered via TanStack Router's Outlet component.
  */
 
 import React from "react";
@@ -16,14 +16,18 @@ import MainLayout from "@/layouts/MainLayout";
 import { Outlet, createRootRoute } from "@tanstack/react-router";
 
 /**
- * Root route definition, sets the Root component as the base layout
+ * Root route definition
+ * Creates the base route with the Root component as its renderer
  */
 export const RootRoute = createRootRoute({
   component: Root,
 });
 
 /**
- * Root component that wraps the main layout around all routes
+ * Root component
+ * Wraps the MainLayout component around all child routes
+ *
+ * @returns React component with layout and outlet for child routes
  */
 function Root() {
   return (

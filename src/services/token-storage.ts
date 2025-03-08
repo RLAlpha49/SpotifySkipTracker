@@ -1,17 +1,14 @@
 /**
- * Token Storage Service
+ * Secure token storage module
  *
- * This module provides secure storage for Spotify authentication tokens.
- * It handles saving, loading, and clearing tokens from the user's local machine,
- * using encryption to protect sensitive credential information.
+ * Provides encrypted storage for Spotify authentication credentials
+ * with AES-256-GCM encryption for protecting sensitive token data.
  *
- * Security Features:
- * - AES-256-GCM encryption for token data
- * - Secure storage of encryption keys in user data directory
- * - Authentication tags to verify data integrity
- *
- * The tokens are stored in the Electron app's user data directory in an
- * encrypted format to prevent unauthorized access.
+ * Security features:
+ * - 256-bit AES encryption in GCM mode
+ * - Secure key storage in application data directory
+ * - Authentication tags for data integrity verification
+ * - Unique initialization vectors for each encryption operation
  */
 
 import { app } from "electron";
@@ -21,13 +18,13 @@ import * as crypto from "crypto";
 import { saveLog } from "../helpers/storage/store";
 import { Warning } from "postcss";
 
-// Constants for token storage
+// Storage configuration constants
 const TOKEN_FILE = "spotify-tokens.json";
 const ENCRYPTION_KEY_FILE = "encryption-key";
 const ALGORITHM = "aes-256-gcm";
 
 /**
- * Structure of token data to be stored
+ * Token data structure interface
  */
 interface TokenData {
   accessToken: string;
@@ -36,16 +33,15 @@ interface TokenData {
 }
 
 /**
- * Get the filesystem path to the token storage file
- * Creates the directory if it doesn't exist
+ * Resolves the token storage file path
  *
- * @returns Full path to the token storage file
+ * @returns Absolute path to token storage file
  */
 function getTokenFilePath(): string {
   const userDataPath = app.getPath("userData");
   const dataPath = path.join(userDataPath, "data");
 
-  // Ensure directory exists
+  // Create directory if needed
   if (!fs.existsSync(dataPath)) {
     fs.mkdirSync(dataPath, { recursive: true });
   }
@@ -54,16 +50,15 @@ function getTokenFilePath(): string {
 }
 
 /**
- * Get the filesystem path to the encryption key file
- * Creates the directory if it doesn't exist
+ * Resolves the encryption key file path
  *
- * @returns Full path to the encryption key file
+ * @returns Absolute path to encryption key file
  */
 function getEncryptionKeyPath(): string {
   const userDataPath = app.getPath("userData");
   const dataPath = path.join(userDataPath, "data");
 
-  // Ensure directory exists
+  // Create directory if needed
   if (!fs.existsSync(dataPath)) {
     fs.mkdirSync(dataPath, { recursive: true });
   }
@@ -72,10 +67,9 @@ function getEncryptionKeyPath(): string {
 }
 
 /**
- * Get or create the encryption key for token data
- * If the key doesn't exist, a new one is generated and saved
+ * Retrieves or generates encryption key
  *
- * @returns Buffer containing the encryption key
+ * @returns Buffer containing 256-bit encryption key
  */
 function getEncryptionKey(): Buffer {
   const keyPath = getEncryptionKeyPath();
@@ -84,7 +78,7 @@ function getEncryptionKey(): Buffer {
     return fs.readFileSync(keyPath);
   }
 
-  // Generate a new key if one doesn't exist
+  // Generate new encryption key
   const key = crypto.randomBytes(32); // 256 bits
   fs.writeFileSync(keyPath, key);
   saveLog("Generated new encryption key for token storage", "DEBUG");
@@ -93,11 +87,10 @@ function getEncryptionKey(): Buffer {
 }
 
 /**
- * Encrypt text data using AES-256-GCM
- * Uses a random initialization vector (IV) for each encryption
+ * Encrypts text using AES-256-GCM
  *
- * @param text - Plain text to encrypt
- * @returns Object containing encrypted data and IV
+ * @param text - Plain text content to encrypt
+ * @returns Object containing encrypted data and initialization vector
  */
 function encrypt(text: string): { encryptedData: string; iv: string } {
   const key = getEncryptionKey();
@@ -107,7 +100,7 @@ function encrypt(text: string): { encryptedData: string; iv: string } {
   let encrypted = cipher.update(text, "utf8", "hex");
   encrypted += cipher.final("hex");
 
-  // Store authentication tag with the encrypted data for verification during decryption
+  // Append authentication tag to encrypted data
   return {
     encryptedData: encrypted + ":" + cipher.getAuthTag().toString("hex"),
     iv: iv.toString("hex"),
@@ -115,23 +108,23 @@ function encrypt(text: string): { encryptedData: string; iv: string } {
 }
 
 /**
- * Decrypt previously encrypted data
- * Verifies data integrity using the authentication tag
+ * Decrypts previously encrypted data
  *
- * @param encryptedData - Data to decrypt (including authentication tag)
- * @param iv - Initialization vector used during encryption
- * @returns Decrypted text
+ * @param encryptedData - Encrypted data with authentication tag
+ * @param iv - Initialization vector in hex format
+ * @returns Decrypted text content
+ * @throws Warning when encrypted data is invalid
  */
 function decrypt(encryptedData: string, iv: string): string {
   const key = getEncryptionKey();
   const ivBuffer = Buffer.from(iv, "hex");
 
-  // Check if encryptedData is defined
+  // Validate encrypted data
   if (!encryptedData) {
     throw new Warning("Encrypted data is undefined or empty");
   }
 
-  // Split the data and authentication tag
+  // Extract data and authentication tag
   const encryptedParts = encryptedData.split(":");
   const encrypted = encryptedParts[0];
   const authTag = Buffer.from(encryptedParts[1], "hex");
@@ -146,26 +139,26 @@ function decrypt(encryptedData: string, iv: string): string {
 }
 
 /**
- * Save Spotify tokens to encrypted storage
+ * Persists authentication tokens to encrypted storage
  *
- * @param tokenData - Access token, refresh token, and expiration information
- * @returns True if tokens were saved successfully, false otherwise
+ * @param tokenData - Token data to encrypt and store
+ * @returns Boolean indicating operation success
  */
 export function saveTokens(tokenData: TokenData): boolean {
   try {
     const tokenFilePath = getTokenFilePath();
     const tokenDataString = JSON.stringify(tokenData);
 
-    // Encrypt the token data
+    // Encrypt token data
     const { encryptedData, iv } = encrypt(tokenDataString);
 
-    // Create the storage object with encrypted data and IV
+    // Prepare storage structure
     const storageData = {
       encryptedData,
       iv,
     };
 
-    // Write to file
+    // Write to storage
     fs.writeFileSync(tokenFilePath, JSON.stringify(storageData));
     saveLog("Spotify tokens saved securely to disk", "DEBUG");
 
@@ -177,25 +170,25 @@ export function saveTokens(tokenData: TokenData): boolean {
 }
 
 /**
- * Load Spotify tokens from encrypted storage
+ * Retrieves and decrypts authentication tokens
  *
- * @returns TokenData object if tokens exist and can be decrypted, null otherwise
+ * @returns TokenData object if available, null if not found or on error
  */
 export function loadTokens(): TokenData | null {
   try {
     const tokenFilePath = getTokenFilePath();
 
-    // Check if token file exists
+    // Check file existence
     if (!fs.existsSync(tokenFilePath)) {
       saveLog("No stored tokens found", "DEBUG");
       return null;
     }
 
-    // Read and parse the file
+    // Read encrypted data
     const fileContent = fs.readFileSync(tokenFilePath, "utf8");
     const storageData = JSON.parse(fileContent);
 
-    // Decrypt the token data
+    // Decrypt and parse
     const decryptedData = decrypt(storageData.encryptedData, storageData.iv);
     const tokenData = JSON.parse(decryptedData) as TokenData;
 
@@ -208,16 +201,14 @@ export function loadTokens(): TokenData | null {
 }
 
 /**
- * Clear stored tokens
- * Removes the token file from disk
+ * Removes authentication tokens from storage
  *
- * @returns True if tokens were cleared successfully or didn't exist, false on error
+ * @returns Boolean indicating operation success
  */
 export function clearTokens(): boolean {
   try {
     const tokenFilePath = getTokenFilePath();
 
-    // Check if token file exists before attempting to delete
     if (fs.existsSync(tokenFilePath)) {
       fs.unlinkSync(tokenFilePath);
       saveLog("Spotify tokens cleared from disk", "INFO");

@@ -1,18 +1,22 @@
 /**
- * Window Control IPC Channel Constants
+ * Window control IPC channel constants
  *
- * This file defines the IPC channel names used for window control operations
- * between the main and renderer processes. These constants are used in both
- * the listeners (main process) and context exposer (preload script).
- *
- * Using constants ensures consistency and prevents typos in channel names.
+ * Defines IPC channel names used for window control operations
+ * between main and renderer processes. Used consistently in both
+ * the listeners (main process) and the context bridge (preload).
  */
 
-// Channel for minimizing the application window
+/**
+ * Channel for window minimize operation
+ */
 export const WINDOW_MINIMIZE_CHANNEL = "window:minimize";
 
-// Channel for maximizing or restoring the application window
+/**
+ * Channel for window maximize/restore operation
+ */
 export const WINDOW_MAXIMIZE_CHANNEL = "window:maximize";
 
-// Channel for closing the application window
+/**
+ * Channel for window close operation
+ */
 export const WINDOW_CLOSE_CHANNEL = "window:close";

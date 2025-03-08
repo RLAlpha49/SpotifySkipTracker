@@ -1,28 +1,31 @@
 /**
- * Application Router Configuration
+ * Application router configuration
  *
- * This file sets up the TanStack Router for the application,
- * creating a memory history (rather than browser history) since this is
- * an Electron application and doesn't use browser URLs.
+ * Configures TanStack Router with memory history mode for Electron environment.
+ * Since Electron doesn't use browser URLs, a memory-based router is more appropriate
+ * than a browser history-based one.
  *
- * The router connects to the route definitions in routes.tsx and
- * provides type safety through the Register interface.
+ * The router connects with route definitions from routes.tsx and provides
+ * TypeScript type safety through the Register interface.
  */
 
 import { createMemoryHistory, createRouter } from "@tanstack/react-router";
 import { rootTree } from "./routes";
 
-// Type augmentation for TanStack Router to provide type safety
+/**
+ * Type augmentation for TanStack Router
+ * Provides type safety and autocompletion for router instance
+ */
 declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router;
   }
 }
 
-// Create in-memory history for Electron app (doesn't use browser URLs)
+// Create memory-based history for Electron application
 const history = createMemoryHistory({
   initialEntries: ["/"],
 });
 
-// Export the configured router instance
+// Export configured router instance
 export const router = createRouter({ routeTree: rootTree, history: history });

@@ -1,8 +1,8 @@
 /**
- * Main React Application Component
+ * Root React Component
  *
- * This is the entry point for the React/renderer portion of the Electron application.
- * It sets up the router and global UI components like the toast notification system.
+ * Entry point for the renderer process that initializes the application UI.
+ * Handles routing configuration and global UI components.
  */
 
 import React, { useEffect } from "react";
@@ -13,14 +13,16 @@ import { RouterProvider } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
 
 /**
- * Main App component that wraps the router and global UI elements
+ * Primary application component
  *
- * On mount, it synchronizes the theme with local storage preferences
- * to maintain consistent light/dark mode across application restarts
+ * Initializes theme preferences and sets up the application's core UI structure.
+ * Integrates routing and global notification systems.
+ *
+ * @returns React component tree
  */
 export default function App() {
   useEffect(() => {
-    // Sync theme (dark/light mode) with local storage on component mount
+    // Synchronize theme with local storage on mount
     syncThemeWithLocal();
   }, []);
 
@@ -35,7 +37,7 @@ export default function App() {
   );
 }
 
-// Create React root and render the application with StrictMode for better development experience
+// Initialize React application with StrictMode for development validation
 const root = createRoot(document.getElementById("app")!);
 root.render(
   <React.StrictMode>

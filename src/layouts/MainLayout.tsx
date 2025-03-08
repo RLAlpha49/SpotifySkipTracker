@@ -1,15 +1,13 @@
 /**
- * Main Application Layout
+ * Main application layout component
  *
- * This component provides the consistent layout structure for the entire application.
- * It includes:
- * - Header with app title and theme toggle
- * - Main content area with scrolling support
- * - Bottom navigation bar with links to main sections
+ * Provides consistent layout structure throughout the application with:
+ * - Window-draggable header with app title and theme toggle
+ * - Scrollable main content area
+ * - Fixed bottom navigation with route highlighting
  *
- * The layout uses CSS app-region properties to enable window dragging
- * in the Electron application, and it tracks the active route to highlight
- * the current navigation item.
+ * Uses Electron's app-region CSS properties to enable window dragging
+ * in frameless window mode.
  */
 
 import React, { useState, ReactNode } from "react";
@@ -19,22 +17,35 @@ import { HomeIcon, SettingsIcon, SkipForwardIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 /**
- * Props for the MainLayout component
+ * Props interface for MainLayout component
+ *
+ * @property children - React nodes to render in the main content area
  */
 interface MainLayoutProps {
   children: ReactNode;
 }
 
+/**
+ * Main layout wrapper for the application
+ *
+ * @param props - Component properties
+ * @param props.children - Content to render in the main area
+ * @returns MainLayout component
+ */
 export default function MainLayout({ children }: MainLayoutProps) {
-  // Use state to track which route is active
+  // Track the active route for navigation highlighting
   const [activeRoute, setActiveRoute] = useState("/");
 
-  // Update activeRoute when a link is clicked
+  /**
+   * Updates active route state when navigation occurs
+   *
+   * @param route - The route path that was navigated to
+   */
   const handleNavigation = (route: string) => {
     setActiveRoute(route);
   };
 
-  // Check if routes are active based on the activeRoute state
+  // Computed states for active route highlighting
   const isHomeActive = activeRoute === "/";
   const isSkippedTracksActive = activeRoute === "/skipped-tracks";
   const isSettingsActive = activeRoute === "/settings";

@@ -1,18 +1,16 @@
 /**
- * Spotify API Service
+ * Spotify Web API integration module
  *
- * This module provides functions for interacting with the Spotify Web API.
- * It handles authentication, token management, and various API requests
- * related to user playback, library management, and track information.
+ * Provides comprehensive integration with Spotify Web API including authentication flows,
+ * playback control, library management, and profile data access. Handles token lifecycle
+ * and implements request retry mechanisms.
  *
- * The service maintains token state in memory and provides methods to:
- * - Authenticate users via OAuth
- * - Refresh access tokens automatically
- * - Get current playback information
- * - Check track library status
- * - Manage user's saved tracks
- *
- * Note: This service requires Spotify Developer credentials to function.
+ * Core components:
+ * - OAuth authentication and authorization
+ * - Token management and automatic refresh
+ * - Playback state monitoring
+ * - Library/collection management
+ * - User profile access
  */
 
 import axios from "axios";
@@ -20,19 +18,19 @@ import querystring from "querystring";
 import { saveLog } from "../helpers/storage/store";
 import { retryApiCall } from "./api-retry";
 
-// Spotify API endpoints
+// API endpoints
 const AUTH_URL = "https://accounts.spotify.com/authorize";
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
 const API_BASE_URL = "https://api.spotify.com/v1";
 
-// Token storage (in-memory)
+// Token state management
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
 let tokenExpiryTime: number = 0;
 
-// Define types for Spotify API responses
+// API response interfaces
 /**
- * Represents an image from the Spotify API
+ * Spotify image metadata
  */
 interface SpotifyImage {
   url: string;
@@ -41,14 +39,14 @@ interface SpotifyImage {
 }
 
 /**
- * External URLs for Spotify resources
+ * External URL references for Spotify entities
  */
 interface SpotifyExternalUrls {
   spotify: string;
 }
 
 /**
- * Follower information for Spotify users
+ * Follower metadata for Spotify users
  */
 interface SpotifyFollowers {
   href: string | null;
@@ -56,7 +54,7 @@ interface SpotifyFollowers {
 }
 
 /**
- * User profile information from Spotify
+ * Comprehensive user profile from Spotify API
  */
 interface SpotifyUserProfile {
   country: string;
@@ -77,7 +75,7 @@ interface SpotifyUserProfile {
 }
 
 /**
- * Artist information from Spotify
+ * Artist metadata from Spotify API
  */
 interface SpotifyArtist {
   external_urls: SpotifyExternalUrls;
@@ -89,7 +87,7 @@ interface SpotifyArtist {
 }
 
 /**
- * Album information from Spotify
+ * Album metadata from Spotify API
  */
 interface SpotifyAlbum {
   album_type: string;
@@ -108,7 +106,7 @@ interface SpotifyAlbum {
 }
 
 /**
- * Track information from Spotify
+ * Track metadata from Spotify API
  */
 interface SpotifyTrack {
   album: SpotifyAlbum;
@@ -131,7 +129,7 @@ interface SpotifyTrack {
 }
 
 /**
- * Playback device information from Spotify
+ * Playback device metadata from Spotify API
  */
 interface SpotifyDevice {
   id: string;
@@ -144,8 +142,8 @@ interface SpotifyDevice {
 }
 
 /**
- * Current playback state information from Spotify
- * Contains information about the currently playing track, device, and playback settings
+ * Current playback session information
+ * Includes active device, track, context, and playback settings
  */
 interface SpotifyPlaybackState {
   device: SpotifyDevice;
@@ -168,8 +166,8 @@ interface SpotifyPlaybackState {
 }
 
 /**
- * Play history information from Spotify
- * Contains information about a track that was played and when it was played
+ * Track play history item
+ * Represents a single played track with timestamp and context
  */
 interface SpotifyPlayHistory {
   track: SpotifyTrack;
@@ -183,8 +181,8 @@ interface SpotifyPlayHistory {
 }
 
 /**
- * Response format for recently played tracks from Spotify
- * Contains a list of recently played tracks and pagination information
+ * Response structure for recently played tracks endpoint
+ * Includes track history and pagination controls
  */
 interface SpotifyRecentlyPlayedResponse {
   items: SpotifyPlayHistory[];
@@ -198,12 +196,12 @@ interface SpotifyRecentlyPlayedResponse {
 }
 
 /**
- * Generate the authorization URL for Spotify OAuth
+ * Constructs Spotify OAuth authorization URL
  *
- * @param clientId - Spotify Developer client ID
- * @param redirectUri - Authorized redirect URI for the application
- * @param scope - Space-separated list of Spotify API permission scopes
- * @returns Complete authorization URL to redirect the user to
+ * @param clientId - Spotify application client ID
+ * @param redirectUri - OAuth callback URI registered in Spotify dashboard
+ * @param scope - Space-separated OAuth permission scopes (default includes playback, library, history access)
+ * @returns Complete authorization URL for initiating OAuth flow
  */
 export function getAuthorizationUrl(
   clientId: string,
@@ -222,14 +220,14 @@ export function getAuthorizationUrl(
 }
 
 /**
- * Exchange authorization code for access and refresh tokens
+ * Exchanges authorization code for access and refresh tokens
  *
- * @param code - Authorization code received from Spotify after user authorizes
- * @param clientId - Spotify Developer client ID
- * @param clientSecret - Spotify Developer client secret
- * @param redirectUri - Authorized redirect URI for the application
- * @returns Object containing accessToken, refreshToken, and expiration time
- * @throws Error if token exchange fails
+ * @param code - OAuth authorization code from redirect callback
+ * @param clientId - Spotify application client ID
+ * @param clientSecret - Spotify application client secret
+ * @param redirectUri - OAuth callback URI matching the authorization request
+ * @returns Object containing access token, refresh token, and expiration time
+ * @throws Error on failed token exchange or invalid response
  */
 export async function exchangeCodeForTokens(
   code: string,
@@ -272,12 +270,12 @@ export async function exchangeCodeForTokens(
 }
 
 /**
- * Refresh the access token using the refresh token
+ * Refreshes expired access token using stored refresh token
  *
- * @param clientId - Spotify Developer client ID
- * @param clientSecret - Spotify Developer client secret
+ * @param clientId - Spotify application client ID
+ * @param clientSecret - Spotify application client secret
  * @returns New access token
- * @throws Error if refresh fails or no refresh token is available
+ * @throws Error if refresh operation fails or no refresh token is available
  */
 export async function refreshAccessToken(
   clientId: string,
@@ -327,20 +325,21 @@ export async function refreshAccessToken(
 }
 
 /**
- * Check if the current token is valid and not expired
+ * Validates if current access token is valid and not expired
  *
- * @returns True if the token is valid, false otherwise
+ * @returns Token validity status
  */
 export function isTokenValid(): boolean {
   return !!accessToken && Date.now() < tokenExpiryTime;
 }
 
 /**
- * Set tokens directly (e.g., from stored values)
+ * Sets authentication tokens directly
+ * Useful for restoring tokens from persistent storage
  *
  * @param newAccessToken - Spotify API access token
  * @param newRefreshToken - Spotify API refresh token
- * @param expiresIn - Expiration time in seconds
+ * @param expiresIn - Token lifetime in seconds
  */
 export function setTokens(
   newAccessToken: string,
@@ -353,7 +352,8 @@ export function setTokens(
 }
 
 /**
- * Clear tokens (for logout)
+ * Clears authentication tokens
+ * Used during logout or token invalidation
  */
 export function clearTokens(): void {
   accessToken = null;
@@ -362,12 +362,12 @@ export function clearTokens(): void {
 }
 
 /**
- * Get the current user's Spotify profile
+ * Retrieves current user profile information
  *
- * @param clientId - Spotify Developer client ID
- * @param clientSecret - Spotify Developer client secret
- * @returns User profile data
- * @throws Error if API request fails after all retry attempts
+ * @param clientId - Spotify application client ID
+ * @param clientSecret - Spotify application client secret
+ * @returns User profile data containing account details and preferences
+ * @throws Error if API request fails after exhausting retry attempts
  */
 export async function getCurrentUser(
   clientId: string,
@@ -386,12 +386,12 @@ export async function getCurrentUser(
 }
 
 /**
- * Get the user's current playback state
+ * Retrieves current playback state information
  *
- * @param clientId - Spotify Developer client ID
- * @param clientSecret - Spotify Developer client secret
+ * @param clientId - Spotify application client ID
+ * @param clientSecret - Spotify application client secret
  * @returns Current playback state or null if nothing is playing
- * @throws Error if API request fails after all retry attempts
+ * @throws Error if API request fails after exhausting retry attempts
  */
 export async function getCurrentPlayback(
   clientId: string,
@@ -416,13 +416,13 @@ export async function getCurrentPlayback(
 }
 
 /**
- * Get the user's recently played tracks
+ * Retrieves user's recently played tracks
  *
- * @param clientId - Spotify Developer client ID
- * @param clientSecret - Spotify Developer client secret
- * @param limit - Maximum number of tracks to return (default: 5)
- * @returns Recently played tracks data
- * @throws Error if API request fails after all retry attempts
+ * @param clientId - Spotify application client ID
+ * @param clientSecret - Spotify application client secret
+ * @param limit - Maximum number of history items to return
+ * @returns Recently played tracks with metadata and timestamps
+ * @throws Error if API request fails after exhausting retry attempts
  */
 export async function getRecentlyPlayedTracks(
   clientId: string,
@@ -446,12 +446,12 @@ export async function getRecentlyPlayedTracks(
 }
 
 /**
- * Check if a track is in the user's saved tracks (library)
+ * Checks if a track exists in user's library
  *
- * @param clientId - Spotify Developer client ID
- * @param clientSecret - Spotify Developer client secret
+ * @param clientId - Spotify application client ID
+ * @param clientSecret - Spotify application client secret
  * @param trackId - Spotify track ID to check
- * @returns True if the track is in the user's library, false otherwise
+ * @returns Library membership status of the track
  */
 export async function isTrackInLibrary(
   clientId: string,
@@ -481,12 +481,12 @@ export async function isTrackInLibrary(
 }
 
 /**
- * Unlike (remove from library) a track
+ * Removes a track from user's library
  *
- * @param clientId - Spotify Developer client ID
- * @param clientSecret - Spotify Developer client secret
+ * @param clientId - Spotify application client ID
+ * @param clientSecret - Spotify application client secret
  * @param trackId - Spotify track ID to remove
- * @returns True if successful, false otherwise
+ * @returns Operation success status
  */
 export async function unlikeTrack(
   clientId: string,
@@ -516,12 +516,12 @@ export async function unlikeTrack(
 }
 
 /**
- * Ensure the token is valid before making API calls
- * If the token is expired, attempt to refresh it automatically
+ * Ensures valid access token before making API requests
+ * Automatically refreshes expired tokens when possible
  *
- * @param clientId - Spotify Developer client ID
- * @param clientSecret - Spotify Developer client secret
- * @throws Error if no valid token or refresh token is available after retries
+ * @param clientId - Spotify application client ID
+ * @param clientSecret - Spotify application client secret
+ * @throws Error if token refresh fails or no valid token is available
  */
 async function ensureValidToken(
   clientId: string,
@@ -548,9 +548,9 @@ async function ensureValidToken(
 }
 
 /**
- * Get current token information
+ * Retrieves current token state information
  *
- * @returns Object containing accessToken, refreshToken, and expiryTime
+ * @returns Object containing current token state and expiration
  */
 export function getTokenInfo(): {
   accessToken: string | null;

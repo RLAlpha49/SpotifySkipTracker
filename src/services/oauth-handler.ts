@@ -1,43 +1,39 @@
 /**
- * OAuth Authentication Handler for Spotify
+ * Spotify OAuth authentication module
  *
- * This module manages the OAuth authentication flow with Spotify's API.
- * It creates a temporary local HTTP server to receive the authorization code
- * from Spotify's redirect, displays a user-friendly success page, and exchanges
- * the code for access and refresh tokens.
+ * Implements OAuth 2.0 authorization code flow for Spotify API authentication.
+ * Creates a temporary HTTP server to capture the redirect callback and
+ * manages the token exchange process.
  *
- * The authentication flow follows these steps:
- * 1. Open a browser window to Spotify's authorization page
- * 2. User logs in and authorizes the application
- * 3. Spotify redirects back to our local server with an authorization code
- * 4. The server exchanges the code for access and refresh tokens
- * 5. The browser window closes and tokens are returned to the application
+ * Authentication flow:
+ * 1. Launch browser with Spotify authorization URL
+ * 2. User authenticates and authorizes permissions
+ * 3. Capture authorization code from redirect
+ * 4. Exchange code for access/refresh tokens
+ * 5. Return tokens to application
  */
 
 import { BrowserWindow } from "electron";
 import { URL } from "url";
 import * as http from "http";
 import { saveLog } from "../helpers/storage/store";
+import * as spotifyApi from "./spotify-api";
 
-// State variables for the authentication process
+// Authentication state tracking
 let authWindow: BrowserWindow | null = null;
 let server: http.Server | null = null;
 let authPromiseReject: ((reason: Error) => void) | null = null;
 let isProcessingTokens = false;
 
 /**
- * Start the OAuth authentication flow with Spotify
+ * Initiates OAuth authentication flow with Spotify
  *
- * This function:
- * 1. Creates a local HTTP server to receive the authorization redirect
- * 2. Opens a browser window for the user to authenticate with Spotify
- * 3. Exchanges the received code for access and refresh tokens
- *
- * @param parentWindow - The main application window (for modal behavior)
- * @param clientId - Spotify Developer client ID
- * @param clientSecret - Spotify Developer client secret
- * @param redirectUri - Authorized redirect URI for the application
- * @returns Promise that resolves with access and refresh tokens when authentication completes
+ * @param parentWindow - Parent window for modal behavior
+ * @param clientId - Spotify API client ID
+ * @param clientSecret - Spotify API client secret
+ * @param redirectUri - OAuth redirect URI matching Spotify app configuration
+ * @returns Promise resolving to authentication tokens
+ * @throws Error if authentication fails or is cancelled
  */
 export function startAuthFlow(
   parentWindow: BrowserWindow,
@@ -50,14 +46,14 @@ export function startAuthFlow(
   expiresIn: number;
 }> {
   return new Promise((resolve, reject) => {
-    // Store the reject function so we can cancel from outside
+    // Store reject function for external cancellation
     authPromiseReject = reject;
 
-    // Parse the redirect URI to get the port
+    // Extract port from redirect URI
     const redirectUrl = new URL(redirectUri);
     const port = parseInt(redirectUrl.port) || 8888;
 
-    // Create a local server to handle the redirect
+    // Create callback server
     server = http.createServer((req, res) => {
       const reqUrl = new URL(req.url || "", `http://localhost:${port}`);
       const code = reqUrl.searchParams.get("code");
@@ -73,10 +69,10 @@ export function startAuthFlow(
       }
 
       if (code) {
-        // Set flag that we're processing tokens
+        // Mark tokens as being processed
         isProcessingTokens = true;
 
-        // Send success response to browser
+        // Display success page
         res.writeHead(200, { "Content-Type": "text/html" });
         res.end(`
           <!DOCTYPE html>
@@ -143,7 +139,7 @@ export function startAuthFlow(
           </html>
         `);
 
-        // Exchange the code for tokens
+        // Exchange code for tokens
         exchangeCodeForTokens(code, clientId, clientSecret, redirectUri)
           .then((tokens) => {
             saveLog("Successfully retrieved tokens from Spotify", "DEBUG");
@@ -165,44 +161,41 @@ export function startAuthFlow(
       }
     });
 
-    // Start the HTTP server
+    // Start callback server
     server.listen(port, () => {
       saveLog(`OAuth server listening on port ${port}`, "DEBUG");
 
-      // Import dynamically to avoid circular dependencies
-      import("./spotify-api").then((spotifyApi) => {
-        // Get the authorization URL from the Spotify API
-        const authUrl = spotifyApi.getAuthorizationUrl(
-          clientId,
-          redirectUri,
-          "user-read-playback-state user-library-modify user-read-recently-played user-library-read",
-        );
+      // Generate authorization URL
+      const authUrl = spotifyApi.getAuthorizationUrl(
+        clientId,
+        redirectUri,
+        "user-read-playback-state user-library-modify user-read-recently-played user-library-read",
+      );
 
-        // Create browser window for authentication
-        authWindow = new BrowserWindow({
-          width: 1000,
-          height: 800,
-          parent: parentWindow,
-          modal: true,
-          webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: true,
-          },
-        });
-
-        // Handle window close events
-        authWindow.on("closed", () => {
-          authWindow = null;
-          if (!isProcessingTokens) {
-            saveLog("Authentication window closed by user", "DEBUG");
-            reject(new Error("Authentication window closed by user"));
-            cleanup();
-          }
-        });
-
-        // Navigate to the Spotify authorization page
-        authWindow.loadURL(authUrl);
+      // Create authentication window
+      authWindow = new BrowserWindow({
+        width: 1000,
+        height: 800,
+        parent: parentWindow,
+        modal: true,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+        },
       });
+
+      // Handle window closure
+      authWindow.on("closed", () => {
+        authWindow = null;
+        if (!isProcessingTokens) {
+          saveLog("Authentication window closed by user", "DEBUG");
+          reject(new Error("Authentication window closed by user"));
+          cleanup();
+        }
+      });
+
+      // Navigate to authorization page
+      authWindow.loadURL(authUrl);
     });
 
     // Handle server errors
@@ -215,8 +208,7 @@ export function startAuthFlow(
 }
 
 /**
- * Clean up resources after authentication flow completes or is cancelled
- * Closes the server and authentication window if they exist
+ * Releases resources used during authentication
  */
 function cleanup(): void {
   if (server) {
@@ -231,14 +223,13 @@ function cleanup(): void {
     saveLog("Authentication window closed", "DEBUG");
   }
 
-  // Reset state
+  // Reset state variables
   authPromiseReject = null;
   isProcessingTokens = false;
 }
 
 /**
- * Cancel an ongoing authentication flow
- * This is useful when the application is closing or user cancels authentication
+ * Terminates an active authentication flow
  */
 export function cancelAuthFlow(): void {
   if (authPromiseReject) {
@@ -263,7 +254,6 @@ async function exchangeCodeForTokens(
   clientSecret: string,
   redirectUri: string,
 ): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
-  const spotifyApi = await import("./spotify-api");
   return spotifyApi.exchangeCodeForTokens(
     code,
     clientId,

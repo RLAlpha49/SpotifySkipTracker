@@ -1,33 +1,36 @@
 /**
- * Theme Management Helpers
+ * Theme management module
  *
- * This module provides functions for managing the application's theme (dark/light mode).
- * It handles user preferences, system theme detection, and synchronization between
- * localStorage and the application state.
+ * Provides functionality for managing application themes (dark/light mode).
+ * Handles user preferences, system theme detection, and synchronization
+ * between localStorage and application state.
  *
- * The theme system supports three modes:
+ * Supports three theme modes:
  * - "dark": Forces dark mode regardless of system settings
  * - "light": Forces light mode regardless of system settings
- * - "system": Follows the user's operating system preference
+ * - "system": Follows the operating system preference
  */
 
 import { ThemeMode } from "@/types/theme-mode";
 
-// Key used for storing theme preference in localStorage
+// Storage key for theme preference in localStorage
 const THEME_KEY = "theme";
 
 /**
- * Interface representing the user's theme preferences
+ * Theme preferences interface
+ *
+ * @property system - Current detected system theme mode
+ * @property local - User's stored theme preference (null if not set)
  */
 export interface ThemePreferences {
-  system: ThemeMode; // Current system theme mode
-  local: ThemeMode | null; // User's stored preference (or null if not set)
+  system: ThemeMode;
+  local: ThemeMode | null;
 }
 
 /**
- * Get the current theme settings from both the system and localStorage
+ * Gets current theme settings from both system and localStorage
  *
- * @returns Object containing both system theme and local preference
+ * @returns Promise resolving to object with system theme and local preference
  */
 export async function getCurrentTheme(): Promise<ThemePreferences> {
   const currentTheme = await window.themeMode.current();
@@ -40,12 +43,13 @@ export async function getCurrentTheme(): Promise<ThemePreferences> {
 }
 
 /**
- * Set the application theme to a specific mode
- * Updates both the system appearance and saves the preference to localStorage
+ * Sets application theme to specified mode
+ * Updates both the system appearance and saves preference to localStorage
  *
  * @param newTheme - The theme mode to set ("dark", "light", or "system")
+ * @returns Promise that resolves when theme is set
  */
-export async function setTheme(newTheme: ThemeMode) {
+export async function setTheme(newTheme: ThemeMode): Promise<void> {
   switch (newTheme) {
     case "dark":
       await window.themeMode.dark();
@@ -66,11 +70,13 @@ export async function setTheme(newTheme: ThemeMode) {
 }
 
 /**
- * Toggle between light and dark themes
+ * Toggles between light and dark themes
  * If currently in dark mode, switches to light mode and vice versa
- * Also updates the stored preference in localStorage
+ * Updates stored preference in localStorage
+ *
+ * @returns Promise resolving when theme toggle is complete
  */
-export async function toggleTheme() {
+export async function toggleTheme(): Promise<void> {
   const isDarkMode = await window.themeMode.toggle();
   const newTheme = isDarkMode ? "dark" : "light";
 
@@ -79,11 +85,13 @@ export async function toggleTheme() {
 }
 
 /**
- * Synchronize the application theme with localStorage preference
- * Called at application startup to restore the user's preference
+ * Synchronizes application theme with localStorage preference
+ * Called at application startup to restore user preference
  * If no preference is stored, defaults to system theme
+ *
+ * @returns Promise resolving when theme synchronization is complete
  */
-export async function syncThemeWithLocal() {
+export async function syncThemeWithLocal(): Promise<void> {
   const { local } = await getCurrentTheme();
   if (!local) {
     setTheme("system");
@@ -94,12 +102,12 @@ export async function syncThemeWithLocal() {
 }
 
 /**
- * Update the document theme by adding or removing the 'dark' class
- * This allows CSS to apply the correct theme styling
+ * Updates document theme by manipulating the 'dark' class
+ * Enables CSS to apply the correct theme styling
  *
  * @param isDarkMode - Whether dark mode should be active
  */
-function updateDocumentTheme(isDarkMode: boolean) {
+function updateDocumentTheme(isDarkMode: boolean): void {
   if (!isDarkMode) {
     document.documentElement.classList.remove("dark");
   } else {

@@ -1,0 +1,3 @@
+{
+  "reject": ["babel-plugin-react-compiler"]
+}

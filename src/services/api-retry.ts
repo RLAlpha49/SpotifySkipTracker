@@ -1,20 +1,20 @@
 /**
- * API Retry Utility
+ * API retry utility module
  *
- * This module provides utilities for handling retries of API requests.
- * It implements exponential backoff with jitter for more efficient retries.
+ * Provides functionality for retrying failed API requests with
+ * exponential backoff and jitter strategies to improve reliability.
  */
 
 import { saveLog } from "../helpers/storage/store";
 
 /**
- * Retry an API call with exponential backoff and jitter
+ * Retries an API call with exponential backoff and jitter
  *
- * @param apiCallFn - The API call function to retry
- * @param maxRetries - Maximum number of retry attempts (default: 5)
- * @param initialDelayMs - Initial delay between retries in milliseconds (default: 1000)
- * @returns The result of the successful API call
- * @throws Error after all retry attempts fail
+ * @param apiCallFn - Function that makes the API request to retry
+ * @param maxRetries - Maximum number of retry attempts
+ * @param initialDelayMs - Initial delay between retries in milliseconds
+ * @returns Promise resolving to the API call result
+ * @throws Error when all retry attempts are exhausted
  */
 export async function retryApiCall<T>(
   apiCallFn: () => Promise<T>,

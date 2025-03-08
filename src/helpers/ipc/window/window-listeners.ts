@@ -1,17 +1,13 @@
 /**
- * Window Control IPC Listeners
+ * Window control IPC listener module
  *
- * This module sets up IPC handlers in the main process to respond to
- * window control requests from the renderer process. It uses Electron's
- * BrowserWindow API to control the application window.
+ * Configures IPC handlers in the main process for window control operations.
+ * Uses Electron's BrowserWindow API to manipulate the application window.
  *
- * The handlers allow the renderer to:
- * - Minimize the application window
- * - Maximize or restore the application window
- * - Close the application window
- *
- * These handlers are registered when the application starts and remain
- * active throughout the application's lifecycle.
+ * Implements handlers for:
+ * - Minimizing the application window
+ * - Maximizing or restoring the application window
+ * - Closing the application window
  */
 
 import { BrowserWindow, ipcMain } from "electron";
@@ -22,17 +18,18 @@ import {
 } from "./window-channels";
 
 /**
- * Register all window control IPC event listeners
+ * Registers all window control IPC event listeners
  *
- * @param mainWindow - The main application window to control
+ * @param mainWindow - The BrowserWindow instance to control
+ * @returns void
  */
-export function addWindowEventListeners(mainWindow: BrowserWindow) {
-  // Handle window minimize request
+export function addWindowEventListeners(mainWindow: BrowserWindow): void {
+  // Window minimize handler
   ipcMain.handle(WINDOW_MINIMIZE_CHANNEL, () => {
     mainWindow.minimize();
   });
 
-  // Handle window maximize/restore request
+  // Window maximize/restore handler
   ipcMain.handle(WINDOW_MAXIMIZE_CHANNEL, () => {
     if (mainWindow.isMaximized()) {
       mainWindow.unmaximize();
@@ -41,7 +38,7 @@ export function addWindowEventListeners(mainWindow: BrowserWindow) {
     }
   });
 
-  // Handle window close request
+  // Window close handler
   ipcMain.handle(WINDOW_CLOSE_CHANNEL, () => {
     mainWindow.close();
   });

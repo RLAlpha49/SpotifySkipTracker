@@ -1,16 +1,14 @@
 /**
- * Window Control Context Exposer
+ * Window control context bridge module
  *
- * This module exposes window control functionality to the renderer process
- * through Electron's contextBridge. It creates an 'electronWindow' object
- * in the window global scope that provides methods for:
+ * Exposes window control functionality to the renderer process through
+ * Electron's contextBridge API. Creates an 'electronWindow' object in
+ * the window global scope with methods for window operations.
  *
- * - Minimizing the application window
- * - Maximizing or restoring the application window
- * - Closing the application window
- *
- * Each method communicates with the main process via IPC to perform
- * the actual window operations using Electron's BrowserWindow API.
+ * Available methods:
+ * - minimize: Minimizes the application window
+ * - maximize: Toggles window between maximized and normal state
+ * - close: Closes the application window
  */
 
 import {
@@ -20,10 +18,11 @@ import {
 } from "./window-channels";
 
 /**
- * Expose window control methods to the renderer process
- * This function is called from the preload script
+ * Exposes window control methods to the renderer process via contextBridge
+ *
+ * @returns void
  */
-export function exposeWindowContext() {
+export function exposeWindowContext(): void {
   const { contextBridge, ipcRenderer } = window.require("electron");
 
   // Create the electronWindow object with methods that invoke IPC channels

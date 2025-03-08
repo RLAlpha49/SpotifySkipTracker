@@ -1,18 +1,11 @@
 /**
- * Home Page Component
+ * Dashboard component for Spotify playback monitoring
  *
- * This is the main dashboard of the application, showing:
- * - Current Spotify playback information with album art and progress
- * - Authentication status and controls
- * - Playback monitoring controls (start/stop)
- * - Application logs with filtering by log level
- *
- * The component manages multiple states:
- * - Current playback information from Spotify
- * - Authentication status
- * - Monitoring status
- * - Application logs
- * - User settings
+ * Provides interfaces for:
+ * - Real-time Spotify playback monitoring and metadata display
+ * - Authentication and connection management
+ * - Application logging with configurable filtering
+ * - Playback monitoring controls
  */
 
 import React, { useState, useEffect } from "react";
@@ -35,7 +28,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
 /**
- * Information about the currently playing Spotify track
+ * Interface representing Spotify playback state
  */
 interface PlaybackInfo {
   albumArt: string;
@@ -50,31 +43,26 @@ interface PlaybackInfo {
 }
 
 export default function HomePage() {
-  // State for current playback information
   const [playbackInfo, setPlaybackInfo] = useState<PlaybackInfo | null>(null);
-  // State for application logs
   const [logs, setLogs] = useState<string[]>([]);
-  // State for authentication status
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  // State for monitoring status
   const [isMonitoring, setIsMonitoring] = useState(false);
-  // State for user settings
   const [settings, setSettings] = useState({
     displayLogLevel: "INFO" as
       | "DEBUG"
       | "INFO"
       | "WARNING"
       | "ERROR"
-      | "CRITICAL", // For display filtering only
+      | "CRITICAL",
     logAutoRefresh: true,
   });
-  // Reference for the logs refresh interval
   const logsRefreshIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
-  // State for log searching
   const [logSearchTerm, setLogSearchTerm] = useState("");
 
   /**
-   * Get initial playback information
+   * Fetches current playback information from Spotify API
+   *
+   * @returns Promise<void>
    */
   const getInitialPlayback = async () => {
     if (!isAuthenticated) return;
@@ -100,12 +88,14 @@ export default function HomePage() {
   };
 
   /**
-   * Load settings, logs, and check authentication status on component mount
+   * Initializes component on mount
+   * - Loads application settings
+   * - Checks authentication status
+   * - Starts log refresh if enabled
    */
   useEffect(() => {
     const loadSettingsAndLogs = async () => {
       try {
-        // Load settings first
         const savedSettings = await window.spotify.getSettings();
         setSettings((prevSettings) => ({
           ...prevSettings,
@@ -113,20 +103,16 @@ export default function HomePage() {
           logAutoRefresh: savedSettings.logAutoRefresh !== false,
         }));
 
-        // Then load logs
         const savedLogs = await window.spotify.getLogs();
         setLogs(savedLogs);
 
-        // Check if already authenticated
         const authStatus = await window.spotify.isAuthenticated();
         setIsAuthenticated(authStatus);
 
-        // If authenticated, check if monitoring is active or should be auto-started
         if (authStatus) {
           const monitoringStatus = await window.spotify.isMonitoringActive();
           setIsMonitoring(monitoringStatus);
 
-          // Auto-start monitoring if configured and not already active
           if (savedSettings.autoStartMonitoring && !monitoringStatus) {
             addLog("Auto-starting Spotify playback monitoring...", "DEBUG");
             const success = await window.spotify.startMonitoring();
@@ -145,14 +131,9 @@ export default function HomePage() {
     };
 
     loadSettingsAndLogs();
-
-    // Start playback updates if authenticated
     getInitialPlayback();
-
-    // Start auto-refresh for logs
     startLogsRefresh();
 
-    // Clean up on unmount
     return () => {
       if (logsRefreshIntervalRef.current) {
         clearInterval(logsRefreshIntervalRef.current);
@@ -162,45 +143,37 @@ export default function HomePage() {
   }, []);
 
   /**
-   * Start automatic logs refresh at regular intervals
+   * Sets up periodic log refresh mechanism
    */
   const startLogsRefresh = () => {
-    // Clear any existing interval
     if (logsRefreshIntervalRef.current) {
       clearInterval(logsRefreshIntervalRef.current);
     }
 
-    // Only start if auto-refresh is enabled
     if (!settings.logAutoRefresh) {
       return;
     }
 
-    // Create new interval to refresh logs every 500ms
     logsRefreshIntervalRef.current = setInterval(async () => {
       try {
         const updatedLogs = await window.spotify.getLogs();
         setLogs(updatedLogs);
       } catch (error) {
         console.error("Error refreshing logs:", error);
-        // Don't log this error to avoid recursive error logs
       }
     }, 500);
   };
 
   /**
-   * Set up playback update listener when authenticated
+   * Sets up real-time playback update listener
+   * Only active when authenticated
    */
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // Subscribe to playback updates from Spotify
     const unsubscribe = window.spotify.onPlaybackUpdate((data) => {
-      // Check if monitoring was stopped due to API errors
       if (data.monitoringStopped) {
-        // Update UI to show monitoring has stopped
         setIsMonitoring(false);
-
-        // Clear the playback information
         setPlaybackInfo({
           albumArt: "",
           trackName: "Monitoring Stopped",
@@ -213,7 +186,6 @@ export default function HomePage() {
           isInPlaylist: false,
         });
 
-        // Notify the user
         addLog(
           "Spotify playback monitoring has stopped due to persistent API errors",
           "ERROR",
@@ -239,30 +211,26 @@ export default function HomePage() {
       });
     });
 
-    // Get initial playback state
     getInitialPlayback();
 
-    // Cleanup: unsubscribe when component unmounts
     return () => {
       unsubscribe();
     };
   }, [isAuthenticated]);
 
   /**
-   * Save a log message and update the logs state
+   * Saves log message and updates logs state
    *
-   * @param message - The log message to save
-   * @param level - The severity level of the log
+   * @param message - Message content to log
+   * @param level - Severity level for the log
+   * @returns Promise<void>
    */
   const addLog = async (
     message: string,
     level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" = "INFO",
   ) => {
     try {
-      // Save log to storage - filtering by level is done on the backend using fileLogLevel
       await window.spotify.saveLog(message, level);
-
-      // Update logs in state
       const updatedLogs = await window.spotify.getLogs();
       setLogs(updatedLogs);
     } catch (error) {
@@ -271,13 +239,13 @@ export default function HomePage() {
   };
 
   /**
-   * Handle display log level change from dropdown
+   * Updates log level display filter
    *
-   * @param value - The new log level for display filtering
+   * @param value - New log level to filter by
+   * @returns Promise<void>
    */
   const handleDisplayLogLevelChange = async (value: string) => {
     try {
-      // Update settings state
       setSettings((prev) => ({
         ...prev,
         displayLogLevel: value as
@@ -288,10 +256,7 @@ export default function HomePage() {
           | "CRITICAL",
       }));
 
-      // Get current settings first
       const currentSettings = await window.spotify.getSettings();
-
-      // Update only the display log level
       await window.spotify.saveSettings({
         ...currentSettings,
         displayLogLevel: value as
@@ -302,7 +267,6 @@ export default function HomePage() {
           | "CRITICAL",
       });
 
-      // Log the change
       addLog(`Display log level changed to ${value}`, "DEBUG");
     } catch (error) {
       console.error("Error changing display log level:", error);
@@ -311,29 +275,24 @@ export default function HomePage() {
   };
 
   /**
-   * Toggle auto-refresh for logs
+   * Toggles automatic log refreshing
+   *
+   * @returns Promise<void>
    */
   const handleToggleLogAutoRefresh = async () => {
     try {
-      // Toggle the setting
       const newAutoRefresh = !settings.logAutoRefresh;
-
-      // Update local state
       setSettings((prev) => ({
         ...prev,
         logAutoRefresh: newAutoRefresh,
       }));
 
-      // Get current settings
       const currentSettings = await window.spotify.getSettings();
-
-      // Save the new setting
       await window.spotify.saveSettings({
         ...currentSettings,
         logAutoRefresh: newAutoRefresh,
       });
 
-      // Start or stop the refresh interval
       if (newAutoRefresh) {
         startLogsRefresh();
         addLog("Log auto-refresh enabled", "DEBUG");
@@ -351,7 +310,7 @@ export default function HomePage() {
   };
 
   /**
-   * Handle log search
+   * Updates log search filter term
    *
    * @param event - Input change event
    */
@@ -360,17 +319,15 @@ export default function HomePage() {
   };
 
   /**
-   * Handle authentication with Spotify
+   * Authenticates with Spotify API
+   *
+   * @returns Promise<void>
    */
   const handleAuthenticate = async () => {
     try {
-      // Show authentication in progress
       addLog("Authenticating with Spotify...", "INFO");
-
-      // Get current settings to access credentials
       const currentSettings = await window.spotify.getSettings();
 
-      // Make sure we have the required credentials
       if (!currentSettings.clientId || !currentSettings.clientSecret) {
         addLog(
           "Authentication failed: Missing Spotify credentials in settings",
@@ -383,7 +340,6 @@ export default function HomePage() {
         return;
       }
 
-      // Attempt authentication with explicit credentials
       const success = await window.spotify.authenticate({
         clientId: currentSettings.clientId,
         clientSecret: currentSettings.clientSecret,
@@ -392,11 +348,9 @@ export default function HomePage() {
       });
 
       if (success) {
-        // Update authentication state
         setIsAuthenticated(true);
         addLog("Authentication successful", "INFO");
 
-        // Auto-start monitoring if configured
         if (currentSettings.autoStartMonitoring) {
           addLog(
             "Auto-starting Spotify playback monitoring after login...",
@@ -420,26 +374,22 @@ export default function HomePage() {
   };
 
   /**
-   * Handle logout from Spotify
+   * Logs out from Spotify and clears playback state
+   *
+   * @returns Promise<void>
    */
   const handleLogout = async () => {
     try {
-      // Show logout in progress
       addLog("Logging out from Spotify...", "INFO");
 
-      // Stop monitoring if active
       if (isMonitoring) {
         await handleStopMonitoring();
       }
 
-      // Attempt logout
       const success = await window.spotify.logout();
 
       if (success) {
-        // Update authentication state
         setIsAuthenticated(false);
-
-        // Set playback info to logged-out state
         setPlaybackInfo({
           albumArt: "",
           trackName: "Not Logged In",
@@ -463,18 +413,16 @@ export default function HomePage() {
   };
 
   /**
-   * Start monitoring Spotify playback
+   * Starts Spotify playback monitoring
+   *
+   * @returns Promise<void>
    */
   const handleStartMonitoring = async () => {
     try {
-      // Show monitoring start in progress
       addLog("Starting Spotify playback monitoring...", "INFO");
-
-      // Attempt to start monitoring
       const success = await window.spotify.startMonitoring();
 
       if (success) {
-        // Update monitoring state
         setIsMonitoring(true);
       } else {
         addLog("Failed to start monitoring", "ERROR");
@@ -486,21 +434,17 @@ export default function HomePage() {
   };
 
   /**
-   * Stop monitoring Spotify playback
+   * Stops Spotify playback monitoring
+   *
+   * @returns Promise<void>
    */
   const handleStopMonitoring = async () => {
     try {
-      // Show monitoring stop in progress
       addLog("Stopping Spotify playback monitoring...", "INFO");
-
-      // Attempt to stop monitoring
       const success = await window.spotify.stopMonitoring();
 
       if (success) {
-        // Update monitoring state
         setIsMonitoring(false);
-
-        // Clear the playback information to indicate monitoring is stopped
         setPlaybackInfo({
           albumArt: "",
           trackName: "Monitoring Stopped",
@@ -522,7 +466,9 @@ export default function HomePage() {
   };
 
   /**
-   * Handle clearing logs
+   * Clears application logs
+   *
+   * @returns Promise<void>
    */
   const handleClearLogs = async () => {
     try {
@@ -539,7 +485,9 @@ export default function HomePage() {
   };
 
   /**
-   * Handle opening logs directory in file explorer
+   * Opens log directory in file explorer
+   *
+   * @returns Promise<void>
    */
   const handleOpenLogsDirectory = async () => {
     try {
@@ -551,10 +499,10 @@ export default function HomePage() {
   };
 
   /**
-   * Format seconds into MM:SS format
+   * Formats seconds to MM:SS format
    *
    * @param seconds - Number of seconds to format
-   * @returns Formatted time string
+   * @returns Formatted time string in MM:SS format
    */
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -563,15 +511,19 @@ export default function HomePage() {
   };
 
   /**
-   * Filter logs based on the selected log level
+   * Filters and processes logs for display
+   * - Parses timestamps for sorting
+   * - Groups logs into sessions
+   * - Filters by log level and search term
+   * - Deduplicates entries
    *
-   * @returns Filtered and sorted array of log messages
+   * @returns Array of filtered log messages
    */
   const getFilteredLogs = () => {
     const logLevels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
     const selectedLevelIndex = logLevels.indexOf(settings.displayLogLevel);
 
-    // Step 1: Parse timestamps and sort logs by timestamp (newest first)
+    // Parse timestamps and sort logs by timestamp (newest first)
     const parsedLogs = logs.map((log) => {
       const matches = log.match(/\[(.*?)\]\s+\[([A-Z]+)\]\s+(.*)/);
       if (matches && matches.length >= 4) {
@@ -627,7 +579,7 @@ export default function HomePage() {
       };
     });
 
-    // Step 2: Sort by timestamp
+    // Sort by timestamp
     const sortedLogs = parsedLogs.sort((a, b) => {
       if (a.dateObj && b.dateObj) {
         return b.dateObj.getTime() - a.dateObj.getTime();
@@ -635,10 +587,8 @@ export default function HomePage() {
       return 0;
     });
 
-    // Step 3: Group logs by session
-    // A session break is detected by a large time gap (e.g., >30 minutes)
-    // or by looking at timestamps that go backward (e.g., 10 PM back to 4 PM)
-    const sessionBreakThreshold = 30 * 60 * 1000; // 30 minutes in milliseconds
+    // Group logs by session (30 min threshold)
+    const sessionBreakThreshold = 30 * 60 * 1000;
     const currentSession = [];
     let previousTime = null;
 
@@ -646,10 +596,8 @@ export default function HomePage() {
       if (log.dateObj && previousTime) {
         const timeDiff = previousTime - log.dateObj.getTime();
 
-        // If time goes backwards significantly (more than 30 minutes) or forward by a large gap,
-        // consider it a new session
         if (timeDiff < 0 || timeDiff > sessionBreakThreshold) {
-          break; // Stop processing, we've found the current session
+          break;
         }
       }
 
@@ -659,12 +607,11 @@ export default function HomePage() {
       }
     }
 
-    // Step 4: Deduplicate logs
+    // Deduplicate logs
     const uniqueSessionLogs = new Map();
     const seenMessages = new Set();
 
     currentSession.forEach((log) => {
-      // Skip duplicates
       if (seenMessages.has(log.contentKey)) {
         return;
       }
@@ -673,10 +620,10 @@ export default function HomePage() {
       uniqueSessionLogs.set(log.contentKey, log.original);
     });
 
-    // Step 5: Filter by log level and search term
+    // Filter by log level and search term
     const filteredSessionLogs = Array.from(uniqueSessionLogs.values()).filter(
       (log) => {
-        // First filter by log level
+        // Filter by log level
         const match = log.match(/\[.*?\]\s+\[([A-Z]+)\]/);
         if (!match) return false;
 
@@ -685,7 +632,7 @@ export default function HomePage() {
 
         const levelMatches = logLevelIndex >= selectedLevelIndex;
 
-        // Then filter by search term if one exists
+        // Filter by search term
         const searchMatches =
           !logSearchTerm ||
           log.toLowerCase().includes(logSearchTerm.toLowerCase());
@@ -694,15 +641,14 @@ export default function HomePage() {
       },
     );
 
-    // Return filtered session logs (already in the right order)
     return filteredSessionLogs;
   };
 
   /**
-   * Get CSS class for log entry based on its level
+   * Determines CSS class based on log level
    *
    * @param log - Log message string
-   * @returns CSS class string for styling
+   * @returns CSS class name for styling the log entry
    */
   const getLogLevelClass = (log: string): string => {
     if (log.includes("[DEBUG]")) {
@@ -721,7 +667,7 @@ export default function HomePage() {
 
   return (
     <div className="container mx-auto py-4">
-      {/* Authentication and Monitoring Controls */}
+      {/* Authentication and connection controls */}
       <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card>
           <CardContent className="p-4">
@@ -786,7 +732,7 @@ export default function HomePage() {
         </Card>
       </div>
 
-      {/* Now Playing Section */}
+      {/* Current playback display */}
       <Card className="mb-4">
         <CardContent className="p-4">
           <h2 className="mb-4 text-lg font-semibold">Now Playing</h2>
@@ -859,7 +805,7 @@ export default function HomePage() {
         </CardContent>
       </Card>
 
-      {/* Logs Section */}
+      {/* Application logs interface */}
       <Card>
         <CardContent className="p-4">
           <div className="mb-2 flex flex-col space-y-2">

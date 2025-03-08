@@ -1,27 +1,26 @@
 /**
- * Main Entry Point for Spotify Skip Tracker Electron Application
+ * Spotify Skip Tracker - Main Process
  *
- * This application monitors Spotify playback and tracks when songs are skipped.
- * It helps users identify songs they frequently skip in their library, allowing them
- * to make data-driven decisions about which tracks to keep or remove.
+ * Core module controlling the Electron application lifecycle and primary functionality.
+ * Establishes IPC communication channels, handles authentication, and manages playback monitoring.
  *
- * Key Features:
- * - OAuth authentication with Spotify API
+ * Core features:
+ * - OAuth authentication with Spotify
  * - Real-time playback monitoring
  * - Skip detection with configurable thresholds
- * - Automatic library management (optional removal of frequently skipped tracks)
- * - Persistent storage of skip statistics
- * - Activity logging with configurable verbosity
+ * - Library management integration
+ * - Persistent storage for statistics and settings
+ * - Comprehensive activity logging
  *
- * Application Architecture:
- * - Electron main process (this file) - Controls application lifecycle and sets up IPC
- * - Renderer process - React UI for user interaction
- * - Services - Modules handling specific functionality (auth, playback, storage)
+ * Architecture:
+ * - Main process (this file): Application lifecycle and IPC handler
+ * - Renderer process: React-based UI interface
+ * - Service modules: Specialized functionality providers
  */
 
 import { app, BrowserWindow, ipcMain, Menu, shell } from "electron";
 import registerListeners from "./helpers/ipc/listeners-register";
-// "electron-squirrel-startup" seems broken when packaging with vite
+// electron-squirrel-startup incompatible with vite packaging
 //import started from "electron-squirrel-startup";
 import path from "path";
 import {
@@ -42,7 +41,7 @@ import {
   removeSkippedTrack,
 } from "./helpers/storage/store";
 
-// Import Spotify services
+// Spotify service imports
 import {
   getCurrentPlayback,
   setTokens as setApiTokens,
@@ -64,15 +63,17 @@ import {
   clearTokens as clearStoredTokens,
 } from "./services/token-storage";
 
-// Environment detection for development vs. production mode
+// Environment detection
 const inDevelopment = process.env.NODE_ENV === "development";
 
 /**
- * Sets up all IPC (Inter-Process Communication) handlers for Spotify-related functionality.
- * These handlers allow the renderer process (UI) to communicate with the main process
- * and access Spotify API services.
+ * Configures IPC handlers for Spotify functionality
  *
- * @param mainWindow - The main application window instance
+ * Establishes communication channels between renderer and main processes
+ * for all Spotify-related operations including authentication, playback,
+ * and library management.
+ *
+ * @param mainWindow - Main application window instance
  */
 function setupSpotifyIPC(mainWindow: BrowserWindow) {
   // Authentication handlers
@@ -80,13 +81,12 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     try {
       console.log("Authenticating with Spotify...", credentials);
 
-      // Check if we have stored tokens
+      // Attempt to use stored tokens
       const storedTokens = loadTokens();
       if (storedTokens) {
-        // If we have tokens, check if they're valid or can be refreshed
         try {
           if (isTokenValid()) {
-            // Set the tokens in the API service
+            // Set valid tokens in API service
             setApiTokens(
               storedTokens.accessToken,
               storedTokens.refreshToken,
@@ -95,13 +95,13 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
             saveLog("Using existing valid tokens", "DEBUG");
             return true;
           } else {
-            // Try to refresh the token
+            // Refresh expired token
             await refreshAccessToken(
               credentials.clientId,
               credentials.clientSecret,
             );
 
-            // Get the new tokens and save them to disk
+            // Update stored tokens
             const tokenInfo = getTokenInfo();
             if (tokenInfo.accessToken && tokenInfo.refreshToken) {
               saveTokens({
@@ -116,11 +116,11 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
           }
         } catch (error) {
           saveLog(`Failed to use stored tokens: ${error}`, "DEBUG");
-          // Continue to new authentication
+          // Proceed to new authentication
         }
       }
 
-      // Start the authentication flow
+      // Initiate new authentication flow
       try {
         const tokens = await startAuthFlow(
           mainWindow,
@@ -129,14 +129,14 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
           credentials.redirectUri,
         );
 
-        // Save tokens
+        // Persist tokens
         saveTokens({
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,
           expiresAt: Date.now() + tokens.expiresIn * 1000,
         });
 
-        // Also set them in the API service
+        // Initialize API service with tokens
         setApiTokens(tokens.accessToken, tokens.refreshToken, tokens.expiresIn);
 
         saveLog("Successfully authenticated with Spotify", "INFO");
@@ -151,47 +151,42 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     }
   });
 
-  // Logout handler - Clears tokens and stops monitoring
+  // Logout handler
   ipcMain.handle("spotify:logout", async () => {
     console.log("Logging out from Spotify");
 
-    // Stop monitoring if active
+    // Terminate active monitoring
     if (isMonitoringActive()) {
       stopPlaybackMonitoring();
     }
 
-    // Clear tokens
+    // Clear authentication state
     clearApiTokens();
     clearStoredTokens();
 
-    // Log the logout
     saveLog("Logged out from Spotify", "INFO");
-
     return true;
   });
 
-  // Authentication status check handler
+  // Authentication status verification
   ipcMain.handle("spotify:isAuthenticated", async () => {
     try {
-      // Try to load tokens from storage
       const storedTokens = loadTokens();
 
       if (storedTokens) {
-        // Set tokens in the API service
+        // Initialize API with stored tokens
         setApiTokens(
           storedTokens.accessToken,
           storedTokens.refreshToken,
           Math.floor((storedTokens.expiresAt - Date.now()) / 1000),
         );
 
-        // Check if token is valid
         if (isTokenValid()) {
           saveLog("Using existing valid tokens from storage", "DEBUG");
           return true;
         } else {
-          // Token expired, try to refresh it
+          // Attempt token refresh
           try {
-            // Get settings to access client credentials
             const settings = getSettings();
             if (settings.clientId && settings.clientSecret) {
               await refreshAccessToken(
@@ -199,7 +194,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
                 settings.clientSecret,
               );
 
-              // Update stored tokens with the refreshed token
+              // Update token storage
               const tokenInfo = await getTokenInfo();
               if (tokenInfo.accessToken && tokenInfo.refreshToken) {
                 saveTokens({
@@ -214,7 +209,6 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
             }
           } catch (error) {
             saveLog(`Failed to refresh token: ${error}`, "WARNING");
-            // Continue to return false
           }
         }
       }
@@ -226,12 +220,10 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     }
   });
 
-  // Current playback information handler
+  // Playback information retrieval
   ipcMain.handle("spotify:getCurrentPlayback", async () => {
     try {
       const settings = getSettings();
-
-      // Get current playback from Spotify API
       return await getCurrentPlayback(
         settings.clientId || "",
         settings.clientSecret || "",
@@ -242,7 +234,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     }
   });
 
-  // Skipped tracks management handlers
+  // Skipped tracks management
   ipcMain.handle("spotify:getSkippedTracks", async () => {
     const tracks = getSkippedTracks();
     saveLog(`Loaded ${tracks.length} skipped tracks from storage`, "DEBUG");
@@ -288,14 +280,12 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     }
   });
 
+  // Library management
   ipcMain.handle("spotify:unlikeTrack", async (_, trackId) => {
     console.log("Unliking track from Spotify:", trackId);
     try {
-      // Get settings for client credentials
       const settings = getSettings();
 
-      // Call the Spotify API to unlike the track
-      // Note: unlikeTrack function expects (clientId, clientSecret, trackId)
       const result = await unlikeTrack(
         settings.clientId,
         settings.clientSecret,
@@ -321,11 +311,10 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     }
   });
 
-  // Settings handlers - Uses persistent storage
+  // Settings persistence
   ipcMain.handle("spotify:saveSettings", async (_, settings) => {
     const result = saveSettings(settings);
 
-    // Log the settings save operation
     if (result) {
       saveLog("Settings saved successfully", "DEBUG");
     } else {
@@ -336,16 +325,14 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   });
 
   ipcMain.handle("spotify:getSettings", async () => {
-    // Get settings from persistent storage
     const settings = getSettings();
     saveLog("Settings loaded from storage", "DEBUG");
     return settings;
   });
 
-  // Logs management handlers
+  // Logging system
   ipcMain.handle("spotify:saveLog", async (_, message, level = "INFO") => {
     console.log(`Saving log [${level}]:`, message);
-
     return saveLog(message, level);
   });
 
@@ -355,14 +342,13 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
 
   ipcMain.handle("spotify:clearLogs", async () => {
     console.log("Clearing logs");
-    const result = clearLogs();
-    return result;
+    return clearLogs();
   });
 
+  // File system access
   ipcMain.handle("spotify:openLogsDirectory", async () => {
     console.log("Opening logs directory:", logsPath);
 
-    // Use shell to open the directory with the default file explorer
     shell.openPath(logsPath).then((error) => {
       if (error) {
         console.error("Failed to open logs directory:", error);
@@ -379,7 +365,6 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
   ipcMain.handle("spotify:openSkipsDirectory", async () => {
     console.log("Opening skips directory:", skipsPath);
 
-    // Use shell to open the directory with the default file explorer
     shell.openPath(skipsPath).then((error) => {
       if (error) {
         console.error("Failed to open skips directory:", error);
@@ -393,12 +378,12 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     return true;
   });
 
-  // App control handlers
+  // Application lifecycle
   ipcMain.handle("spotify:restartApp", async () => {
     console.log("Restarting application...");
     saveLog("Application restart requested by user", "INFO");
 
-    // Schedule the restart after a brief delay to allow the response to be sent
+    // Delay restart to allow response transmission
     setTimeout(() => {
       app.relaunch();
       app.exit(0);
@@ -407,27 +392,23 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     return true;
   });
 
-  // Playback monitoring service handlers
+  // Playback monitoring
   ipcMain.handle("spotify:startMonitoring", async () => {
     console.log("Starting Spotify monitoring...");
-
-    // Get current settings
     const settings = getSettings();
 
     try {
-      // Start monitoring
       const success = startPlaybackMonitoring(
         mainWindow,
         settings.clientId,
         settings.clientSecret,
       );
 
-      if (success) {
-        return true;
-      } else {
+      if (!success) {
         saveLog("Failed to start playback monitoring", "ERROR");
-        return false;
       }
+
+      return success;
     } catch (error) {
       saveLog(`Error starting monitoring: ${error}`, "ERROR");
       return false;
@@ -454,16 +435,16 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
 }
 
 /**
- * Creates the main application window and configures it.
- * This includes setting up the menu, preload script, and loading the renderer.
- * Also initializes IPC handlers and system event listeners.
+ * Creates and configures the main application window
  *
- * @returns The created BrowserWindow instance
+ * Initializes the browser window with appropriate security settings,
+ * configures platform-specific behaviors, and sets up event handlers.
+ *
+ * @returns {BrowserWindow} Configured Electron browser window instance
  */
 function createWindow() {
-  // Set custom menu (minimal) or no menu
+  // Configure menu based on environment
   if (inDevelopment) {
-    // Development menu with essential tools
     const devTemplate: Electron.MenuItemConstructorOptions[] = [
       {
         label: "Developer",
@@ -478,7 +459,6 @@ function createWindow() {
     ];
     Menu.setApplicationMenu(Menu.buildFromTemplate(devTemplate));
   } else {
-    // No menu in production
     Menu.setApplicationMenu(null);
   }
 
@@ -498,28 +478,26 @@ function createWindow() {
     frame: true,
   });
 
-  // Setup IPC handlers
+  // Initialize communication channels
   setupSpotifyIPC(mainWindow);
 
-  // and load the index.html of the app.
+  // Load application content
   if (inDevelopment) {
     mainWindow.loadURL("http://localhost:5173/");
   } else {
     mainWindow.loadFile(path.join(__dirname, "../index.html"));
   }
 
-  // Register other IPC handlers
+  // Register additional IPC handlers
   registerListeners(mainWindow);
 
-  // Once the window is ready, show it
+  // Initialize window and application state
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
     saveLog("Application started", "DEBUG");
 
-    // Load configuration when app starts
     try {
       const settings = getSettings();
-      // Log configuration info that might be useful for diagnostics
       saveLog(
         `Application initialized with log level: ${settings.logLevel}`,
         "DEBUG",
@@ -534,16 +512,14 @@ function createWindow() {
     }
   });
 
-  // Handle window closed
+  // Cleanup on window close
   mainWindow.on("closed", () => {
     saveLog("Application closed", "DEBUG");
 
-    // Stop monitoring if active
     if (isMonitoringActive()) {
       stopPlaybackMonitoring();
     }
 
-    // Cancel auth flow if in progress
     cancelAuthFlow();
   });
 
@@ -551,8 +527,12 @@ function createWindow() {
 }
 
 /**
- * Installs developer extensions when in development mode.
- * This helps with debugging and development workflows.
+ * Installs development tools and extensions
+ *
+ * Loads developer tools in development mode to facilitate debugging
+ * and application testing.
+ *
+ * @returns {Promise<void>} Resolves when extensions are installed or skipped
  */
 async function installExtensions() {
   try {
@@ -567,9 +547,7 @@ async function installExtensions() {
   }
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
+// Application initialization
 app.whenReady().then(async () => {
   saveLog("Application initializing", "DEBUG");
 
@@ -577,15 +555,12 @@ app.whenReady().then(async () => {
   createWindow();
 
   app.on("activate", function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
+    // MacOS dock click behavior
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+// Window management
 app.on("window-all-closed", () => {
   saveLog("All windows closed", "DEBUG");
   if (process.platform !== "darwin") {
@@ -593,10 +568,10 @@ app.on("window-all-closed", () => {
   }
 });
 
+// Application shutdown
 app.on("quit", () => {
   saveLog("Application quit", "DEBUG");
 
-  // Make sure monitoring is stopped
   if (isMonitoringActive()) {
     stopPlaybackMonitoring();
   }

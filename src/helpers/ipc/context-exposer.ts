@@ -1,16 +1,16 @@
 /**
- * Context Exposer Module
+ * Context bridge configuration module
  *
- * This module sets up the secure communication bridge between the main process
- * and the renderer process. It uses Electron's contextBridge to safely expose
- * specific functionality from the main process to the renderer process.
+ * Establishes secure communication channels between main and renderer processes.
+ * Uses Electron's contextBridge API to safely expose main process functionality
+ * to the renderer process with proper security boundaries.
  *
- * The exposed APIs allow the React application to:
- * 1. Control the window (minimize, maximize, close)
- * 2. Manage the application theme (dark/light mode)
- * 3. Interact with the Spotify API
- * 4. Manage application settings and logs
- * 5. Control playback monitoring
+ * Exposes APIs for:
+ * 1. Window management (minimize, maximize, close)
+ * 2. Theme management (dark/light mode)
+ * 3. Spotify API interaction
+ * 4. Application settings and logs
+ * 5. Playback monitoring controls
  */
 
 import { exposeThemeContext } from "./theme/theme-context";
@@ -19,31 +19,30 @@ import { contextBridge } from "electron";
 import { ipcRenderer } from "electron";
 
 /**
- * Exposes all contexts to the renderer process
- * This function is called from the preload script
+ * Exposes all API contexts to the renderer process
+ * Called from the preload script during application initialization
  */
-export default function exposeContexts() {
-  // Expose window management functionality (minimize, maximize, close)
+export default function exposeContexts(): void {
+  // Window management API (minimize, maximize, close)
   exposeWindowContext();
 
-  // Expose theme management functionality (dark/light mode)
+  // Theme management API (dark/light mode)
   exposeThemeContext();
 
   /**
    * Spotify API Bridge
    *
-   * Exposes all Spotify-related functionality to the renderer process.
-   * Each method invokes a corresponding handler in the main process
-   * and returns the result as a Promise.
+   * Provides controlled access to Spotify-related functionality in the renderer.
+   * Each method invokes a corresponding handler in the main process via IPC.
    */
   contextBridge.exposeInMainWorld("spotify", {
-    // Authentication-related methods
+    // Authentication methods
     authenticate: (credentials?: SpotifyCredentials) =>
       ipcRenderer.invoke("spotify:authenticate", credentials),
     logout: () => ipcRenderer.invoke("spotify:logout"),
     isAuthenticated: () => ipcRenderer.invoke("spotify:isAuthenticated"),
 
-    // Playback information and control
+    // Playback information methods
     getCurrentPlayback: () => ipcRenderer.invoke("spotify:getCurrentPlayback"),
 
     // Skipped tracks management
@@ -55,16 +54,16 @@ export default function exposeContexts() {
     removeFromSkippedData: (trackId: string) =>
       ipcRenderer.invoke("spotify:removeFromSkippedData", trackId),
 
-    // Track library management
+    // Library management
     unlikeTrack: (trackId: string) =>
       ipcRenderer.invoke("spotify:unlikeTrack", trackId),
 
-    // Application settings management
+    // Settings management
     saveSettings: (settings: SpotifySettings) =>
       ipcRenderer.invoke("spotify:saveSettings", settings),
     getSettings: () => ipcRenderer.invoke("spotify:getSettings"),
 
-    // Application logging system
+    // Logging system
     saveLog: (
       message: string,
       level?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
@@ -74,18 +73,19 @@ export default function exposeContexts() {
     openLogsDirectory: () => ipcRenderer.invoke("spotify:openLogsDirectory"),
     openSkipsDirectory: () => ipcRenderer.invoke("spotify:openSkipsDirectory"),
 
-    // Application lifecycle control
+    // Application lifecycle
     restartApp: () => ipcRenderer.invoke("spotify:restartApp"),
 
-    // Playback monitoring service control
+    // Playback monitoring service
     startMonitoring: () => ipcRenderer.invoke("spotify:startMonitoring"),
     stopMonitoring: () => ipcRenderer.invoke("spotify:stopMonitoring"),
     isMonitoringActive: () => ipcRenderer.invoke("spotify:isMonitoringActive"),
 
-    // Event subscriptions
     /**
-     * Subscribe to playback updates from the main process
-     * Returns a function to unsubscribe when component unmounts
+     * Registers a callback for playback updates from the main process
+     *
+     * @param callback - Function to execute when playback data is received
+     * @returns Function to unsubscribe when component unmounts
      */
     onPlaybackUpdate: (callback: (data: SpotifyPlaybackInfo) => void) => {
       const subscription = (
