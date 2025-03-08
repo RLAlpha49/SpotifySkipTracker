@@ -80,15 +80,20 @@ interface SkippedTrack {
  * Application settings for Spotify integration and behavior
  */
 interface SpotifySettings {
+  autoStartMonitoring: boolean;
   clientId: string;
   clientSecret: string;
-  redirectUri: string;
+  displayLogLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  fileLogLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  logAutoRefresh: boolean;
   logLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
   logLineCount: number;
-  skipThreshold: number; // Number of skips before suggesting removal
-  timeframeInDays: number; // Time window for skip analysis
-  skipProgress: number; // Progress percentage threshold to count as skip
-  autoStartMonitoring: boolean; // Whether to automatically start monitoring on app launch
+  logRetentionDays: number;
+  maxLogFiles: number;
+  redirectUri: string;
+  skipProgress: number;
+  skipThreshold: number;
+  timeframeInDays: number;
 }
 
 /**

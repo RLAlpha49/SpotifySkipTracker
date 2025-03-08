@@ -30,6 +30,9 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 /**
  * Information about the currently playing Spotify track
@@ -57,10 +60,18 @@ export default function HomePage() {
   const [isMonitoring, setIsMonitoring] = useState(false);
   // State for user settings
   const [settings, setSettings] = useState({
-    logLevel: "INFO" as "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
+    displayLogLevel: "INFO" as
+      | "DEBUG"
+      | "INFO"
+      | "WARNING"
+      | "ERROR"
+      | "CRITICAL", // For display filtering only
+    logAutoRefresh: true,
   });
   // Reference for the logs refresh interval
   const logsRefreshIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
+  // State for log searching
+  const [logSearchTerm, setLogSearchTerm] = useState("");
 
   /**
    * Get initial playback information
@@ -98,7 +109,8 @@ export default function HomePage() {
         const savedSettings = await window.spotify.getSettings();
         setSettings((prevSettings) => ({
           ...prevSettings,
-          logLevel: savedSettings.logLevel,
+          displayLogLevel: savedSettings.displayLogLevel || "INFO",
+          logAutoRefresh: savedSettings.logAutoRefresh !== false,
         }));
 
         // Then load logs
@@ -156,6 +168,11 @@ export default function HomePage() {
     // Clear any existing interval
     if (logsRefreshIntervalRef.current) {
       clearInterval(logsRefreshIntervalRef.current);
+    }
+
+    // Only start if auto-refresh is enabled
+    if (!settings.logAutoRefresh) {
+      return;
     }
 
     // Create new interval to refresh logs every 500ms
@@ -242,7 +259,7 @@ export default function HomePage() {
     level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" = "INFO",
   ) => {
     try {
-      // Save log to storage
+      // Save log to storage - filtering by level is done on the backend using fileLogLevel
       await window.spotify.saveLog(message, level);
 
       // Update logs in state
@@ -254,33 +271,92 @@ export default function HomePage() {
   };
 
   /**
-   * Handle log level change from dropdown
+   * Handle display log level change from dropdown
    *
-   * @param value - The new log level
+   * @param value - The new log level for display filtering
    */
-  const handleLogLevelChange = async (value: string) => {
+  const handleDisplayLogLevelChange = async (value: string) => {
     try {
       // Update settings state
       setSettings((prev) => ({
         ...prev,
-        logLevel: value as "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
+        displayLogLevel: value as
+          | "DEBUG"
+          | "INFO"
+          | "WARNING"
+          | "ERROR"
+          | "CRITICAL",
       }));
 
       // Get current settings first
       const currentSettings = await window.spotify.getSettings();
 
-      // Update only the log level
+      // Update only the display log level
       await window.spotify.saveSettings({
         ...currentSettings,
-        logLevel: value as "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
+        displayLogLevel: value as
+          | "DEBUG"
+          | "INFO"
+          | "WARNING"
+          | "ERROR"
+          | "CRITICAL",
       });
 
       // Log the change
-      addLog(`Log level changed to ${value}`, "DEBUG");
+      addLog(`Display log level changed to ${value}`, "DEBUG");
     } catch (error) {
-      console.error("Error changing log level:", error);
-      addLog(`Error changing log level: ${error}`, "ERROR");
+      console.error("Error changing display log level:", error);
+      addLog(`Error changing display log level: ${error}`, "ERROR");
     }
+  };
+
+  /**
+   * Toggle auto-refresh for logs
+   */
+  const handleToggleLogAutoRefresh = async () => {
+    try {
+      // Toggle the setting
+      const newAutoRefresh = !settings.logAutoRefresh;
+
+      // Update local state
+      setSettings((prev) => ({
+        ...prev,
+        logAutoRefresh: newAutoRefresh,
+      }));
+
+      // Get current settings
+      const currentSettings = await window.spotify.getSettings();
+
+      // Save the new setting
+      await window.spotify.saveSettings({
+        ...currentSettings,
+        logAutoRefresh: newAutoRefresh,
+      });
+
+      // Start or stop the refresh interval
+      if (newAutoRefresh) {
+        startLogsRefresh();
+        addLog("Log auto-refresh enabled", "DEBUG");
+      } else {
+        if (logsRefreshIntervalRef.current) {
+          clearInterval(logsRefreshIntervalRef.current);
+          logsRefreshIntervalRef.current = null;
+        }
+        addLog("Log auto-refresh disabled", "DEBUG");
+      }
+    } catch (error) {
+      console.error("Error toggling log auto-refresh:", error);
+      addLog(`Error toggling log auto-refresh: ${error}`, "ERROR");
+    }
+  };
+
+  /**
+   * Handle log search
+   *
+   * @param event - Input change event
+   */
+  const handleLogSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setLogSearchTerm(event.target.value);
   };
 
   /**
@@ -493,20 +569,20 @@ export default function HomePage() {
    */
   const getFilteredLogs = () => {
     const logLevels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
-    const selectedLevelIndex = logLevels.indexOf(settings.logLevel);
+    const selectedLevelIndex = logLevels.indexOf(settings.displayLogLevel);
 
     // Step 1: Parse timestamps and sort logs by timestamp (newest first)
-    const parsedLogs = logs.map(log => {
+    const parsedLogs = logs.map((log) => {
       const matches = log.match(/\[(.*?)\]\s+\[([A-Z]+)\]\s+(.*)/);
       if (matches && matches.length >= 4) {
         const timestamp = matches[1];
         const level = matches[2];
         const message = matches[3];
-        
+
         // Parse timestamp into a date object
         const dateParts = timestamp.match(/(\d+):(\d+):(\d+)\s+([AP])M\.(\d+)/);
         let dateObj = null;
-        
+
         if (dateParts) {
           // Create date for today with the parsed time
           const now = new Date();
@@ -514,43 +590,43 @@ export default function HomePage() {
           const minutes = parseInt(dateParts[2]);
           const seconds = parseInt(dateParts[3]);
           const milliseconds = parseInt(dateParts[5]);
-          const isPM = dateParts[4] === 'P';
-          
+          const isPM = dateParts[4] === "P";
+
           // Convert to 24-hour format
           if (isPM && hours < 12) hours += 12;
           if (!isPM && hours === 12) hours = 0;
-          
+
           dateObj = new Date(
-            now.getFullYear(), 
-            now.getMonth(), 
-            now.getDate(), 
-            hours, 
-            minutes, 
-            seconds, 
-            milliseconds
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            hours,
+            minutes,
+            seconds,
+            milliseconds,
           );
         }
-        
+
         return {
           original: log,
           timestamp,
           dateObj,
           level,
           message,
-          contentKey: `${level}-${message}`
+          contentKey: `${level}-${message}`,
         };
       }
-      
+
       return {
         original: log,
         timestamp: "",
         dateObj: null,
         level: "",
         message: log,
-        contentKey: log
+        contentKey: log,
       };
     });
-    
+
     // Step 2: Sort by timestamp
     const sortedLogs = parsedLogs.sort((a, b) => {
       if (a.dateObj && b.dateObj) {
@@ -558,99 +634,68 @@ export default function HomePage() {
       }
       return 0;
     });
-    
+
     // Step 3: Group logs by session
     // A session break is detected by a large time gap (e.g., >30 minutes)
     // or by looking at timestamps that go backward (e.g., 10 PM back to 4 PM)
-    const sessionBreakThreshold = 30 * 60 * 1000;
-    let currentSession = [];
+    const sessionBreakThreshold = 30 * 60 * 1000; // 30 minutes in milliseconds
+    const currentSession = [];
     let previousTime = null;
-    
+
     for (const log of sortedLogs) {
       if (log.dateObj && previousTime) {
         const timeDiff = previousTime - log.dateObj.getTime();
-        
+
         // If time goes backwards significantly (more than 30 minutes) or forward by a large gap,
         // consider it a new session
         if (timeDiff < 0 || timeDiff > sessionBreakThreshold) {
           break; // Stop processing, we've found the current session
         }
       }
-      
+
       currentSession.push(log);
       if (log.dateObj) {
         previousTime = log.dateObj.getTime();
       }
     }
-    
-    // Step 4: Deduplicate logs within the current session
+
+    // Step 4: Deduplicate logs
     const uniqueSessionLogs = new Map();
     const seenMessages = new Set();
-    
-    currentSession.forEach(log => {
+
+    currentSession.forEach((log) => {
       // Skip duplicates
       if (seenMessages.has(log.contentKey)) {
         return;
       }
-      
+
       seenMessages.add(log.contentKey);
       uniqueSessionLogs.set(log.contentKey, log.original);
     });
-    
-    // Step 5: Filter by log level
-    const filteredSessionLogs = Array.from(uniqueSessionLogs.values()).filter(log => {
-      const match = log.match(/\[.*?\]\s+\[([A-Z]+)\]/);
-      if (!match) return false;
-      
-      const logLevel = match[1];
-      const logLevelIndex = logLevels.indexOf(logLevel);
-      
-      return logLevelIndex >= selectedLevelIndex;
-    });
-    
-    // Return filtered session logs
+
+    // Step 5: Filter by log level and search term
+    const filteredSessionLogs = Array.from(uniqueSessionLogs.values()).filter(
+      (log) => {
+        // First filter by log level
+        const match = log.match(/\[.*?\]\s+\[([A-Z]+)\]/);
+        if (!match) return false;
+
+        const logLevel = match[1];
+        const logLevelIndex = logLevels.indexOf(logLevel);
+
+        const levelMatches = logLevelIndex >= selectedLevelIndex;
+
+        // Then filter by search term if one exists
+        const searchMatches =
+          !logSearchTerm ||
+          log.toLowerCase().includes(logSearchTerm.toLowerCase());
+
+        return levelMatches && searchMatches;
+      },
+    );
+
+    // Return filtered session logs (already in the right order)
     return filteredSessionLogs;
-  };
-
-  /**
-   * Sort logs by their timestamp (newest first)
-   *
-   * @param logsToSort - Array of log messages to sort
-   * @returns Sorted array of log messages
-   */
-  const sortLogsByTimestamp = (logsToSort: string[]): string[] => {
-    return [...logsToSort].sort((a, b) => {
-      // Extract timestamps from log entries
-      const timestampA = a.match(/\[(.*?)\]/);
-      const timestampB = b.match(/\[(.*?)\]/);
-
-      if (!timestampA || !timestampB) {
-        return 0;
-      }
-      
-      // Parse timestamps into comparable format
-      const parseTimeStamp = (timestamp: string) => {
-        const parts = timestamp.match(/(\d+):(\d+):(\d+)\s+([AP])M\.(\d+)/);
-        if (!parts) return 0;
-        
-        let hours = parseInt(parts[1]);
-        const minutes = parseInt(parts[2]);
-        const seconds = parseInt(parts[3]);
-        const milliseconds = parseInt(parts[5]);
-        const isPM = parts[4] === 'P';
-        
-        // Convert to 24-hour format for proper comparison
-        if (isPM && hours < 12) hours += 12;
-        if (!isPM && hours === 12) hours = 0;
-        
-        return (hours * 3600 + minutes * 60 + seconds) * 1000 + milliseconds;
-      };
-      
-      const timeA = parseTimeStamp(timestampA[1]);
-      const timeB = parseTimeStamp(timestampB[1]);
-      
-      return timeB - timeA;  // newest first
-    });
   };
 
   /**
@@ -817,37 +862,66 @@ export default function HomePage() {
       {/* Logs Section */}
       <Card>
         <CardContent className="p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Activity Logs</h2>
-            <div className="flex items-center gap-2">
-              <Select
-                value={settings.logLevel}
-                onValueChange={handleLogLevelChange}
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Log Level" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DEBUG">DEBUG</SelectItem>
-                  <SelectItem value="INFO">INFO</SelectItem>
-                  <SelectItem value="WARNING">WARNING</SelectItem>
-                  <SelectItem value="ERROR">ERROR</SelectItem>
-                  <SelectItem value="CRITICAL">CRITICAL</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpenLogsDirectory}
-                title="Open logs directory in file explorer"
-                className="flex items-center gap-1"
-              >
-                <FolderOpen className="h-4 w-4" />
-                <span>Open Logs</span>
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleClearLogs}>
-                Clear Logs
-              </Button>
+          <div className="mb-2 flex flex-col space-y-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Activity Logs</h2>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenLogsDirectory}
+                  title="Open logs directory in file explorer"
+                  className="flex items-center gap-1"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  <span>Open Logs</span>
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleClearLogs}>
+                  Clear Logs
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              <div className="flex items-center gap-2">
+                <div className="flex flex-col">
+                  <Label className="mb-1 text-xs">Display Filter</Label>
+                  <Select
+                    value={settings.displayLogLevel}
+                    onValueChange={handleDisplayLogLevelChange}
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue placeholder="Display Level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DEBUG">DEBUG</SelectItem>
+                      <SelectItem value="INFO">INFO</SelectItem>
+                      <SelectItem value="WARNING">WARNING</SelectItem>
+                      <SelectItem value="ERROR">ERROR</SelectItem>
+                      <SelectItem value="CRITICAL">CRITICAL</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="log-auto-refresh"
+                    checked={settings.logAutoRefresh}
+                    onCheckedChange={handleToggleLogAutoRefresh}
+                  />
+                  <Label htmlFor="log-auto-refresh">Auto-refresh</Label>
+                </div>
+
+                <Input
+                  type="text"
+                  placeholder="Search logs..."
+                  value={logSearchTerm}
+                  onChange={handleLogSearch}
+                  className="flex-1"
+                />
+              </div>
             </div>
           </div>
           <Separator className="my-2" />
@@ -859,7 +933,7 @@ export default function HomePage() {
                   {filteredLogs.map((log, index) => (
                     <div
                       key={index}
-                      className={`font-mono text-xs ${getLogLevelClass(log)}`}
+                      className={`py-0.5 font-mono text-xs ${getLogLevelClass(log)}`}
                     >
                       {log}
                     </div>

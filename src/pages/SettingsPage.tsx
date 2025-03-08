@@ -62,8 +62,10 @@ const settingsFormSchema = z.object({
   redirectUri: z.string().min(1, { message: "Redirect URI is required" }),
 
   // App settings
-  logLevel: z.enum(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
-  logLineCount: z.coerce.number().int().min(10).max(1000),
+  fileLogLevel: z.enum(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]), // Controls what gets saved to log files
+  logLineCount: z.coerce.number().int().min(10).max(10000),
+  maxLogFiles: z.coerce.number().int().min(1).max(100),
+  logRetentionDays: z.coerce.number().int().min(1).max(365),
   skipThreshold: z.coerce.number().int().min(1).max(10),
   timeframeInDays: z.coerce.number().int().min(1).max(365),
   autoStartMonitoring: z.boolean().default(true),
@@ -74,8 +76,28 @@ const settingsFormSchema = z.object({
  * Includes all validated form fields plus the skipProgress setting
  * which is handled separately with a slider
  */
-type SpotifySettings = z.infer<typeof settingsFormSchema> & {
+export type SpotifySettings = {
+  // Spotify API credentials
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+
+  // App settings
+  fileLogLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  logLineCount: number;
+  maxLogFiles: number;
+  logRetentionDays: number;
+  skipThreshold: number;
+  timeframeInDays: number;
   skipProgress: number;
+  autoStartMonitoring: boolean;
+
+  // Home page settings
+  displayLogLevel?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  logAutoRefresh?: boolean;
+
+  // Support legacy format
+  logLevel?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
 };
 
 export default function SettingsPage() {
@@ -95,8 +117,10 @@ export default function SettingsPage() {
       clientId: "",
       clientSecret: "",
       redirectUri: "http://localhost:8888/callback",
-      logLevel: "INFO",
-      logLineCount: 100,
+      fileLogLevel: "INFO",
+      logLineCount: 1000,
+      maxLogFiles: 10,
+      logRetentionDays: 30,
       skipThreshold: 3,
       timeframeInDays: 30,
       autoStartMonitoring: true,
@@ -111,14 +135,20 @@ export default function SettingsPage() {
       try {
         const settings = await window.spotify.getSettings();
 
+        // Map logLevel to fileLogLevel if old format settings exist
+        const fileLogLevel =
+          settings.fileLogLevel || settings.logLevel || "INFO";
+
         // Update form values with loaded settings
         form.reset({
           clientId: settings.clientId || "",
           clientSecret: settings.clientSecret || "",
           redirectUri: settings.redirectUri || "http://localhost:8888/callback",
-          logLevel: settings.logLevel || "INFO",
-          logLineCount: settings.logLineCount || 100,
-          skipThreshold: settings.skipThreshold || 3,
+          fileLogLevel: fileLogLevel,
+          logLineCount: settings.logLineCount || 1000,
+          maxLogFiles: settings.maxLogFiles || 10,
+          logRetentionDays: settings.logRetentionDays || 30,
+          skipThreshold: settings.skipThreshold || 5,
           timeframeInDays: settings.timeframeInDays || 30,
           autoStartMonitoring: settings.autoStartMonitoring ?? true,
         });
@@ -189,8 +219,12 @@ export default function SettingsPage() {
    */
   async function onSubmit(values: z.infer<typeof settingsFormSchema>) {
     try {
-      // Combine form values with skip progress setting
-      const settings: SpotifySettings = {
+      // Get current settings to preserve any home page settings
+      const currentSettings = await window.spotify.getSettings();
+
+      // Combine form values with skip progress setting and any existing settings
+      const settings = {
+        ...currentSettings,
         ...values,
         skipProgress,
       };
@@ -205,7 +239,7 @@ export default function SettingsPage() {
         });
 
         // Check if restart is required
-        if (requiresRestart(settings)) {
+        if (requiresRestart(settings as SpotifySettings)) {
           setShowRestartDialog(true);
         }
 
@@ -450,40 +484,6 @@ export default function SettingsPage() {
                   <div className="mb-4">
                     <FormField
                       control={form.control}
-                      name="logLevel"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Log Level</FormLabel>
-                          <Select
-                            onValueChange={(value) => {
-                              field.onChange(value);
-                              setSettingsChanged(true);
-                            }}
-                            value={field.value}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select log level" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="DEBUG">Debug</SelectItem>
-                              <SelectItem value="INFO">Info</SelectItem>
-                              <SelectItem value="WARNING">Warning</SelectItem>
-                              <SelectItem value="ERROR">Error</SelectItem>
-                              <SelectItem value="CRITICAL">Critical</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>
-                            Controls the verbosity of application logs
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="mb-4">
-                    <FormField
-                      control={form.control}
                       name="autoStartMonitoring"
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
@@ -513,6 +513,41 @@ export default function SettingsPage() {
                   <div className="mb-4">
                     <FormField
                       control={form.control}
+                      name="fileLogLevel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Log File Level</FormLabel>
+                          <Select
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              setSettingsChanged(true);
+                            }}
+                            value={field.value}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select log level" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="DEBUG">Debug</SelectItem>
+                              <SelectItem value="INFO">Info</SelectItem>
+                              <SelectItem value="WARNING">Warning</SelectItem>
+                              <SelectItem value="ERROR">Error</SelectItem>
+                              <SelectItem value="CRITICAL">Critical</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Controls what logs are saved to log files (display
+                            filtering is separate)
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="mb-4">
+                    <FormField
+                      control={form.control}
                       name="logLineCount"
                       render={({ field }) => (
                         <FormItem>
@@ -521,7 +556,7 @@ export default function SettingsPage() {
                             <Input
                               type="number"
                               min={10}
-                              max={1000}
+                              max={10000}
                               {...field}
                               onChange={(e) => {
                                 field.onChange(e);
@@ -531,6 +566,62 @@ export default function SettingsPage() {
                           </FormControl>
                           <FormDescription>
                             Maximum number of log lines to keep
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="mb-4">
+                    <FormField
+                      control={form.control}
+                      name="maxLogFiles"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Max Log Files</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={100}
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                setSettingsChanged(true);
+                              }}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Maximum number of log files to keep
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="mb-4">
+                    <FormField
+                      control={form.control}
+                      name="logRetentionDays"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Log Retention Days</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={365}
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                setSettingsChanged(true);
+                              }}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Number of days to retain log files
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
