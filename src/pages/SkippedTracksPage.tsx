@@ -24,7 +24,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { FolderOpen, Trash2, MoreVertical, XCircle } from "lucide-react";
+import {
+  FolderOpen,
+  Trash2,
+  MoreVertical,
+  XCircle,
+  AlertTriangle,
+} from "lucide-react";
 import { SpotifySettings } from "./SettingsPage";
 import {
   DropdownMenu,
@@ -32,6 +38,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 /**
  * Track data with skip statistics and metadata
@@ -53,6 +70,11 @@ export default function SkippedTracksPage() {
   const [timeframeInDays, setTimeframeInDays] = useState(30);
   const [skipThreshold, setSkipThreshold] = useState(3);
   const [autoUnlike, setAutoUnlike] = useState(true);
+
+  // Confirmation dialog states
+  const [showClearDataDialog, setShowClearDataDialog] = useState(false);
+  const [showRemoveHighlightedDialog, setShowRemoveHighlightedDialog] =
+    useState(false);
 
   /**
    * Fetches skipped tracks and initializes component state with user settings
@@ -379,14 +401,8 @@ export default function SkippedTracksPage() {
       return;
     }
 
-    if (
-      !window.confirm(
-        `Are you sure you want to remove ${tracksToRemove.length} tracks from your library?`,
-      )
-    ) {
-      return;
-    }
-
+    // Close the dialog since we're proceeding with the action
+    setShowRemoveHighlightedDialog(false);
     setLoading(true);
 
     try {
@@ -463,14 +479,8 @@ export default function SkippedTracksPage() {
    * Purges all skip tracking data while preserving Spotify library
    */
   const handleClearSkippedData = async () => {
-    if (
-      !window.confirm(
-        "Are you sure you want to clear all skipped tracks data? This action cannot be undone.",
-      )
-    ) {
-      return;
-    }
-
+    // Close the dialog since we're proceeding with the action
+    setShowClearDataDialog(false);
     setLoading(true);
 
     try {
@@ -532,26 +542,93 @@ export default function SkippedTracksPage() {
 
       {/* Bulk Action Buttons */}
       <div className="mb-4 flex justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleClearSkippedData}
-          disabled={loading || skippedTracks.length === 0}
-          className="border-yellow-300 text-yellow-600 hover:text-yellow-800"
-          title="Remove all tracking data but keep tracks in library"
+        {/* Clear All Skipped Data with AlertDialog */}
+        <AlertDialog
+          open={showClearDataDialog}
+          onOpenChange={setShowClearDataDialog}
         >
-          Clear All Skipped Data
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRemoveAllHighlighted}
-          disabled={loading || !skippedTracks.some(shouldSuggestRemoval)}
-          className="border-red-300 text-red-600 hover:text-red-800"
-          title="Remove all highlighted tracks from library"
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={loading || skippedTracks.length === 0}
+              className="border-yellow-300 text-yellow-600 hover:text-yellow-800"
+              title="Remove all tracking data but keep tracks in library"
+            >
+              Clear All Skipped Data
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                Clear All Skipped Data
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete all skipped tracks data. Your
+                tracks will remain in your Spotify library, but all skip
+                statistics will be lost.
+                <p className="mt-2 font-medium">
+                  This action cannot be undone.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleClearSkippedData}
+                className="bg-yellow-600 hover:bg-yellow-700"
+              >
+                Clear All Data
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Remove All Highlighted with AlertDialog */}
+        <AlertDialog
+          open={showRemoveHighlightedDialog}
+          onOpenChange={setShowRemoveHighlightedDialog}
         >
-          Remove All Highlighted
-        </Button>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={loading || !skippedTracks.some(shouldSuggestRemoval)}
+              className="border-red-300 text-red-600 hover:text-red-800"
+              title="Remove all highlighted tracks from library"
+            >
+              Remove All Highlighted
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+                Remove All Highlighted Tracks
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This will remove{" "}
+                {skippedTracks.filter(shouldSuggestRemoval).length} tracks from
+                your Spotify library and tracking data. These tracks have been
+                skipped {skipThreshold} or more times within the last{" "}
+                {timeframeInDays} days.
+                <p className="mt-2 font-medium">
+                  This action cannot be undone.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleRemoveAllHighlighted}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Remove Tracks
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <Card>
