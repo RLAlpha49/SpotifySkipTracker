@@ -12,11 +12,22 @@ const config: ForgeConfig = {
   packagerConfig: {
     executableName: "spotify-skip-tracker",
     asar: true,
+    appCopyright: `Copyright © ${new Date().getFullYear()}`,
+    icon: './src/assets/SpotifySkipTrackerIconTransparent',
   },
   rebuildConfig: {},
   makers: [
     new MakerSquirrel({
+      // Add these settings to fix the installation issues
+      setupIcon: './src/assets/SpotifySkipTrackerIconTransparent.ico',
+      //loadingGif: './src/assets/loading.gif',
+      //iconUrl: 'https://raw.githubusercontent.com/RLAlpha49/spotify-skip-tracker/main/src/assets/SpotifySkipTrackerIconTransparent.ico',
+      // Create proper shortcuts
+      setupExe: 'Spotify-Skip-Tracker-Setup.exe',
       noMsi: false,
+      name: 'SpotifySkipTracker',
+      // Create an MSI installer
+      setupMsi: 'Spotify-Skip-Tracker-Setup.msi',
     }),
     new MakerDMG({}, ["darwin"]),
     new MakerZIP({}, ["darwin"]),

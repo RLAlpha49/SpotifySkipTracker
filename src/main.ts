@@ -42,6 +42,51 @@ import {
   filterSkippedTracksByTimeframe,
 } from "./helpers/storage/store";
 import fs from "fs";
+import { exec } from 'child_process';
+
+// Handle Windows installation events
+if (process.platform === 'win32') {
+  const squirrelCommand = process.argv[1];
+  
+  // Handle Squirrel installation events
+  const handleSquirrelEvent = () => {
+    if (process.argv.length === 1) {
+      return false;
+    }
+
+    switch (squirrelCommand) {
+      case '--squirrel-install':
+      case '--squirrel-updated': {
+        // Create desktop and start menu shortcuts when the app is installed or updated
+        const target = path.basename(process.execPath);
+        const updateDotExe = path.resolve(path.dirname(process.execPath), '..', 'Update.exe');
+        const cmd = `"${updateDotExe}" --createShortcut="${target}"`;
+        exec(cmd);
+        setTimeout(app.quit, 1000);
+        return true;
+      }
+
+      case '--squirrel-uninstall':
+        // Runs when the app is uninstalled
+        setTimeout(app.quit, 1000);
+        return true;
+
+      case '--squirrel-obsolete':
+        // This is called on the outgoing version of your app before
+        // we update to the new version - it's the opposite of
+        // --squirrel-updated
+        app.quit();
+        return true;
+    }
+    return false;
+  };
+
+  // Run the function to handle Squirrel events
+  if (handleSquirrelEvent()) {
+    // If we handled a Squirrel event, exit this process
+    app.quit();
+  }
+}
 
 // Spotify service imports
 import {
