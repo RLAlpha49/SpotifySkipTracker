@@ -1,4 +1,4 @@
-import type { ConfigEnv, UserConfig } from "vite";
+import type { UserConfig } from "vite";
 import { defineConfig, mergeConfig } from "vite";
 import {
   getBuildConfig,
@@ -7,15 +7,24 @@ import {
   pluginHotRestart,
 } from "./vite.base.config";
 
+// Define interface for Electron Forge environment
+interface ForgeEnv {
+  forgeConfigSelf: {
+    entry?: string;
+  };
+}
+
 // https://vitejs.dev/config
 export default defineConfig((env) => {
-  const forgeEnv = env as ConfigEnv<"build">;
-  const { forgeConfigSelf } = forgeEnv;
-  const define = getBuildDefine(forgeEnv);
+  // Type assertion to access Electron Forge properties
+  const forgeEnv = env as unknown as ForgeEnv;
+  const forgeConfigSelf = forgeEnv.forgeConfigSelf || {};
+  const define = getBuildDefine(env);
+
   const config: UserConfig = {
     build: {
       lib: {
-        entry: forgeConfigSelf.entry!,
+        entry: forgeConfigSelf.entry || "",
         fileName: () => "[name].js",
         formats: ["cjs"],
       },
@@ -31,5 +40,5 @@ export default defineConfig((env) => {
     },
   };
 
-  return mergeConfig(getBuildConfig(forgeEnv), config);
+  return mergeConfig(getBuildConfig(env), config);
 });

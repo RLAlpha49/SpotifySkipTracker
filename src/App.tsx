@@ -37,10 +37,24 @@ export default function App() {
   );
 }
 
-// Initialize React application with StrictMode for development validation
-const root = createRoot(document.getElementById("app")!);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
+// Initialize React application with error handling
+try {
+  const appElement = document.getElementById("app");
+
+  if (!appElement) {
+    console.error("Root element with ID 'app' not found in the DOM");
+    // Create the element if it doesn't exist
+    const newAppElement = document.createElement("div");
+    newAppElement.id = "app";
+    document.body.appendChild(newAppElement);
+  }
+
+  const root = createRoot(document.getElementById("app")!);
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  );
+} catch (error) {
+  console.error("Fatal error during React initialization:", error);
+}

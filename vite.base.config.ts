@@ -3,20 +3,34 @@ import type { AddressInfo } from "node:net";
 import type { ConfigEnv, Plugin, UserConfig } from "vite";
 import pkg from "./package.json";
 
+// Define runtime keys interface
+interface VitePluginRuntimeKeys {
+  VITE_DEV_SERVER_URL: string;
+  VITE_NAME: string;
+}
+
+// Declare process.viteDevServers for TypeScript
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare let process: NodeJS.Process & { viteDevServers?: Record<string, any> };
+
 export const builtins = [
   "electron",
   ...builtinModules.map((m) => [m, `node:${m}`]).flat(),
 ];
 
+// Define dependencies that should be bundled, not externalized
+export const bundledDependencies = ["axios"];
+
 export const external = [
   ...builtins,
   ...Object.keys(
     "dependencies" in pkg ? (pkg.dependencies as Record<string, unknown>) : {},
-  ),
+  ).filter((dep) => !bundledDependencies.includes(dep)), // Exclude bundled dependencies
 ];
 
-export function getBuildConfig(env: ConfigEnv<"build">): UserConfig {
-  const { root, mode, command } = env;
+export function getBuildConfig(env: ConfigEnv): UserConfig {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { root, mode, command } = env as any;
 
   return {
     root,
@@ -47,11 +61,16 @@ export function getDefineKeys(names: string[]) {
   }, define);
 }
 
-export function getBuildDefine(env: ConfigEnv<"build">) {
-  const { command, forgeConfig } = env;
-  const names = forgeConfig.renderer
-    .filter(({ name }) => name != null)
-    .map(({ name }) => name!);
+export function getBuildDefine(env: ConfigEnv) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { command, forgeConfig } = env as any;
+
+  // Default to empty array if renderer is undefined
+  const renderers = forgeConfig?.renderer || [];
+  const names = renderers
+    .filter(({ name }: { name?: string }) => name != null)
+    .map(({ name }: { name?: string }) => name!);
+
   const defineKeys = getDefineKeys(names);
   const define = Object.entries(defineKeys).reduce(
     (acc, [name, keys]) => {
@@ -96,9 +115,12 @@ export function pluginHotRestart(command: "reload" | "restart"): Plugin {
     name: "@electron-forge/plugin-vite:hot-restart",
     closeBundle() {
       if (command === "reload") {
-        for (const server of Object.values(process.viteDevServers)) {
-          // Preload scripts hot reload.
-          server.ws.send({ type: "full-reload" });
+        if (process.viteDevServers) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          for (const server of Object.values(process.viteDevServers) as any[]) {
+            // Preload scripts hot reload.
+            server.ws.send({ type: "full-reload" });
+          }
         }
       } else {
         // Main process hot restart.

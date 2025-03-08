@@ -5,4 +5,5 @@
  * This acts as the bootstrapping point for the renderer process.
  */
 
-import "@/App";
+import "./App";
+import "./styles/global.css";
