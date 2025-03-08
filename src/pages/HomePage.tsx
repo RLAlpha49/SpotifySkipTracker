@@ -495,57 +495,121 @@ export default function HomePage() {
     const logLevels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
     const selectedLevelIndex = logLevels.indexOf(settings.logLevel);
 
-    const uniqueLogs = new Map<string, string>();
-    const seenMessages = new Set<string>(); // Track messages for smarter deduplication
-
-    // Group logs by message content, ignoring minor timestamp differences
-    logs.forEach((log) => {
-      // Parse the log components
+    // Step 1: Parse timestamps and sort logs by timestamp (newest first)
+    const parsedLogs = logs.map(log => {
       const matches = log.match(/\[(.*?)\]\s+\[([A-Z]+)\]\s+(.*)/);
       if (matches && matches.length >= 4) {
-        // We're only using level and message for deduplication
+        const timestamp = matches[1];
         const level = matches[2];
         const message = matches[3];
-
-        // Create a key using just the message and level
-        // This will group identical messages regardless of timestamp
-        const contentKey = `${level}-${message}`;
-
-        // If this is a duplicate message, only keep the most recent one
-        if (seenMessages.has(contentKey)) {
-          // New logs are processed in reverse chronological order (newest first)
-          // So we keep the first occurrence we see of each message
-          return;
+        
+        // Parse timestamp into a date object
+        const dateParts = timestamp.match(/(\d+):(\d+):(\d+)\s+([AP])M\.(\d+)/);
+        let dateObj = null;
+        
+        if (dateParts) {
+          // Create date for today with the parsed time
+          const now = new Date();
+          let hours = parseInt(dateParts[1]);
+          const minutes = parseInt(dateParts[2]);
+          const seconds = parseInt(dateParts[3]);
+          const milliseconds = parseInt(dateParts[5]);
+          const isPM = dateParts[4] === 'P';
+          
+          // Convert to 24-hour format
+          if (isPM && hours < 12) hours += 12;
+          if (!isPM && hours === 12) hours = 0;
+          
+          dateObj = new Date(
+            now.getFullYear(), 
+            now.getMonth(), 
+            now.getDate(), 
+            hours, 
+            minutes, 
+            seconds, 
+            milliseconds
+          );
         }
-
-        // Mark this message as seen
-        seenMessages.add(contentKey);
-
-        // Add to the unique logs map with original log including timestamp
-        uniqueLogs.set(contentKey, log);
-      } else {
-        // If log doesn't match expected format, use the whole log as key
-        uniqueLogs.set(log, log);
+        
+        return {
+          original: log,
+          timestamp,
+          dateObj,
+          level,
+          message,
+          contentKey: `${level}-${message}`
+        };
       }
+      
+      return {
+        original: log,
+        timestamp: "",
+        dateObj: null,
+        level: "",
+        message: log,
+        contentKey: log
+      };
     });
-
-    // Convert back to array
-    const deduplicatedLogs = Array.from(uniqueLogs.values());
-
-    // Only show logs at or above the selected level
-    const filteredLogs = deduplicatedLogs.filter((log) => {
-      // Parse log level from the log string
+    
+    // Step 2: Sort by timestamp
+    const sortedLogs = parsedLogs.sort((a, b) => {
+      if (a.dateObj && b.dateObj) {
+        return b.dateObj.getTime() - a.dateObj.getTime();
+      }
+      return 0;
+    });
+    
+    // Step 3: Group logs by session
+    // A session break is detected by a large time gap (e.g., >30 minutes)
+    // or by looking at timestamps that go backward (e.g., 10 PM back to 4 PM)
+    const sessionBreakThreshold = 30 * 60 * 1000;
+    let currentSession = [];
+    let previousTime = null;
+    
+    for (const log of sortedLogs) {
+      if (log.dateObj && previousTime) {
+        const timeDiff = previousTime - log.dateObj.getTime();
+        
+        // If time goes backwards significantly (more than 30 minutes) or forward by a large gap,
+        // consider it a new session
+        if (timeDiff < 0 || timeDiff > sessionBreakThreshold) {
+          break; // Stop processing, we've found the current session
+        }
+      }
+      
+      currentSession.push(log);
+      if (log.dateObj) {
+        previousTime = log.dateObj.getTime();
+      }
+    }
+    
+    // Step 4: Deduplicate logs within the current session
+    const uniqueSessionLogs = new Map();
+    const seenMessages = new Set();
+    
+    currentSession.forEach(log => {
+      // Skip duplicates
+      if (seenMessages.has(log.contentKey)) {
+        return;
+      }
+      
+      seenMessages.add(log.contentKey);
+      uniqueSessionLogs.set(log.contentKey, log.original);
+    });
+    
+    // Step 5: Filter by log level
+    const filteredSessionLogs = Array.from(uniqueSessionLogs.values()).filter(log => {
       const match = log.match(/\[.*?\]\s+\[([A-Z]+)\]/);
       if (!match) return false;
-
+      
       const logLevel = match[1];
       const logLevelIndex = logLevels.indexOf(logLevel);
-
+      
       return logLevelIndex >= selectedLevelIndex;
     });
-
-    // Return sorted logs (newest first)
-    return sortLogsByTimestamp(filteredLogs);
+    
+    // Return filtered session logs
+    return filteredSessionLogs;
   };
 
   /**
@@ -563,8 +627,29 @@ export default function HomePage() {
       if (!timestampA || !timestampB) {
         return 0;
       }
-
-      return timestampB[1].localeCompare(timestampA[1]);
+      
+      // Parse timestamps into comparable format
+      const parseTimeStamp = (timestamp: string) => {
+        const parts = timestamp.match(/(\d+):(\d+):(\d+)\s+([AP])M\.(\d+)/);
+        if (!parts) return 0;
+        
+        let hours = parseInt(parts[1]);
+        const minutes = parseInt(parts[2]);
+        const seconds = parseInt(parts[3]);
+        const milliseconds = parseInt(parts[5]);
+        const isPM = parts[4] === 'P';
+        
+        // Convert to 24-hour format for proper comparison
+        if (isPM && hours < 12) hours += 12;
+        if (!isPM && hours === 12) hours = 0;
+        
+        return (hours * 3600 + minutes * 60 + seconds) * 1000 + milliseconds;
+      };
+      
+      const timeA = parseTimeStamp(timestampA[1]);
+      const timeB = parseTimeStamp(timestampB[1]);
+      
+      return timeB - timeA;  // newest first
     });
   };
 

@@ -149,7 +149,7 @@ export default function SkippedTracksPage() {
                   {skippedTracks.length > 0 ? (
                     [...skippedTracks].sort(sortBySkipCount).map((track) => (
                       <TableRow key={track.id}>
-                        <TableCell className="w-full max-w-[200px] md:max-w-none">
+                        <TableCell className="w-full max-w-[100px] md:max-w-none">
                           <div className="overflow-hidden">
                             <div
                               className="overflow-hidden font-medium text-ellipsis"
