@@ -69,6 +69,7 @@ const settingsFormSchema = z.object({
   skipThreshold: z.coerce.number().int().min(1).max(10),
   timeframeInDays: z.coerce.number().int().min(1).max(365),
   autoStartMonitoring: z.boolean().default(true),
+  autoUnlike: z.boolean().default(true),
 });
 
 /**
@@ -91,6 +92,7 @@ export type SpotifySettings = {
   timeframeInDays: number;
   skipProgress: number;
   autoStartMonitoring: boolean;
+  autoUnlike: boolean;
 
   // Home page settings
   displayLogLevel?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
@@ -124,6 +126,7 @@ export default function SettingsPage() {
       skipThreshold: 3,
       timeframeInDays: 30,
       autoStartMonitoring: true,
+      autoUnlike: true,
     },
   });
 
@@ -151,6 +154,7 @@ export default function SettingsPage() {
           skipThreshold: settings.skipThreshold || 5,
           timeframeInDays: settings.timeframeInDays || 30,
           autoStartMonitoring: settings.autoStartMonitoring ?? true,
+          autoUnlike: settings.autoUnlike ?? true,
         });
 
         // Update the skip progress slider
@@ -227,6 +231,7 @@ export default function SettingsPage() {
         ...currentSettings,
         ...values,
         skipProgress,
+        autoUnlike: values.autoUnlike,
       };
 
       // Save settings to storage
@@ -467,6 +472,35 @@ export default function SettingsPage() {
                       If a track is played beyond this percentage, it won&apos;t
                       be considered skipped
                     </p>
+                  </div>
+
+                  <div className="mt-4">
+                    <FormField
+                      control={form.control}
+                      name="autoUnlike"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">
+                              Auto-Remove Skipped Tracks
+                            </FormLabel>
+                            <FormDescription>
+                              Automatically remove tracks from your library when
+                              they exceed the skip threshold
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={(checked) => {
+                                field.onChange(checked);
+                                setSettingsChanged(true);
+                              }}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
                   </div>
                 </CardContent>
               </Card>

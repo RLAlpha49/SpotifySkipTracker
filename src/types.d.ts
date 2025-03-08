@@ -121,6 +121,10 @@ declare interface Window {
     getSkippedTracks: () => Promise<SkippedTrack[]>;
     saveSkippedTracks: (tracks: SkippedTrack[]) => Promise<boolean>;
     updateSkippedTrack: (track: SkippedTrack) => Promise<boolean>;
+    removeFromSkippedData: (trackId: string) => Promise<boolean>;
+
+    // Track library management
+    unlikeTrack: (trackId: string) => Promise<boolean>;
 
     // Settings
     saveSettings: (settings: SpotifySettings) => Promise<boolean>;
@@ -134,6 +138,7 @@ declare interface Window {
     getLogs: (count?: number) => Promise<string[]>;
     clearLogs: () => Promise<boolean>;
     openLogsDirectory: () => Promise<boolean>;
+    openSkipsDirectory: () => Promise<boolean>;
 
     // App Control
     restartApp: () => Promise<boolean>;

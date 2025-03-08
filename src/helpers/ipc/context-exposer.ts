@@ -52,6 +52,12 @@ export default function exposeContexts() {
       ipcRenderer.invoke("spotify:saveSkippedTracks", tracks),
     updateSkippedTrack: (track: SkippedTrack) =>
       ipcRenderer.invoke("spotify:updateSkippedTrack", track),
+    removeFromSkippedData: (trackId: string) =>
+      ipcRenderer.invoke("spotify:removeFromSkippedData", trackId),
+
+    // Track library management
+    unlikeTrack: (trackId: string) =>
+      ipcRenderer.invoke("spotify:unlikeTrack", trackId),
 
     // Application settings management
     saveSettings: (settings: SpotifySettings) =>

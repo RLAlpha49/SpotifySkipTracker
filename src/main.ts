@@ -39,6 +39,7 @@ import {
   updateSkippedTrack,
   logsPath,
   skipsPath,
+  removeSkippedTrack,
 } from "./helpers/storage/store";
 
 // Import Spotify services
@@ -49,6 +50,7 @@ import {
   isTokenValid,
   refreshAccessToken,
   getTokenInfo,
+  unlikeTrack,
 } from "./services/spotify-api";
 import {
   startPlaybackMonitoring,
@@ -264,9 +266,63 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     return result;
   });
 
+  ipcMain.handle("spotify:removeFromSkippedData", async (_, trackId) => {
+    console.log("Removing track from skipped data:", trackId);
+    try {
+      const result = removeSkippedTrack(trackId);
+
+      if (!result) {
+        saveLog(
+          `Failed to remove track ${trackId} from skipped data`,
+          "WARNING",
+        );
+      }
+
+      return result;
+    } catch (error) {
+      saveLog(
+        `Error removing track ${trackId} from skipped data: ${error}`,
+        "ERROR",
+      );
+      return false;
+    }
+  });
+
+  ipcMain.handle("spotify:unlikeTrack", async (_, trackId) => {
+    console.log("Unliking track from Spotify:", trackId);
+    try {
+      // Get settings for client credentials
+      const settings = getSettings();
+
+      // Call the Spotify API to unlike the track
+      // Note: unlikeTrack function expects (clientId, clientSecret, trackId)
+      const result = await unlikeTrack(
+        settings.clientId,
+        settings.clientSecret,
+        trackId,
+      );
+
+      if (result) {
+        saveLog(
+          `Successfully unliked track ${trackId} from Spotify library`,
+          "INFO",
+        );
+      } else {
+        saveLog(
+          `Failed to unlike track ${trackId} from Spotify library`,
+          "WARNING",
+        );
+      }
+
+      return result;
+    } catch (error) {
+      saveLog(`Error unliking track ${trackId}: ${error}`, "ERROR");
+      return false;
+    }
+  });
+
   // Settings handlers - Uses persistent storage
   ipcMain.handle("spotify:saveSettings", async (_, settings) => {
-    console.log("Saving settings:", settings);
     const result = saveSettings(settings);
 
     // Log the settings save operation

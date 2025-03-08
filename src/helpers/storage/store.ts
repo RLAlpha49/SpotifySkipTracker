@@ -530,6 +530,34 @@ export function updateNotSkippedTrack(track: SkippedTrack): boolean {
 }
 
 /**
+ * Remove a track from the skipped tracks data
+ *
+ * @param trackId - ID of the track to remove
+ * @returns True if removed successfully, false on error or if track not found
+ */
+export function removeSkippedTrack(trackId: string): boolean {
+  try {
+    const tracks = getSkippedTracks();
+    const initialLength = tracks.length;
+
+    // Filter out the track with the matching ID
+    const filteredTracks = tracks.filter((track) => track.id !== trackId);
+
+    // If no tracks were removed, return false
+    if (filteredTracks.length === initialLength) {
+      console.log(`Track ${trackId} not found in skipped tracks data`);
+      return false;
+    }
+
+    // Save the updated tracks list
+    return saveSkippedTracks(filteredTracks);
+  } catch (error) {
+    console.error(`Failed to remove skipped track ${trackId}:`, error);
+    return false;
+  }
+}
+
+/**
  * Path to the application data directory
  * Exported for use by other modules that need to access storage
  */
