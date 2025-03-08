@@ -70,6 +70,7 @@ interface SkippedTrack {
   skipCount: number;
   notSkippedCount: number;
   lastSkipped: string; // ISO date string
+  skipHistory: string[]; // Array of ISO date strings for each skip event
 }
 
 /**

@@ -39,6 +39,7 @@ import {
   logsPath,
   skipsPath,
   removeSkippedTrack,
+  filterSkippedTracksByTimeframe,
 } from "./helpers/storage/store";
 import fs from "fs";
 
@@ -237,9 +238,29 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
 
   // Skipped tracks management
   ipcMain.handle("spotify:getSkippedTracks", async () => {
-    const tracks = getSkippedTracks();
-    saveLog(`Loaded ${tracks.length} skipped tracks from storage`, "DEBUG");
-    return tracks;
+    try {
+      // Get the timeframe setting
+      const settings = getSettings();
+      const timeframeInDays = settings.timeframeInDays || 0;
+
+      // Get all tracks first
+      const allTracks = getSkippedTracks();
+
+      // Apply timeframe filter if needed
+      const tracks =
+        timeframeInDays > 0
+          ? filterSkippedTracksByTimeframe(allTracks, timeframeInDays)
+          : allTracks;
+
+      saveLog(
+        `Loaded ${tracks.length} skipped tracks from storage (filtered by ${timeframeInDays} day timeframe)`,
+        "DEBUG",
+      );
+      return tracks;
+    } catch (error) {
+      saveLog(`Error loading skipped tracks: ${error}`, "ERROR");
+      return [];
+    }
   });
 
   ipcMain.handle("spotify:saveSkippedTracks", async (_, tracks) => {

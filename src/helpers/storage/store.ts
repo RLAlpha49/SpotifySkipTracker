@@ -396,6 +396,7 @@ interface SkippedTrack {
   skipCount: number;
   notSkippedCount: number;
   lastSkipped: string;
+  skipHistory: string[]; // Array of ISO timestamps for each skip
 }
 
 // Skipped tracks storage location
@@ -426,7 +427,16 @@ export function getSkippedTracks(): SkippedTrack[] {
   try {
     if (fs.existsSync(skippedTracksFilePath)) {
       const tracksData = fs.readFileSync(skippedTracksFilePath, "utf-8");
-      return JSON.parse(tracksData);
+      const tracks = JSON.parse(tracksData);
+
+      // Handle migration from old format that doesn't have skipHistory
+      return tracks.map((track: SkippedTrack) => {
+        if (!track.skipHistory) {
+          // Create skipHistory based on lastSkipped if it exists
+          track.skipHistory = track.lastSkipped ? [track.lastSkipped] : [];
+        }
+        return track;
+      });
     }
     return [];
   } catch (error) {
@@ -446,14 +456,22 @@ export function updateSkippedTrack(track: SkippedTrack): boolean {
   try {
     const tracks = getSkippedTracks();
     const existingIndex = tracks.findIndex((t) => t.id === track.id);
+    const nowTimestamp = new Date().toISOString();
 
     if (existingIndex >= 0) {
       // Update existing track
+      const existingTrack = tracks[existingIndex];
+      // Initialize skipHistory array if it doesn't exist
+      const skipHistory = existingTrack.skipHistory || [];
+      // Add the new timestamp
+      skipHistory.push(nowTimestamp);
+
       tracks[existingIndex] = {
-        ...tracks[existingIndex],
+        ...existingTrack,
         ...track,
-        skipCount: (tracks[existingIndex].skipCount || 0) + 1,
-        lastSkipped: new Date().toISOString(),
+        skipCount: (existingTrack.skipCount || 0) + 1,
+        lastSkipped: nowTimestamp,
+        skipHistory: skipHistory,
       };
     } else {
       // Add new track
@@ -461,7 +479,8 @@ export function updateSkippedTrack(track: SkippedTrack): boolean {
         ...track,
         skipCount: 1,
         notSkippedCount: 0,
-        lastSkipped: new Date().toISOString(),
+        lastSkipped: nowTimestamp,
+        skipHistory: [nowTimestamp],
       });
     }
 
@@ -537,6 +556,50 @@ export function removeSkippedTrack(trackId: string): boolean {
     console.error(`Failed to remove skipped track ${trackId}:`, error);
     return false;
   }
+}
+
+/**
+ * Filters skipped tracks to only include those with skips within the specified timeframe
+ *
+ * @param tracks - Array of skipped tracks
+ * @param timeframeInDays - Number of days to look back
+ * @returns Filtered array of skipped tracks with adjusted counts
+ */
+export function filterSkippedTracksByTimeframe(
+  tracks: SkippedTrack[],
+  timeframeInDays: number,
+): SkippedTrack[] {
+  // If timeframe is 0 or negative, return all tracks
+  if (timeframeInDays <= 0) {
+    return tracks;
+  }
+
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - timeframeInDays);
+  const cutoffTime = cutoffDate.getTime();
+
+  return tracks
+    .map((track) => {
+      // Filter skipHistory to only include timestamps within the timeframe
+      const recentSkips = (track.skipHistory || []).filter((timestamp) => {
+        const skipTime = new Date(timestamp).getTime();
+        return skipTime >= cutoffTime;
+      });
+
+      // Return track with adjusted counts if there are recent skips
+      if (recentSkips.length > 0) {
+        return {
+          ...track,
+          skipCount: recentSkips.length, // Set count to number of skips in timeframe
+          lastSkipped: recentSkips[recentSkips.length - 1], // Most recent skip in timeframe
+          skipHistory: track.skipHistory, // Keep full history for reference
+        };
+      }
+
+      // Return null for tracks with no skips in timeframe
+      return null;
+    })
+    .filter(Boolean) as SkippedTrack[]; // Remove null entries
 }
 
 /**

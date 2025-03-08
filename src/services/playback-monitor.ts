@@ -123,6 +123,7 @@ interface SkippedTrackInfo {
   skipCount: number;
   notSkippedCount: number;
   lastSkipped: string;
+  skipHistory: string[]; // Array of timestamps for timeframe filtering
 }
 
 // Add a variable for the progress update interval
@@ -603,6 +604,9 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
           );
 
           try {
+            // Get current timestamp for this skip
+            const currentSkipTime = new Date().toISOString();
+
             // Update skip count in storage
             await store.updateSkippedTrack({
               id: playbackState.trackId,
@@ -610,7 +614,8 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
               artist: playbackState.artistName || "",
               skipCount: 1,
               notSkippedCount: 0,
-              lastSkipped: new Date().toISOString(),
+              lastSkipped: currentSkipTime,
+              skipHistory: [currentSkipTime],
             } as SkippedTrackInfo);
 
             // Check if track should be unliked
