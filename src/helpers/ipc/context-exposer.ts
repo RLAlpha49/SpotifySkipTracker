@@ -66,6 +66,7 @@ export default function exposeContexts() {
     getLogs: (count?: number) => ipcRenderer.invoke("spotify:getLogs", count),
     clearLogs: () => ipcRenderer.invoke("spotify:clearLogs"),
     openLogsDirectory: () => ipcRenderer.invoke("spotify:openLogsDirectory"),
+    openSkipsDirectory: () => ipcRenderer.invoke("spotify:openSkipsDirectory"),
 
     // Application lifecycle control
     restartApp: () => ipcRenderer.invoke("spotify:restartApp"),

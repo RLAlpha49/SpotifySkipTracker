@@ -26,6 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { FolderOpen } from "lucide-react";
 
 /**
  * Information about a track that has been skipped
@@ -63,6 +64,17 @@ export default function SkippedTracksPage() {
       window.spotify.saveLog(`Error loading skipped tracks: ${error}`, "ERROR");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenSkipsDirectory = async () => {
+    try {
+      await ((window.spotify as unknown) as { openSkipsDirectory: () => Promise<void> }).openSkipsDirectory();
+    } catch (error) {
+      console.error("Failed to open skip data folder:", error);
+      toast.error("Failed to open skip data folder", {
+        description: "Could not open the folder where skip data is saved.",
+      });
     }
   };
 
@@ -118,9 +130,20 @@ export default function SkippedTracksPage() {
             Tracks you&apos;ve skipped while listening to Spotify
           </p>
         </div>
-        <Button onClick={loadSkippedData} disabled={loading}>
-          {loading ? "Loading..." : "Refresh"}
-        </Button>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            onClick={handleOpenSkipsDirectory}
+            title="Open skip data folder"
+            className="flex items-center gap-1"
+          >
+            <FolderOpen className="h-4 w-4" />
+            <span>Open Skips</span>
+          </Button>
+          <Button variant="outline" onClick={loadSkippedData} disabled={loading}>
+            {loading ? "Loading..." : "Refresh"}
+          </Button>
+        </div>
       </div>
 
       <Card>

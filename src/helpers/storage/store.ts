@@ -31,8 +31,10 @@ if (!fs.existsSync(logsPath)) {
   fs.mkdirSync(logsPath, { recursive: true });
 }
 
+const skipsPath = path.join(appDataPath, "skipped-tracks.json");
+
 // Export paths for use in other modules
-export { appDataPath, logsPath };
+export { appDataPath, logsPath, skipsPath };
 
 /**
  * Log Rotation System

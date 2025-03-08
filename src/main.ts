@@ -38,6 +38,7 @@ import {
   saveSkippedTracks,
   updateSkippedTrack,
   logsPath,
+  skipsPath,
 } from "./helpers/storage/store";
 
 // Import Spotify services
@@ -313,6 +314,23 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
         return false;
       }
       saveLog("Opened logs directory", "INFO");
+      return true;
+    });
+
+    return true;
+  });
+
+  ipcMain.handle("spotify:openSkipsDirectory", async () => {
+    console.log("Opening skips directory:", skipsPath);
+
+    // Use shell to open the directory with the default file explorer
+    shell.openPath(skipsPath).then((error) => {
+      if (error) {
+        console.error("Failed to open skips directory:", error);
+        saveLog(`Failed to open skips directory: ${error}`, "ERROR");
+        return false;
+      }
+      saveLog("Opened skips directory", "INFO");
       return true;
     });
 
