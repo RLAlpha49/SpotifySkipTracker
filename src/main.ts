@@ -19,10 +19,69 @@
  */
 
 import { app, BrowserWindow, ipcMain, Menu, shell } from "electron";
-import registerListeners from "./helpers/ipc/listeners-register";
-// electron-squirrel-startup incompatible with vite packaging
-//import started from "electron-squirrel-startup";
 import path from "path";
+import { exec } from "child_process";
+
+// Handle Windows installation events immediately before any other code runs
+if (process.platform === "win32") {
+  const squirrelCommand = process.argv[1];
+
+  if (squirrelCommand) {
+    const handleSquirrelEvent = () => {
+      switch (squirrelCommand) {
+        case "--squirrel-install":
+        case "--squirrel-updated": {
+          // Create desktop and start menu shortcuts when the app is installed or updated
+          const target = path.basename(process.execPath);
+          const updateDotExe = path.resolve(
+            path.dirname(process.execPath),
+            "..",
+            "Update.exe",
+          );
+          const cmd = `"${updateDotExe}" --createShortcut="${target}"`;
+          exec(cmd);
+          setTimeout(() => app.quit(), 1000);
+          return true;
+        }
+
+        case "--squirrel-uninstall": {
+          // Remove shortcuts created during installation
+          const target = path.basename(process.execPath);
+          const updateDotExe = path.resolve(
+            path.dirname(process.execPath),
+            "..",
+            "Update.exe",
+          );
+          const cmd = `"${updateDotExe}" --removeShortcut="${target}"`;
+          exec(cmd);
+
+          // Just exit the app cleanly - Windows will handle the uninstall UI
+          console.log("Uninstalling Spotify Skip Tracker...");
+          setTimeout(() => app.quit(), 500);
+          return true;
+        }
+
+        case "--squirrel-obsolete":
+          // This is called on the outgoing version of your app before
+          // we update to the new version - it's the opposite of
+          // --squirrel-updated
+          app.quit();
+          return true;
+
+        default:
+          return false;
+      }
+    };
+
+    // If we're handling a Squirrel event, exit immediately
+    if (handleSquirrelEvent()) {
+      process.exit(0);
+    }
+  }
+}
+
+// Continue with the rest of the imports only after checking for Squirrel commands
+import registerListeners from "./helpers/ipc/listeners-register";
 import {
   installExtension,
   REACT_DEVELOPER_TOOLS,
@@ -42,51 +101,6 @@ import {
   filterSkippedTracksByTimeframe,
 } from "./helpers/storage/store";
 import fs from "fs";
-import { exec } from 'child_process';
-
-// Handle Windows installation events
-if (process.platform === 'win32') {
-  const squirrelCommand = process.argv[1];
-  
-  // Handle Squirrel installation events
-  const handleSquirrelEvent = () => {
-    if (process.argv.length === 1) {
-      return false;
-    }
-
-    switch (squirrelCommand) {
-      case '--squirrel-install':
-      case '--squirrel-updated': {
-        // Create desktop and start menu shortcuts when the app is installed or updated
-        const target = path.basename(process.execPath);
-        const updateDotExe = path.resolve(path.dirname(process.execPath), '..', 'Update.exe');
-        const cmd = `"${updateDotExe}" --createShortcut="${target}"`;
-        exec(cmd);
-        setTimeout(app.quit, 1000);
-        return true;
-      }
-
-      case '--squirrel-uninstall':
-        // Runs when the app is uninstalled
-        setTimeout(app.quit, 1000);
-        return true;
-
-      case '--squirrel-obsolete':
-        // This is called on the outgoing version of your app before
-        // we update to the new version - it's the opposite of
-        // --squirrel-updated
-        app.quit();
-        return true;
-    }
-    return false;
-  };
-
-  // Run the function to handle Squirrel events
-  if (handleSquirrelEvent()) {
-    // If we handled a Squirrel event, exit this process
-    app.quit();
-  }
-}
 
 // Spotify service imports
 import {
