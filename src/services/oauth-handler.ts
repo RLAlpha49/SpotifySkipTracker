@@ -13,7 +13,7 @@
  * 5. Return tokens to application
  */
 
-import { BrowserWindow } from "electron";
+import { BrowserWindow, session } from "electron";
 import { URL } from "url";
 import * as http from "http";
 import { saveLog } from "../helpers/storage/store";
@@ -26,12 +26,71 @@ let authPromiseReject: ((reason: Error) => void) | null = null;
 let isProcessingTokens = false;
 
 /**
+ * Clears cookies and storage for Spotify authentication domains
+ *
+ * @returns Promise that resolves when cookie clearing is complete
+ */
+export async function clearSpotifyAuthData(): Promise<void> {
+  try {
+    saveLog(
+      "Clearing Spotify authentication cookies and storage data",
+      "DEBUG",
+    );
+
+    // Clear cookies for Spotify domains
+    const spotifyDomains = [
+      "accounts.spotify.com",
+      "spotify.com",
+      "api.spotify.com",
+      ".spotify.com",
+    ];
+
+    for (const domain of spotifyDomains) {
+      await session.defaultSession.cookies.remove("https://" + domain, "sp_dc");
+      await session.defaultSession.cookies.remove(
+        "https://" + domain,
+        "sp_key",
+      );
+      await session.defaultSession.cookies.remove("https://" + domain, "sp_t");
+      await session.defaultSession.cookies.remove(
+        "https://" + domain,
+        "__Host-device_id",
+      );
+      await session.defaultSession.cookies.remove(
+        "https://" + domain,
+        "sp_landing",
+      );
+      await session.defaultSession.cookies.remove("https://" + domain, "sp_m");
+      await session.defaultSession.cookies.remove(
+        "https://" + domain,
+        "sp_new",
+      );
+      await session.defaultSession.cookies.remove(
+        "https://" + domain,
+        "remember",
+      );
+    }
+
+    // Clear storage data for Spotify domains
+    await session.defaultSession.clearStorageData({
+      origin: "https://accounts.spotify.com",
+      storages: ["cookies", "localstorage", "cachestorage", "indexdb"],
+    });
+
+    saveLog("Successfully cleared Spotify authentication data", "DEBUG");
+  } catch (error) {
+    saveLog(`Error clearing Spotify auth data: ${error}`, "ERROR");
+  }
+}
+
+/**
  * Initiates OAuth authentication flow with Spotify
  *
  * @param parentWindow - Parent window for modal behavior
  * @param clientId - Spotify API client ID
  * @param clientSecret - Spotify API client secret
  * @param redirectUri - OAuth redirect URI matching Spotify app configuration
+ * @param forceAccountSelection - Force Spotify to show account selection screen
  * @returns Promise resolving to authentication tokens
  * @throws Error if authentication fails or is cancelled
  */
@@ -40,11 +99,17 @@ export function startAuthFlow(
   clientId: string,
   clientSecret: string,
   redirectUri: string,
+  forceAccountSelection: boolean = false,
 ): Promise<{
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
 }> {
+  // Clear cookies before creating the promise if forcing account selection
+  if (forceAccountSelection) {
+    clearSpotifyAuthData();
+  }
+
   return new Promise((resolve, reject) => {
     // Store reject function for external cancellation
     authPromiseReject = reject;
@@ -169,8 +234,14 @@ export function startAuthFlow(
       const authUrl = spotifyApi.getAuthorizationUrl(
         clientId,
         redirectUri,
-        "user-read-playback-state user-library-modify user-read-recently-played user-library-read",
+        "user-read-playback-state user-modify-playback-state user-library-modify user-read-recently-played user-library-read",
+        forceAccountSelection,
       );
+
+      // Log whether we're forcing account selection
+      if (forceAccountSelection) {
+        saveLog("Forcing Spotify account selection dialog", "DEBUG");
+      }
 
       // Create authentication window
       authWindow = new BrowserWindow({

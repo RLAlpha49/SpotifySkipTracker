@@ -18,7 +18,7 @@
  * - Service modules: Specialized functionality providers
  */
 
-import { app, BrowserWindow, ipcMain, Menu, shell } from "electron";
+import { app, BrowserWindow, ipcMain, shell, Menu } from "electron";
 import path from "path";
 import { exec } from "child_process";
 
@@ -111,13 +111,21 @@ import {
   refreshAccessToken,
   getTokenInfo,
   unlikeTrack,
+  pause,
+  play,
+  skipToPrevious,
+  skipToNext,
 } from "./services/spotify-api";
 import {
   startPlaybackMonitoring,
   stopPlaybackMonitoring,
   isMonitoringActive,
 } from "./services/playback-monitor";
-import { startAuthFlow, cancelAuthFlow } from "./services/oauth-handler";
+import {
+  startAuthFlow,
+  cancelAuthFlow,
+  clearSpotifyAuthData,
+} from "./services/oauth-handler";
 import {
   saveTokens,
   loadTokens,
@@ -138,79 +146,116 @@ const inDevelopment = process.env.NODE_ENV === "development";
  */
 function setupSpotifyIPC(mainWindow: BrowserWindow) {
   // Authentication handlers
-  ipcMain.handle("spotify:authenticate", async (_, credentials) => {
-    try {
-      console.log("Authenticating with Spotify...", credentials);
-
-      // Attempt to use stored tokens
-      const storedTokens = loadTokens();
-      if (storedTokens) {
-        try {
-          if (isTokenValid()) {
-            // Set valid tokens in API service
-            setApiTokens(
-              storedTokens.accessToken,
-              storedTokens.refreshToken,
-              3600,
-            );
-            saveLog("Using existing valid tokens", "DEBUG");
-            return true;
-          } else {
-            // Refresh expired token
-            await refreshAccessToken(
-              credentials.clientId,
-              credentials.clientSecret,
-            );
-
-            // Update stored tokens
-            const tokenInfo = getTokenInfo();
-            if (tokenInfo.accessToken && tokenInfo.refreshToken) {
-              saveTokens({
-                accessToken: tokenInfo.accessToken,
-                refreshToken: tokenInfo.refreshToken,
-                expiresAt: tokenInfo.expiryTime,
-              });
-            }
-
-            saveLog("Successfully refreshed and saved access token", "INFO");
-            return true;
-          }
-        } catch (error) {
-          saveLog(`Failed to use stored tokens: ${error}`, "DEBUG");
-          // Proceed to new authentication
-        }
-      }
-
-      // Initiate new authentication flow
+  ipcMain.handle(
+    "spotify:authenticate",
+    async (_, credentials, forceAuth = false) => {
       try {
-        const tokens = await startAuthFlow(
-          mainWindow,
-          credentials.clientId,
-          credentials.clientSecret,
-          credentials.redirectUri,
+        console.log(
+          "Authenticating with Spotify...",
+          credentials,
+          forceAuth ? "(forced)" : "",
         );
 
-        // Persist tokens
-        saveTokens({
-          accessToken: tokens.accessToken,
-          refreshToken: tokens.refreshToken,
-          expiresAt: Date.now() + tokens.expiresIn * 1000,
-        });
+        // Clear tokens if force authentication is requested
+        if (forceAuth) {
+          clearApiTokens();
+          clearStoredTokens();
 
-        // Initialize API service with tokens
-        setApiTokens(tokens.accessToken, tokens.refreshToken, tokens.expiresIn);
+          // Also clear browser cookies and storage for Spotify
+          try {
+            await clearSpotifyAuthData();
+          } catch (error) {
+            saveLog(`Error clearing Spotify auth data: ${error}`, "ERROR");
+          }
 
-        saveLog("Successfully authenticated with Spotify", "INFO");
-        return true;
+          saveLog(
+            "Forcing new authentication flow with cleared tokens and cookies",
+            "DEBUG",
+          );
+        }
+        // Skip stored token check if force authentication is requested
+        else if (!forceAuth) {
+          // Attempt to use stored tokens
+          const storedTokens = loadTokens();
+          if (storedTokens) {
+            try {
+              if (isTokenValid()) {
+                // Set valid tokens in API service
+                setApiTokens(
+                  storedTokens.accessToken,
+                  storedTokens.refreshToken,
+                  3600,
+                );
+                saveLog("Using existing valid tokens", "DEBUG");
+                return true;
+              } else {
+                // Refresh expired token
+                await refreshAccessToken(
+                  credentials.clientId,
+                  credentials.clientSecret,
+                );
+
+                // Update stored tokens
+                const tokenInfo = getTokenInfo();
+                if (tokenInfo.accessToken && tokenInfo.refreshToken) {
+                  saveTokens({
+                    accessToken: tokenInfo.accessToken,
+                    refreshToken: tokenInfo.refreshToken,
+                    expiresAt: tokenInfo.expiryTime,
+                  });
+                }
+
+                saveLog(
+                  "Successfully refreshed and saved access token",
+                  "INFO",
+                );
+                return true;
+              }
+            } catch (error) {
+              console.error("Error using stored tokens:", error);
+              // Fall through to OAuth flow on token error
+            }
+          }
+        } else {
+          saveLog("Forcing new authentication flow", "DEBUG");
+        }
+
+        // Initiate new authentication flow
+        try {
+          const tokens = await startAuthFlow(
+            mainWindow,
+            credentials.clientId,
+            credentials.clientSecret,
+            credentials.redirectUri,
+            forceAuth,
+          );
+
+          // Persist tokens
+          saveTokens({
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresAt: Date.now() + tokens.expiresIn * 1000,
+          });
+
+          // Initialize API service with tokens
+          setApiTokens(
+            tokens.accessToken,
+            tokens.refreshToken,
+            tokens.expiresIn,
+          );
+
+          saveLog("Successfully authenticated with Spotify", "INFO");
+          return true;
+        } catch (error) {
+          saveLog(`Authentication failed: ${error}`, "ERROR");
+          return false;
+        }
       } catch (error) {
-        saveLog(`Authentication failed: ${error}`, "ERROR");
+        saveLog(`Authentication error: ${error}`, "ERROR");
         return false;
       }
-    } catch (error) {
-      saveLog(`Authentication error: ${error}`, "ERROR");
-      return false;
-    }
-  });
+    },
+  );
 
   // Logout handler
   ipcMain.handle("spotify:logout", async () => {
@@ -224,6 +269,13 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
     // Clear authentication state
     clearApiTokens();
     clearStoredTokens();
+
+    // Clear cookies for Spotify domains to ensure proper logout
+    try {
+      await clearSpotifyAuthData();
+    } catch (error) {
+      saveLog(`Error clearing Spotify cookies: ${error}`, "ERROR");
+    }
 
     saveLog("Logged out from Spotify", "INFO");
     return true;
@@ -510,6 +562,80 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
       return isMonitoringActive();
     } catch (error) {
       saveLog(`Failed to check monitoring status: ${error}`, "ERROR");
+      return false;
+    }
+  });
+
+  // Playback Control Handlers
+  ipcMain.handle("spotify:pausePlayback", async () => {
+    try {
+      if (!isTokenValid()) {
+        saveLog(
+          "Cannot pause playback: Not authenticated with Spotify",
+          "ERROR",
+        );
+        return false;
+      }
+
+      await pause();
+      saveLog("Paused Spotify playback", "INFO");
+      return true;
+    } catch (error) {
+      saveLog(`Failed to pause playback: ${error}`, "ERROR");
+      return false;
+    }
+  });
+
+  ipcMain.handle("spotify:resumePlayback", async () => {
+    try {
+      if (!isTokenValid()) {
+        saveLog(
+          "Cannot resume playback: Not authenticated with Spotify",
+          "ERROR",
+        );
+        return false;
+      }
+
+      await play();
+      saveLog("Resumed Spotify playback", "INFO");
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  ipcMain.handle("spotify:skipToPreviousTrack", async () => {
+    try {
+      if (!isTokenValid()) {
+        saveLog(
+          "Cannot skip to previous track: Not authenticated with Spotify",
+          "ERROR",
+        );
+        return false;
+      }
+
+      await skipToPrevious();
+      saveLog("Skipped to previous track", "INFO");
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  ipcMain.handle("spotify:skipToNextTrack", async () => {
+    try {
+      if (!isTokenValid()) {
+        saveLog(
+          "Cannot skip to next track: Not authenticated with Spotify",
+          "ERROR",
+        );
+        return false;
+      }
+
+      await skipToNext();
+      saveLog("Skipped to next track", "INFO");
+      return true;
+    } catch {
       return false;
     }
   });

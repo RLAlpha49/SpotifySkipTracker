@@ -15,7 +15,14 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { FolderOpen } from "lucide-react";
+import {
+  FolderOpen,
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  LucideLogIn,
+} from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -47,6 +54,7 @@ export default function HomePage() {
   const [logs, setLogs] = useState<string[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isMonitoring, setIsMonitoring] = useState(false);
+  const [needsReauthentication, setNeedsReauthentication] = useState(false);
   const [settings, setSettings] = useState({
     displayLogLevel: "INFO" as
       | "DEBUG"
@@ -325,7 +333,12 @@ export default function HomePage() {
    */
   const handleAuthenticate = async () => {
     try {
-      addLog("Authenticating with Spotify...", "INFO");
+      // Always clear cookies to ensure fresh login
+      toast.info("Connecting to Spotify", {
+        description: "Clearing session data and opening Spotify login...",
+      });
+      addLog("Authenticating with Spotify - clearing auth cookies", "INFO");
+
       const currentSettings = await window.spotify.getSettings();
 
       if (!currentSettings.clientId || !currentSettings.clientSecret) {
@@ -340,15 +353,22 @@ export default function HomePage() {
         return;
       }
 
-      const success = await window.spotify.authenticate({
-        clientId: currentSettings.clientId,
-        clientSecret: currentSettings.clientSecret,
-        redirectUri:
-          currentSettings.redirectUri || "http://localhost:8888/callback",
-      });
+      // Always force re-authentication to ensure a fresh login
+      const shouldForceAuth = true;
+
+      const success = await window.spotify.authenticate(
+        {
+          clientId: currentSettings.clientId,
+          clientSecret: currentSettings.clientSecret,
+          redirectUri:
+            currentSettings.redirectUri || "http://localhost:8888/callback",
+        },
+        shouldForceAuth,
+      );
 
       if (success) {
         setIsAuthenticated(true);
+        setNeedsReauthentication(false);
         addLog("Authentication successful", "INFO");
 
         if (currentSettings.autoStartMonitoring) {
@@ -390,6 +410,7 @@ export default function HomePage() {
 
       if (success) {
         setIsAuthenticated(false);
+        setNeedsReauthentication(true);
         setPlaybackInfo({
           albumArt: "",
           trackName: "Not Logged In",
@@ -495,6 +516,93 @@ export default function HomePage() {
     } catch (error) {
       console.error("Error opening logs directory:", error);
       addLog(`Error opening logs directory: ${error}`, "ERROR");
+    }
+  };
+
+  /**
+   * Toggles playback between play and pause
+   *
+   * @returns Promise<void>
+   */
+  const handlePlayPause = async () => {
+    if (!isAuthenticated || !playbackInfo) return;
+
+    try {
+      addLog(
+        `${playbackInfo.isPlaying ? "Pausing" : "Resuming"} Spotify playback...`,
+        "DEBUG",
+      );
+
+      let success;
+      if (playbackInfo.isPlaying) {
+        success = await window.spotify.pausePlayback();
+      } else {
+        success = await window.spotify.resumePlayback();
+      }
+
+      if (!success) {
+        addLog(
+          `Failed to ${playbackInfo.isPlaying ? "pause" : "resume"} playback`,
+          "ERROR",
+        );
+        toast.error(
+          `Failed to ${playbackInfo.isPlaying ? "pause" : "resume"} playback`,
+          {
+            description: "There may be no playback to control.",
+          },
+        );
+      }
+    } catch (error) {
+      console.error("Playback control error:", error);
+      addLog(`Playback control error: ${error}`, "ERROR");
+    }
+  };
+
+  /**
+   * Skips to the previous track
+   *
+   * @returns Promise<void>
+   */
+  const handlePreviousTrack = async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      addLog("Skipping to previous track...", "DEBUG");
+      const success = await window.spotify.skipToPreviousTrack();
+
+      if (!success) {
+        addLog("Failed to skip to previous track", "ERROR");
+        toast.error("Failed to skip to previous track", {
+          description: "There may be no previous track to skip to.",
+        });
+      }
+    } catch (error) {
+      console.error("Previous track error:", error);
+      addLog(`Previous track error: ${error}`, "ERROR");
+    }
+  };
+
+  /**
+   * Skips to the next track
+   *
+   * @returns Promise<void>
+   */
+  const handleNextTrack = async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      addLog("Skipping to next track...", "DEBUG");
+      const success = await window.spotify.skipToNextTrack();
+
+      if (!success) {
+        addLog("Failed to skip to next track", "ERROR");
+        toast.error("Failed to skip to next track", {
+          description: "There may be no next track to skip to.",
+        });
+      }
+    } catch (error) {
+      console.error("Next track error:", error);
+      addLog(`Next track error: ${error}`, "ERROR");
     }
   };
 
@@ -673,20 +781,35 @@ export default function HomePage() {
           <CardContent className="p-4">
             <h2 className="mb-4 text-lg font-semibold">Authentication</h2>
             {isAuthenticated ? (
-              <div className="flex items-center justify-between">
-                <span className="text-green-600 dark:text-green-400">
-                  Connected to Spotify
-                </span>
-                <Button variant="outline" onClick={handleLogout}>
-                  Logout
-                </Button>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-green-600 dark:text-green-400">
+                    Connected to Spotify
+                  </span>
+                  <Button variant="outline" onClick={handleLogout}>
+                    Logout
+                  </Button>
+                </div>
               </div>
             ) : (
-              <div className="flex items-center justify-between">
-                <span className="text-red-600 dark:text-red-400">
-                  Not connected to Spotify
-                </span>
-                <Button onClick={handleAuthenticate}>Connect</Button>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-red-600 dark:text-red-400">
+                    Not connected to Spotify
+                  </span>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleAuthenticate()}
+                  >
+                    <LucideLogIn className="mr-2 h-4 w-4" />
+                    Login
+                  </Button>
+                </div>
+                <p className="text-muted-foreground mt-2 text-xs">
+                  {needsReauthentication
+                    ? "You've logged out. Click Login to authenticate with Spotify."
+                    : "Connect to Spotify to use playback monitoring and controls."}
+                </p>
               </div>
             )}
           </CardContent>
@@ -737,62 +860,100 @@ export default function HomePage() {
         <CardContent className="p-4">
           <h2 className="mb-4 text-lg font-semibold">Now Playing</h2>
           {playbackInfo && isAuthenticated ? (
-            <div className="flex flex-col gap-4 md:flex-row">
-              <div className="flex-shrink-0">
-                {playbackInfo.albumArt ? (
-                  <img
-                    src={playbackInfo.albumArt}
-                    alt="Album Artwork"
-                    className="h-32 w-32 rounded-md object-cover shadow-md"
-                  />
-                ) : (
-                  <div className="bg-muted text-muted-foreground flex h-32 w-32 items-center justify-center rounded-md text-center text-xs">
-                    No Album Art
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-1 flex-col justify-between">
-                <div>
-                  <h3 className="text-base font-semibold">
-                    {playbackInfo.trackName || "Unknown Track"}
-                  </h3>
-                  <p className="text-muted-foreground text-sm">
-                    {playbackInfo.artist || "Unknown Artist"}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {playbackInfo.album || "Unknown Album"}
-                  </p>
-                  {playbackInfo.isInPlaylist !== undefined && (
-                    <p
-                      className={`mt-2 text-xs ${
-                        playbackInfo.isInPlaylist
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {playbackInfo.isInPlaylist
-                        ? "Track is in your library"
-                        : "Track is not in your library"}
-                    </p>
+            <div>
+              <div className="flex flex-col gap-4 md:flex-row">
+                <div className="flex-shrink-0">
+                  {playbackInfo.albumArt ? (
+                    <img
+                      src={playbackInfo.albumArt}
+                      alt="Album Artwork"
+                      className="h-32 w-32 rounded-md object-cover shadow-md"
+                    />
+                  ) : (
+                    <div className="bg-muted text-muted-foreground flex h-32 w-32 items-center justify-center rounded-md text-center text-xs">
+                      No Album Art
+                    </div>
                   )}
                 </div>
-                <div className="mt-2">
-                  <Progress
-                    value={playbackInfo.progress}
-                    className="h-1.5 w-full"
-                  />
-                  <div className="text-muted-foreground mt-1 flex justify-between text-xs">
-                    <span>
-                      {playbackInfo.currentTimeSeconds !== undefined
-                        ? formatTime(playbackInfo.currentTimeSeconds)
-                        : formatTime(
-                            (playbackInfo.progress / 100) *
-                              playbackInfo.duration,
-                          )}
-                    </span>
-                    <span>{formatTime(playbackInfo.duration)}</span>
+                <div className="flex flex-1 flex-col justify-between">
+                  <div>
+                    <h3 className="text-base font-semibold">
+                      {playbackInfo.trackName || "Unknown Track"}
+                    </h3>
+                    <p className="text-muted-foreground text-sm">
+                      {playbackInfo.artist || "Unknown Artist"}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {playbackInfo.album || "Unknown Album"}
+                    </p>
+                    {playbackInfo.isInPlaylist !== undefined && (
+                      <p
+                        className={`mt-2 text-xs ${
+                          playbackInfo.isInPlaylist
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {playbackInfo.isInPlaylist
+                          ? "Track is in your library"
+                          : "Track is not in your library"}
+                      </p>
+                    )}
+                  </div>
+                  <div className="mt-2">
+                    <Progress
+                      value={playbackInfo.progress}
+                      className="h-1.5 w-full"
+                    />
+                    <div className="text-muted-foreground mt-1 flex justify-between text-xs">
+                      <span>
+                        {playbackInfo.currentTimeSeconds !== undefined
+                          ? formatTime(playbackInfo.currentTimeSeconds)
+                          : formatTime(
+                              (playbackInfo.progress / 100) *
+                                playbackInfo.duration,
+                            )}
+                      </span>
+                      <span>{formatTime(playbackInfo.duration)}</span>
+                    </div>
                   </div>
                 </div>
+              </div>
+              {/* Playback Controls */}
+              <div className="mt-3 flex justify-center space-x-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handlePreviousTrack}
+                  disabled={!isAuthenticated || !isMonitoring}
+                  title="Previous Track"
+                >
+                  <SkipBack className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handlePlayPause}
+                  disabled={!isAuthenticated || !isMonitoring}
+                  title={playbackInfo.isPlaying ? "Pause" : "Play"}
+                >
+                  {playbackInfo.isPlaying ? (
+                    <Pause className="h-4 w-4" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleNextTrack}
+                  disabled={!isAuthenticated || !isMonitoring}
+                  title="Next Track"
+                >
+                  <SkipForward className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           ) : (

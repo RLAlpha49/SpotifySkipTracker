@@ -221,6 +221,62 @@ class SpotifyService {
       return false;
     }
   }
+
+  /**
+   * Pauses Spotify playback
+   *
+   * @returns Promise resolving to operation success status
+   */
+  public async pausePlayback(): Promise<boolean> {
+    try {
+      return await ipcRenderer.invoke("spotify:pausePlayback");
+    } catch (error) {
+      console.error("Pause playback error:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Resumes Spotify playback
+   *
+   * @returns Promise resolving to operation success status
+   */
+  public async resumePlayback(): Promise<boolean> {
+    try {
+      return await ipcRenderer.invoke("spotify:resumePlayback");
+    } catch (error) {
+      console.error("Resume playback error:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Skips to previous track in queue
+   *
+   * @returns Promise resolving to operation success status
+   */
+  public async skipToPreviousTrack(): Promise<boolean> {
+    try {
+      return await ipcRenderer.invoke("spotify:skipToPreviousTrack");
+    } catch (error) {
+      console.error("Skip to previous track error:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Skips to next track in queue
+   *
+   * @returns Promise resolving to operation success status
+   */
+  public async skipToNextTrack(): Promise<boolean> {
+    try {
+      return await ipcRenderer.invoke("spotify:skipToNextTrack");
+    } catch (error) {
+      console.error("Skip to next track error:", error);
+      return false;
+    }
+  }
 }
 
 // Export a singleton instance

@@ -201,18 +201,29 @@ interface SpotifyRecentlyPlayedResponse {
  * @param clientId - Spotify application client ID
  * @param redirectUri - OAuth callback URI registered in Spotify dashboard
  * @param scope - Space-separated OAuth permission scopes (default includes playback, library, history access)
+ * @param forceAccountSelection - Whether to force account selection even if user is logged in
  * @returns Complete authorization URL for initiating OAuth flow
  */
 export function getAuthorizationUrl(
   clientId: string,
   redirectUri: string,
-  scope: string = "user-read-playback-state user-library-modify user-read-recently-played",
+  scope: string = "user-read-playback-state user-modify-playback-state user-library-modify user-read-recently-played",
+  forceAccountSelection: boolean = false,
 ): string {
+  // Generate random state for CSRF protection with timestamp to ensure uniqueness
+  const timestamp = Date.now();
+  const state = `${Math.random().toString(36).substring(2, 15)}_${timestamp}`;
+
   const authQuery = {
     response_type: "code",
     client_id: clientId,
     scope: scope,
     redirect_uri: redirectUri,
+    // Only show dialog when explicitly forcing account selection
+    show_dialog: forceAccountSelection ? "true" : "false",
+    state: state, // CSRF protection with timestamp
+    // Add a unique timestamp to prevent caching
+    _: timestamp.toString(),
   };
 
   const queryParams = querystring.stringify(authQuery);
@@ -562,4 +573,96 @@ export function getTokenInfo(): {
     refreshToken,
     expiryTime: tokenExpiryTime,
   };
+}
+
+/**
+ * Pauses playback on the active device
+ *
+ * @returns Promise that resolves when the request completes
+ */
+export async function pause(): Promise<void> {
+  if (!accessToken) {
+    throw new Error("Not authenticated");
+  }
+
+  await retryApiCall(async () => {
+    await axios.put(
+      `${API_BASE_URL}/me/player/pause`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+  });
+}
+
+/**
+ * Resumes playback on the active device
+ *
+ * @returns Promise that resolves when the request completes
+ */
+export async function play(): Promise<void> {
+  if (!accessToken) {
+    throw new Error("Not authenticated");
+  }
+
+  await retryApiCall(async () => {
+    await axios.put(
+      `${API_BASE_URL}/me/player/play`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+  });
+}
+
+/**
+ * Skips to the previous track in the queue
+ *
+ * @returns Promise that resolves when the request completes
+ */
+export async function skipToPrevious(): Promise<void> {
+  if (!accessToken) {
+    throw new Error("Not authenticated");
+  }
+
+  await retryApiCall(async () => {
+    await axios.post(
+      `${API_BASE_URL}/me/player/previous`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+  });
+}
+
+/**
+ * Skips to the next track in the queue
+ *
+ * @returns Promise that resolves when the request completes
+ */
+export async function skipToNext(): Promise<void> {
+  if (!accessToken) {
+    throw new Error("Not authenticated");
+  }
+
+  await retryApiCall(async () => {
+    await axios.post(
+      `${API_BASE_URL}/me/player/next`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+  });
 }

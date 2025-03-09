@@ -18,7 +18,7 @@ import { saveLog } from "../helpers/storage/store";
  */
 export async function retryApiCall<T>(
   apiCallFn: () => Promise<T>,
-  maxRetries: number = 5,
+  maxRetries: number = 3,
   initialDelayMs: number = 1000,
 ): Promise<T> {
   let lastError: Error | null = null;

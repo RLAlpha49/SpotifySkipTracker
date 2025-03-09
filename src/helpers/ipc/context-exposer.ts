@@ -37,8 +37,10 @@ export default function exposeContexts(): void {
    */
   contextBridge.exposeInMainWorld("spotify", {
     // Authentication methods
-    authenticate: (credentials?: SpotifyCredentials) =>
-      ipcRenderer.invoke("spotify:authenticate", credentials),
+    authenticate: (
+      credentials?: SpotifyCredentials,
+      forceAuth: boolean = false,
+    ) => ipcRenderer.invoke("spotify:authenticate", credentials, forceAuth),
     logout: () => ipcRenderer.invoke("spotify:logout"),
     isAuthenticated: () => ipcRenderer.invoke("spotify:isAuthenticated"),
 
@@ -80,6 +82,13 @@ export default function exposeContexts(): void {
     startMonitoring: () => ipcRenderer.invoke("spotify:startMonitoring"),
     stopMonitoring: () => ipcRenderer.invoke("spotify:stopMonitoring"),
     isMonitoringActive: () => ipcRenderer.invoke("spotify:isMonitoringActive"),
+
+    // Playback controls
+    pausePlayback: () => ipcRenderer.invoke("spotify:pausePlayback"),
+    resumePlayback: () => ipcRenderer.invoke("spotify:resumePlayback"),
+    skipToPreviousTrack: () =>
+      ipcRenderer.invoke("spotify:skipToPreviousTrack"),
+    skipToNextTrack: () => ipcRenderer.invoke("spotify:skipToNextTrack"),
 
     /**
      * Registers a callback for playback updates from the main process

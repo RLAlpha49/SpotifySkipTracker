@@ -108,7 +108,10 @@ declare interface Window {
    */
   spotify: {
     // Authentication
-    authenticate: (credentials?: SpotifyCredentials) => Promise<boolean>;
+    authenticate: (
+      credentials?: SpotifyCredentials,
+      forceAuth?: boolean,
+    ) => Promise<boolean>;
     logout: () => Promise<boolean>;
     isAuthenticated: () => Promise<boolean>;
 
@@ -145,6 +148,12 @@ declare interface Window {
     startMonitoring: () => Promise<boolean>;
     stopMonitoring: () => Promise<boolean>;
     isMonitoringActive: () => Promise<boolean>;
+
+    // Playback Controls
+    pausePlayback: () => Promise<boolean>;
+    resumePlayback: () => Promise<boolean>;
+    skipToPreviousTrack: () => Promise<boolean>;
+    skipToNextTrack: () => Promise<boolean>;
 
     // Events
     onPlaybackUpdate: (
