@@ -4,6 +4,9 @@
  * Provides encrypted storage for Spotify authentication credentials
  * with AES-256-GCM encryption for protecting sensitive token data.
  *
+ * This module acts as an encryption wrapper around the modular token
+ * storage services, adding an extra layer of security.
+ *
  * Security features:
  * - 256-bit AES encryption in GCM mode
  * - Secure key storage in application data directory
@@ -15,8 +18,12 @@ import { app } from "electron";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
-import { saveLog } from "../helpers/storage/store";
-import { Warning } from "postcss";
+import { saveLog } from "../helpers/storage/logs-store";
+import { AuthTokens } from "@/types/auth";
+import {
+  setTokens as setAuthTokens,
+  clearTokens as clearAuthTokens,
+} from "./auth/storage/token-operations";
 
 // Storage configuration constants
 const TOKEN_FILE = "spotify-tokens.json";
@@ -113,7 +120,7 @@ function encrypt(text: string): { encryptedData: string; iv: string } {
  * @param encryptedData - Encrypted data with authentication tag
  * @param iv - Initialization vector in hex format
  * @returns Decrypted text content
- * @throws Warning when encrypted data is invalid
+ * @throws Error when encrypted data is invalid
  */
 function decrypt(encryptedData: string, iv: string): string {
   const key = getEncryptionKey();
@@ -121,7 +128,7 @@ function decrypt(encryptedData: string, iv: string): string {
 
   // Validate encrypted data
   if (!encryptedData) {
-    throw new Warning("Encrypted data is undefined or empty");
+    throw new Error("Encrypted data is undefined or empty");
   }
 
   // Extract data and authentication tag
@@ -140,6 +147,7 @@ function decrypt(encryptedData: string, iv: string): string {
 
 /**
  * Persists authentication tokens to encrypted storage
+ * and updates the auth token services
  *
  * @param tokenData - Token data to encrypt and store
  * @returns Boolean indicating operation success
@@ -158,8 +166,21 @@ export function saveTokens(tokenData: TokenData): boolean {
       iv,
     };
 
-    // Write to storage
+    // Write to encrypted storage
     fs.writeFileSync(tokenFilePath, JSON.stringify(storageData));
+
+    // Also update the auth token services
+    const authTokens: AuthTokens = {
+      accessToken: tokenData.accessToken,
+      refreshToken: tokenData.refreshToken,
+      expiresIn: Math.max(
+        0,
+        Math.floor((tokenData.expiresAt - Date.now()) / 1000),
+      ),
+    };
+
+    setAuthTokens(authTokens);
+
     saveLog("Spotify tokens saved securely to disk", "DEBUG");
 
     return true;
@@ -192,6 +213,18 @@ export function loadTokens(): TokenData | null {
     const decryptedData = decrypt(storageData.encryptedData, storageData.iv);
     const tokenData = JSON.parse(decryptedData) as TokenData;
 
+    // Sync with auth token services
+    const authTokens: AuthTokens = {
+      accessToken: tokenData.accessToken,
+      refreshToken: tokenData.refreshToken,
+      expiresIn: Math.max(
+        0,
+        Math.floor((tokenData.expiresAt - Date.now()) / 1000),
+      ),
+    };
+
+    setAuthTokens(authTokens);
+
     saveLog("Spotify tokens loaded from secure storage", "DEBUG");
     return tokenData;
   } catch (error) {
@@ -211,6 +244,10 @@ export function clearTokens(): boolean {
 
     if (fs.existsSync(tokenFilePath)) {
       fs.unlinkSync(tokenFilePath);
+
+      // Also clear tokens in the auth token services
+      clearAuthTokens();
+
       saveLog("Spotify tokens cleared from disk", "INFO");
     } else {
       saveLog("No tokens to clear", "DEBUG");

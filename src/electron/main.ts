@@ -11,9 +11,9 @@ import { createWindow } from "./main/window";
 import { installExtensions } from "./main/extensions";
 import { saveLog } from "../helpers/storage/store";
 import {
-  isMonitoringActive,
   stopPlaybackMonitoring,
-} from "../services/playback-monitor";
+  isMonitoringActive,
+} from "../services/playback";
 
 // Check for Windows installer events before doing anything else
 if (checkForSquirrelEvents()) {

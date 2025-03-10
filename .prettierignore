@@ -1,5 +1,7 @@
 # Add files here to ignore them from prettier formatting
 /dist
+/out
+/node_modules
 /coverage
 /.vite
 README.md

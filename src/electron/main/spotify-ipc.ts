@@ -24,27 +24,25 @@ import {
 
 // Spotify service imports
 import {
+  setCredentials,
+  getTokenInfo,
   getCurrentPlayback,
   setTokens as setApiTokens,
-  clearTokens as clearApiTokens,
-  isTokenValid,
   refreshAccessToken,
-  getTokenInfo,
   unlikeTrack,
   pause,
   play,
   skipToPrevious,
   skipToNext,
-} from "../../services/spotify-api";
+  isTokenValid,
+  hasCredentials,
+} from "../../services/spotify";
 import {
   startPlaybackMonitoring,
   stopPlaybackMonitoring,
   isMonitoringActive,
-} from "../../services/playback-monitor";
-import {
-  startAuthFlow,
-  clearSpotifyAuthData,
-} from "../../services/oauth-handler";
+} from "../../services/playback";
+import { startAuthFlow, clearSpotifyAuthData } from "../../services/auth";
 import {
   saveTokens,
   loadTokens,
@@ -68,9 +66,11 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
           forceAuth ? "(forced)" : "",
         );
 
+        // Set shared credentials in the API first
+        setCredentials(credentials.clientId, credentials.clientSecret);
+
         // Clear tokens if force authentication is requested
         if (forceAuth) {
-          clearApiTokens();
           clearStoredTokens();
 
           // Also clear browser cookies and storage for Spotify
@@ -102,18 +102,17 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
                 return true;
               } else {
                 // Refresh expired token
-                await refreshAccessToken(
-                  credentials.clientId,
-                  credentials.clientSecret,
-                );
+                await refreshAccessToken();
 
                 // Update stored tokens
                 const tokenInfo = getTokenInfo();
-                if (tokenInfo.accessToken && tokenInfo.refreshToken) {
+                if (tokenInfo.hasAccessToken && tokenInfo.hasRefreshToken) {
+                  // We need dummy values here since the token info doesn't contain the actual tokens
+                  const loadedTokens = loadTokens();
                   saveTokens({
-                    accessToken: tokenInfo.accessToken,
-                    refreshToken: tokenInfo.refreshToken,
-                    expiresAt: tokenInfo.expiryTime,
+                    accessToken: loadedTokens?.accessToken || "",
+                    refreshToken: loadedTokens?.refreshToken || "",
+                    expiresAt: Date.now() + tokenInfo.expiresIn * 1000,
                   });
                 }
 
@@ -179,7 +178,6 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
     }
 
     // Clear authentication state
-    clearApiTokens();
     clearStoredTokens();
 
     // Clear cookies for Spotify domains to ensure proper logout
@@ -197,6 +195,10 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
   ipcMain.handle("spotify:isAuthenticated", async () => {
     try {
       const storedTokens = loadTokens();
+      const settings = getSettings();
+
+      // Ensure credentials are set
+      setCredentials(settings.clientId, settings.clientSecret);
 
       if (storedTokens) {
         // Initialize API with stored tokens
@@ -212,25 +214,24 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
         } else {
           // Attempt token refresh
           try {
-            const settings = getSettings();
-            if (settings.clientId && settings.clientSecret) {
-              await refreshAccessToken(
-                settings.clientId,
-                settings.clientSecret,
-              );
+            if (hasCredentials()) {
+              await refreshAccessToken();
 
               // Update token storage
-              const tokenInfo = await getTokenInfo();
-              if (tokenInfo.accessToken && tokenInfo.refreshToken) {
+              const tokenInfo = getTokenInfo();
+              if (tokenInfo.hasAccessToken && tokenInfo.hasRefreshToken) {
+                // Need to use the storedTokens values since getTokenInfo() doesn't return the actual tokens
                 saveTokens({
-                  accessToken: tokenInfo.accessToken,
-                  refreshToken: tokenInfo.refreshToken,
-                  expiresAt: tokenInfo.expiryTime,
+                  accessToken: storedTokens.accessToken,
+                  refreshToken: storedTokens.refreshToken,
+                  expiresAt: Date.now() + tokenInfo.expiresIn * 1000,
                 });
 
                 saveLog("Successfully refreshed and saved tokens", "DEBUG");
                 return true;
               }
+            } else {
+              saveLog("Cannot refresh token: Credentials not set", "WARNING");
             }
           } catch (error) {
             saveLog(`Failed to refresh token: ${error}`, "WARNING");
@@ -249,10 +250,12 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
   ipcMain.handle("spotify:getCurrentPlayback", async () => {
     try {
       const settings = getSettings();
-      return await getCurrentPlayback(
-        settings.clientId || "",
-        settings.clientSecret || "",
-      );
+
+      // Set credentials before making the call
+      setCredentials(settings.clientId, settings.clientSecret);
+
+      // Call with new signature
+      return await getCurrentPlayback(true);
     } catch (error) {
       saveLog(`Error getting current playback: ${error}`, "ERROR");
       return null;
@@ -354,11 +357,11 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
     try {
       const settings = getSettings();
 
-      const result = await unlikeTrack(
-        settings.clientId,
-        settings.clientSecret,
-        trackId,
-      );
+      // Set credentials before making the call
+      setCredentials(settings.clientId, settings.clientSecret);
+
+      // Call with new signature
+      const result = await unlikeTrack(trackId);
 
       if (result) {
         saveLog(
@@ -466,6 +469,7 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
     const settings = getSettings();
 
     try {
+      // Credentials are set in startPlaybackMonitoring
       const success = startPlaybackMonitoring(
         mainWindow,
         settings.clientId,

@@ -12,11 +12,11 @@ import fs from "fs";
 import { saveLog, getSettings } from "../../helpers/storage/store";
 import { setupSpotifyIPC } from "./spotify-ipc";
 import registerListeners from "../../helpers/ipc/listeners-register";
-import { cancelAuthFlow } from "../../services/oauth-handler";
+import { cancelAuthFlow } from "../../services/auth";
 import {
   stopPlaybackMonitoring,
   isMonitoringActive,
-} from "../../services/playback-monitor";
+} from "../../services/playback";
 
 // Environment detection
 const inDevelopment = process.env.NODE_ENV === "development";

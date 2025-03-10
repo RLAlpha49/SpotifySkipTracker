@@ -80,7 +80,7 @@ export function initializeStorage(): void {
 /**
  * Archive the current log file with a timestamp
  * Used during application startup to start with a clean log
- * 
+ *
  * @param maxLogFiles Optional parameter for maximum log files to keep (defaults to 10)
  */
 export function archiveCurrentLog(maxLogFiles = 10): void {
