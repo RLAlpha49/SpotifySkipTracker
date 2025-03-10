@@ -13,8 +13,7 @@
 
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { SpotifySettings } from "@/types/spotify";
-import { SkippedTrack } from "@/components/skippedTracks/types";
+import { SpotifySettings, SkippedTrack } from "@/types/spotify";
 import { shouldSuggestRemoval } from "@/components/skippedTracks/utils";
 import { SkippedTracksHeader } from "@/components/skippedTracks/SkippedTracksHeader";
 import { SkippedTracksBulkActions } from "@/components/skippedTracks/SkippedTracksBulkActions";
@@ -40,7 +39,7 @@ export default function SkippedTracksPage() {
     try {
       const tracks = await window.spotify.getSkippedTracks();
 
-      const settings = await window.spotify.getSettings() as SpotifySettings;
+      const settings = (await window.spotify.getSettings()) as SpotifySettings;
       setTimeframeInDays(settings.timeframeInDays || 30);
       setSkipThreshold(settings.skipThreshold || 3);
       setAutoUnlike(settings.autoUnlike !== false);
@@ -65,10 +64,10 @@ export default function SkippedTracksPage() {
     if (!autoUnlike) return;
 
     try {
-      const tracksToUnlike = skippedTracks.filter(track => 
-        shouldSuggestRemoval(track, skipThreshold, timeframeInDays)
+      const tracksToUnlike = skippedTracks.filter((track) =>
+        shouldSuggestRemoval(track, skipThreshold, timeframeInDays),
       );
-      
+
       if (tracksToUnlike.length === 0) return;
 
       const removedTrackIds: string[] = [];
@@ -270,8 +269,8 @@ export default function SkippedTracksPage() {
    * from both Spotify library and tracking database
    */
   const handleRemoveAllHighlighted = async () => {
-    const tracksToRemove = skippedTracks.filter(track => 
-      shouldSuggestRemoval(track, skipThreshold, timeframeInDays)
+    const tracksToRemove = skippedTracks.filter((track) =>
+      shouldSuggestRemoval(track, skipThreshold, timeframeInDays),
     );
 
     if (tracksToRemove.length === 0) {

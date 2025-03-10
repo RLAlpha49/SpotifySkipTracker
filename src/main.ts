@@ -360,7 +360,7 @@ function setupSpotifyIPC(mainWindow: BrowserWindow) {
       // Apply timeframe filter if needed
       const tracks =
         timeframeInDays > 0
-          ? filterSkippedTracksByTimeframe(allTracks, timeframeInDays)
+          ? filterSkippedTracksByTimeframe(timeframeInDays)
           : allTracks;
 
       saveLog(

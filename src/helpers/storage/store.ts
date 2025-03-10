@@ -14,6 +14,9 @@
 import { app } from "electron";
 import path from "path";
 import fs from "fs";
+import { SettingsSchema } from "@/types/settings";
+import { SkippedTrack } from "@/types/spotify";
+import { LogLevel } from "@/types/logging";
 
 // Initialize application data directories
 const appDataPath = path.join(app.getPath("userData"), "data");
@@ -56,21 +59,6 @@ if (fs.existsSync(latestLogPath)) {
   } catch (error) {
     console.error("Failed to archive previous log:", error);
   }
-}
-
-/**
- * Application settings schema interface
- */
-interface SettingsSchema {
-  clientId: string;
-  clientSecret: string;
-  redirectUri: string;
-  logLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
-  logLineCount: number;
-  skipThreshold: number;
-  timeframeInDays: number;
-  skipProgress: number;
-  autoStartMonitoring: boolean;
 }
 
 // Default settings configuration
@@ -117,182 +105,105 @@ export function saveSettings(settings: SettingsSchema): boolean {
 
 /**
  * Retrieves application settings from disk
- * Creates default settings file if none exists
  *
- * @returns Current application settings object
+ * @returns Current application settings or defaults if not found
  */
 export function getSettings(): SettingsSchema {
   try {
     if (fs.existsSync(settingsFilePath)) {
-      const settingsData = fs.readFileSync(settingsFilePath, "utf-8");
-      const settings = JSON.parse(settingsData);
-      return settings;
+      const fileContent = fs.readFileSync(settingsFilePath, "utf-8");
+      const settings = JSON.parse(fileContent) as SettingsSchema;
+      return { ...defaultSettings, ...settings };
     }
-
-    console.log("No settings file found, using defaults");
-    saveSettings(defaultSettings);
-    return defaultSettings;
   } catch (error) {
-    console.error("Failed to read settings:", error);
-    return defaultSettings;
+    console.error("Error reading settings file:", error);
   }
+
+  return defaultSettings;
 }
 
 /**
- * Writes a log message to application log files
- * Implements intelligent deduplication to prevent log spam
+ * Saves a log message to the application log file
  *
  * @param message - Log message content
- * @param level - Severity level of the log message
+ * @param level - Severity level of the log (default: INFO)
+ * @param allowRotation - Whether to perform log rotation if needed (default: true)
  * @returns Boolean indicating success or failure
  */
 export function saveLog(
   message: string,
-  level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" = "INFO",
+  level: LogLevel = "INFO",
+  allowRotation = true,
 ): boolean {
   try {
-    // Generate timestamp with millisecond precision
+    // Create logs directory if it doesn't exist
+    if (!fs.existsSync(logsPath)) {
+      fs.mkdirSync(logsPath, { recursive: true });
+    }
+
+    // Get current settings (especially log level filter)
+    const settings = getSettings();
+    const logLevelOrder = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
+    const configuredLogLevel =
+      settings.fileLogLevel || settings.logLevel || "INFO";
+    const configuredLevelIndex = logLevelOrder.indexOf(configuredLogLevel);
+    const currentLevelIndex = logLevelOrder.indexOf(level);
+
+    // Skip logs below the configured log level
+    if (currentLevelIndex < configuredLevelIndex) {
+      return false;
+    }
+
+    // Format timestamp HH:MM:SS AM/PM.ms format
     const now = new Date();
-    const timestamp =
-      now.toLocaleTimeString() +
+    const formattedTime =
+      now
+        .toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+        })
+        .replace(/\s/, " ") +
       `.${now.getMilliseconds().toString().padStart(3, "0")}`;
 
-    // Get recent logs for deduplication
-    const recentLogs = getLogs(20);
+    const logLine = `[${formattedTime}] [${level}] ${message}\n`;
 
-    // Universal deduplication for all log types
-    for (const recentLog of recentLogs) {
-      const logMatch = recentLog.match(/\[.*?\]\s+\[([A-Z]+)\]\s+(.*)/);
-      if (logMatch && logMatch[1] === level) {
-        const recentMessage = logMatch[2];
+    // Append log to file
+    fs.appendFileSync(latestLogPath, logLine, { encoding: "utf-8" });
 
-        // Check for exact duplicate
-        if (recentMessage === message) {
-          // Get log timestamp
-          const logTimestamp = recentLog.match(/\[(.*?)\]/)?.[1];
-          if (logTimestamp) {
-            try {
-              // Parse timestamp
-              const logTime = new Date(`${now.toDateString()} ${logTimestamp}`);
-              const timeDiff = now.getTime() - logTime.getTime();
+    // Perform log rotation if needed
+    if (allowRotation) {
+      const settings = getSettings();
+      const MAX_LOG_LINES = settings.logLineCount || 1000;
 
-              // Deduplicate identical messages within 2 seconds
-              if (timeDiff < 2000) {
-                return true; // Skip duplicate
-              }
-            } catch {
-              // Continue if parsing fails
-            }
-          }
+      if (fs.existsSync(latestLogPath)) {
+        const logContent = fs.readFileSync(latestLogPath, "utf-8");
+        const logLines = logContent
+          .split("\n")
+          .filter((line) => line.trim() !== "");
+
+        if (logLines.length > MAX_LOG_LINES) {
+          // Keep only the most recent MAX_LOG_LINES lines
+          const truncatedLines = logLines.slice(-MAX_LOG_LINES);
+          fs.writeFileSync(
+            latestLogPath,
+            truncatedLines.join("\n") + "\n",
+            "utf-8",
+          );
+          console.log(
+            `Log file rotated, kept ${MAX_LOG_LINES} most recent lines`,
+          );
+
+          // Also log this rotation event
+          saveLog(
+            `Log file rotated, keeping ${MAX_LOG_LINES} most recent lines`,
+            "INFO",
+            false,
+          );
         }
       }
     }
-
-    // Special case for "Now playing" messages
-    if (message.startsWith("Now playing:")) {
-      const songInfo = message.substring("Now playing: ".length);
-      for (const recentLog of recentLogs) {
-        if (
-          recentLog.includes(songInfo) &&
-          recentLog.includes("Now playing:")
-        ) {
-          return true; // Deduplicate "Now playing" messages
-        }
-      }
-    }
-
-    // Special case for track status messages
-    const trackStatusPatterns = [
-      /Track "(.*?)" by (.*?) is in your library/,
-      /Track "(.*?)" by (.*?) was paused/,
-      /Track "(.*?)" by (.*?) resumed after/,
-    ];
-
-    for (const pattern of trackStatusPatterns) {
-      const trackMatch = message.match(pattern);
-      if (trackMatch) {
-        const [, trackName, artistName] = trackMatch;
-
-        // Check for messages about the same track
-        for (const recentLog of recentLogs) {
-          if (
-            recentLog.includes(`"${trackName}"`) &&
-            recentLog.includes(`by ${artistName}`)
-          ) {
-            const logMatch = recentLog.match(/\[.*?\]\s+\[([A-Z]+)\]\s+(.*)/);
-            if (logMatch && logMatch[2] !== message) {
-              // Different message about same track
-              const logTimestamp = recentLog.match(/\[(.*?)\]/)?.[1];
-              if (logTimestamp) {
-                try {
-                  const logTime = new Date(
-                    `${now.toDateString()} ${logTimestamp}`,
-                  );
-                  const timeDiff = now.getTime() - logTime.getTime();
-
-                  // Deduplicate messages about same track within 500ms
-                  if (timeDiff < 500) {
-                    return true;
-                  }
-                } catch {
-                  // Continue if parsing fails
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // Pattern-based deduplication for common messages
-    const commonPatterns = [
-      /Loaded \d+ skipped tracks from storage/,
-      /Settings loaded from storage/,
-      /Spotify tokens loaded from secure storage/,
-      /Using existing valid tokens/,
-      /Started Spotify playback monitoring/,
-      /Monitoring auto-started/,
-      /Successfully refreshed .* token/,
-      /Auto-starting Spotify playback monitoring/,
-      /Application initialized/,
-    ];
-
-    for (const pattern of commonPatterns) {
-      if (pattern.test(message)) {
-        for (const recentLog of recentLogs) {
-          const logMatch = recentLog.match(/\[.*?\]\s+\[([A-Z]+)\]\s+(.*)/);
-          if (logMatch && pattern.test(logMatch[2])) {
-            const logTimestamp = recentLog.match(/\[(.*?)\]/)?.[1];
-            if (logTimestamp) {
-              try {
-                const logTime = new Date(
-                  `${now.toDateString()} ${logTimestamp}`,
-                );
-                const timeDiff = now.getTime() - logTime.getTime();
-
-                // Deduplicate common messages within 3 seconds
-                if (timeDiff < 3000) {
-                  return true;
-                }
-              } catch {
-                // Continue if parsing fails
-              }
-            }
-          }
-        }
-      }
-    }
-
-    const logEntry = `[${timestamp}] [${level}] ${message}\n`;
-
-    // Write to current session log
-    fs.appendFileSync(latestLogPath, logEntry);
-
-    // Write to dated log file for historical records
-    const formattedDate = now.toISOString().split("T")[0]; // YYYY-MM-DD
-    const datedLogFileName = `spotify-skip-tracker-${formattedDate}.log`;
-    const datedLogFilePath = path.join(logsPath, datedLogFileName);
-    fs.appendFileSync(datedLogFilePath, logEntry);
 
     return true;
   } catch (error) {
@@ -302,101 +213,85 @@ export function saveLog(
 }
 
 /**
- * Retrieves application logs from current and historical files
+ * Retrieves recent log entries from log files
  *
- * @param count - Maximum number of log entries to return
- * @returns Array of log entries in chronological order
+ * @param count - Number of log lines to return (default: 100)
+ * @returns Array of log lines
  */
 export function getLogs(count: number = 100): string[] {
   try {
-    let allLogs: string[] = [];
-
-    // Get logs from current session
     if (fs.existsSync(latestLogPath)) {
-      const latestContent = fs.readFileSync(latestLogPath, "utf-8");
-      const latestLogs = latestContent
+      const logContent = fs.readFileSync(latestLogPath, "utf-8");
+      const logLines = logContent
         .split("\n")
-        .filter((line) => line.trim() !== "")
-        .reverse(); // Most recent first
+        .filter((line) => line.trim() !== "");
 
-      allLogs = [...latestLogs];
-    }
+      // If we have enough lines in the current log, return the most recent ones
+      if (logLines.length >= count) {
+        return logLines.slice(-count);
+      }
 
-    // Get logs from historical files if needed
-    if (allLogs.length < count) {
+      // Otherwise, gather logs from archived log files as well
+      const logs = [...logLines];
+      const remainingCount = count - logs.length;
+
+      // Get list of log files, newest first
       const logFiles = fs
         .readdirSync(logsPath)
         .filter((file) => file !== "latest.log" && file.endsWith(".log"))
-        .sort()
-        .reverse(); // Most recent first
+        .map((file) => {
+          const stats = fs.statSync(path.join(logsPath, file));
+          return { file, mtime: stats.mtime.getTime() };
+        })
+        .sort((a, b) => b.mtime - a.mtime);
 
-      for (const file of logFiles) {
-        if (allLogs.length >= count) break;
+      // Gather logs from archive files until we have enough
+      for (const { file } of logFiles) {
+        if (logs.length >= count) break;
 
-        const filePath = path.join(logsPath, file);
-        const fileContent = fs.readFileSync(filePath, "utf-8");
-        const fileLogs = fileContent
+        const archiveContent = fs.readFileSync(
+          path.join(logsPath, file),
+          "utf-8",
+        );
+        const archiveLines = archiveContent
           .split("\n")
-          .filter((line) => line.trim() !== "")
-          .reverse(); // Most recent first
+          .filter((line) => line.trim() !== "");
 
-        allLogs = [...allLogs, ...fileLogs];
-
-        if (allLogs.length > count) {
-          allLogs = allLogs.slice(0, count);
-        }
+        // Add as many lines as needed from this archive
+        const linesToAdd = Math.min(remainingCount, archiveLines.length);
+        logs.unshift(...archiveLines.slice(-linesToAdd));
       }
+
+      return logs.slice(-count);
     }
 
-    return allLogs.reverse(); // Return in chronological order
-  } catch (error) {
-    console.error("Failed to read logs:", error);
     return [];
+  } catch (error) {
+    console.error("Error reading logs:", error);
+    return [
+      `[${new Date().toLocaleTimeString()}] [ERROR] Error reading logs: ${error}`,
+    ];
   }
 }
 
 /**
- * Clears all application logs
+ * Clears all log files
  *
  * @returns Boolean indicating success or failure
  */
 export function clearLogs(): boolean {
   try {
-    // Get all log files
-    const files = fs.readdirSync(logsPath);
+    // Clear the current log file
+    fs.writeFileSync(latestLogPath, "", "utf-8");
 
-    // Delete each log file
-    for (const file of files) {
-      if (
-        file === "latest.log" ||
-        (file.startsWith("spotify-skip-tracker-") && file.endsWith(".log"))
-      ) {
-        fs.unlinkSync(path.join(logsPath, file));
-      }
-    }
+    // Log the clearing action
+    saveLog("Logs cleared by user", "INFO");
 
-    // Create empty current session log
-    fs.writeFileSync(latestLogPath, "");
-
-    console.log("All logs cleared successfully");
     return true;
   } catch (error) {
     console.error("Failed to clear logs:", error);
     return false;
   }
-}
-
-/**
- * Skipped track data structure
- */
-interface SkippedTrack {
-  id: string;
-  name: string;
-  artist: string;
-  skipCount: number;
-  notSkippedCount: number;
-  lastSkipped: string;
-  skipHistory: string[]; // Array of ISO timestamps for each skip
 }
 
 // Skipped tracks storage location
@@ -410,7 +305,20 @@ const skippedTracksFilePath = path.join(appDataPath, "skipped-tracks.json");
  */
 export function saveSkippedTracks(tracks: SkippedTrack[]): boolean {
   try {
-    fs.writeFileSync(skippedTracksFilePath, JSON.stringify(tracks, null, 2));
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(path.dirname(skippedTracksFilePath))) {
+      fs.mkdirSync(path.dirname(skippedTracksFilePath), { recursive: true });
+    }
+
+    fs.writeFileSync(
+      skippedTracksFilePath,
+      JSON.stringify(tracks, null, 2),
+      "utf-8",
+    );
+    console.log(
+      `Saved ${tracks.length} skipped tracks to:`,
+      skippedTracksFilePath,
+    );
     return true;
   } catch (error) {
     console.error("Failed to save skipped tracks:", error);
@@ -421,57 +329,58 @@ export function saveSkippedTracks(tracks: SkippedTrack[]): boolean {
 /**
  * Retrieves skipped tracks data from storage
  *
- * @returns Array of tracks with skip statistics
+ * @returns Array of track data with skip statistics
  */
 export function getSkippedTracks(): SkippedTrack[] {
   try {
     if (fs.existsSync(skippedTracksFilePath)) {
-      const tracksData = fs.readFileSync(skippedTracksFilePath, "utf-8");
-      const tracks = JSON.parse(tracksData);
+      const fileContent = fs.readFileSync(skippedTracksFilePath, "utf-8");
+      const tracks = JSON.parse(fileContent) as SkippedTrack[];
 
-      // Handle migration from old format that doesn't have skipHistory
-      return tracks.map((track: SkippedTrack) => {
-        if (!track.skipHistory) {
-          // Create skipHistory based on lastSkipped if it exists
-          track.skipHistory = track.lastSkipped ? [track.lastSkipped] : [];
+      // Handle potential naming differences between skipTimestamps and skipHistory
+      return tracks.map((track) => {
+        if (!track.skipTimestamps && track.skipHistory) {
+          // Map legacy skipHistory to skipTimestamps
+          return {
+            ...track,
+            skipTimestamps: track.skipHistory,
+          };
         }
         return track;
       });
     }
-    return [];
   } catch (error) {
-    console.error("Failed to read skipped tracks:", error);
-    return [];
+    console.error("Error reading skipped tracks file:", error);
   }
+
+  return [];
 }
 
 /**
- * Updates skip count for a specific track
- * Adds track to storage if it doesn't exist
+ * Updates or adds a skipped track entry
  *
- * @param track - Track information to update
+ * @param track - Track data to update
  * @returns Boolean indicating success or failure
  */
 export function updateSkippedTrack(track: SkippedTrack): boolean {
   try {
+    // Get current tracks
     const tracks = getSkippedTracks();
+    const now = new Date().toISOString();
+
+    // Find existing track or add new one
     const existingIndex = tracks.findIndex((t) => t.id === track.id);
-    const nowTimestamp = new Date().toISOString();
-
     if (existingIndex >= 0) {
-      // Update existing track
-      const existingTrack = tracks[existingIndex];
-      // Initialize skipHistory array if it doesn't exist
-      const skipHistory = existingTrack.skipHistory || [];
-      // Add the new timestamp
-      skipHistory.push(nowTimestamp);
+      const existing = tracks[existingIndex];
 
+      // Update with incremented skip count
       tracks[existingIndex] = {
-        ...existingTrack,
-        ...track,
-        skipCount: (existingTrack.skipCount || 0) + 1,
-        lastSkipped: nowTimestamp,
-        skipHistory: skipHistory,
+        ...existing,
+        name: track.name || existing.name,
+        artist: track.artist || existing.artist,
+        skipCount: (existing.skipCount || 0) + 1,
+        lastSkipped: now,
+        skipTimestamps: [...(existing.skipTimestamps || []), now],
       };
     } else {
       // Add new track
@@ -479,8 +388,8 @@ export function updateSkippedTrack(track: SkippedTrack): boolean {
         ...track,
         skipCount: 1,
         notSkippedCount: 0,
-        lastSkipped: nowTimestamp,
-        skipHistory: [nowTimestamp],
+        lastSkipped: now,
+        skipTimestamps: [now],
       });
     }
 
@@ -492,114 +401,97 @@ export function updateSkippedTrack(track: SkippedTrack): boolean {
 }
 
 /**
- * Updates played-to-completion count for a track
- * Adds track to storage if it doesn't exist
+ * Updates a track's non-skipped playback count
  *
- * @param track - Track information to update
+ * @param track - Track that was played without skipping
  * @returns Boolean indicating success or failure
  */
 export function updateNotSkippedTrack(track: SkippedTrack): boolean {
   try {
+    // Get current tracks
     const tracks = getSkippedTracks();
-    const existingIndex = tracks.findIndex((t) => t.id === track.id);
 
+    // Find existing track or add new one
+    const existingIndex = tracks.findIndex((t) => t.id === track.id);
     if (existingIndex >= 0) {
-      // Update existing track - preserve skipCount and lastSkipped
+      // Update with incremented not-skipped count
+      const existing = tracks[existingIndex];
       tracks[existingIndex] = {
-        ...tracks[existingIndex],
-        // Only update these fields, don't overwrite skipCount or lastSkipped
-        id: track.id,
-        name: track.name,
-        artist: track.artist,
-        notSkippedCount: (tracks[existingIndex].notSkippedCount || 0) + 1,
+        ...existing,
+        name: track.name || existing.name,
+        artist: track.artist || existing.artist,
+        notSkippedCount: (existing.notSkippedCount || 0) + 1,
       };
     } else {
-      // Add new track
+      // Add new track with only not-skipped count
       tracks.push({
         ...track,
         skipCount: 0,
         notSkippedCount: 1,
-        lastSkipped: "", // No skip date for a track that wasn't skipped
+        lastSkipped: "",
+        skipTimestamps: [],
       });
     }
 
     return saveSkippedTracks(tracks);
   } catch (error) {
-    console.error("Failed to update not skipped track:", error);
+    console.error("Failed to update not-skipped track:", error);
     return false;
   }
 }
 
 /**
- * Removes a track from skipped tracks storage
+ * Removes a track from the skipped tracks list
  *
- * @param trackId - Spotify ID of the track to remove
+ * @param trackId - Spotify track ID to remove
  * @returns Boolean indicating success or failure
  */
 export function removeSkippedTrack(trackId: string): boolean {
   try {
+    // Get current tracks
     const tracks = getSkippedTracks();
-    const initialLength = tracks.length;
 
-    // Filter out the track with the matching ID
-    const filteredTracks = tracks.filter((track) => track.id !== trackId);
+    // Filter out the specified track
+    const filteredTracks = tracks.filter((t) => t.id !== trackId);
 
-    // If no tracks were removed, return false
-    if (filteredTracks.length === initialLength) {
-      console.log(`Track ${trackId} not found in skipped tracks data`);
-      return false;
+    // Only save if a track was actually removed
+    if (filteredTracks.length < tracks.length) {
+      return saveSkippedTracks(filteredTracks);
     }
 
-    // Save the updated tracks list
-    return saveSkippedTracks(filteredTracks);
+    return true;
   } catch (error) {
-    console.error(`Failed to remove skipped track ${trackId}:`, error);
+    console.error("Failed to remove skipped track:", error);
     return false;
   }
 }
 
 /**
- * Filters skipped tracks to only include those with skips within the specified timeframe
+ * Filters skipped tracks by a specified timeframe
  *
- * @param tracks - Array of skipped tracks
- * @param timeframeInDays - Number of days to look back
- * @returns Filtered array of skipped tracks with adjusted counts
+ * @param days - Number of days to look back
+ * @returns Tracks skipped within the timeframe
  */
 export function filterSkippedTracksByTimeframe(
-  tracks: SkippedTrack[],
-  timeframeInDays: number,
+  days: number = 30,
 ): SkippedTrack[] {
-  // If timeframe is 0 or negative, return all tracks
-  if (timeframeInDays <= 0) {
-    return tracks;
-  }
+  const tracks = getSkippedTracks();
+  if (tracks.length === 0) return [];
 
   const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - timeframeInDays);
-  const cutoffTime = cutoffDate.getTime();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
 
-  return tracks
-    .map((track) => {
-      // Filter skipHistory to only include timestamps within the timeframe
-      const recentSkips = (track.skipHistory || []).filter((timestamp) => {
-        const skipTime = new Date(timestamp).getTime();
-        return skipTime >= cutoffTime;
-      });
+  return tracks.filter((track) => {
+    if (!track.skipTimestamps || track.skipTimestamps.length === 0) {
+      if (!track.lastSkipped) return false;
+      return new Date(track.lastSkipped) >= cutoffDate;
+    }
 
-      // Return track with adjusted counts if there are recent skips
-      if (recentSkips.length > 0) {
-        return {
-          ...track,
-          skipCount: recentSkips.length, // Set count to number of skips in timeframe
-          lastSkipped: recentSkips[recentSkips.length - 1], // Most recent skip in timeframe
-          skipHistory: track.skipHistory, // Keep full history for reference
-        };
-      }
-
-      // Return null for tracks with no skips in timeframe
-      return null;
-    })
-    .filter(Boolean) as SkippedTrack[]; // Remove null entries
+    // Check if any skip timestamps are within the timeframe
+    return track.skipTimestamps.some((timestamp) => {
+      return new Date(timestamp) >= cutoffDate;
+    });
+  });
 }
 
 /**

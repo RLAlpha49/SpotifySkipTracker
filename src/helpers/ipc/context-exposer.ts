@@ -15,8 +15,8 @@
 
 import { exposeThemeContext } from "./theme/theme-context";
 import { exposeWindowContext } from "./window/window-context";
-import { contextBridge } from "electron";
-import { ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer } from "electron";
+import { LogLevel } from "@/types/logging";
 
 /**
  * Exposes all API contexts to the renderer process
@@ -66,10 +66,9 @@ export default function exposeContexts(): void {
     getSettings: () => ipcRenderer.invoke("spotify:getSettings"),
 
     // Logging system
-    saveLog: (
-      message: string,
-      level?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
-    ) => ipcRenderer.invoke("spotify:saveLog", message, level),
+    saveLog: async (message: string, level?: LogLevel) => {
+      return await ipcRenderer.invoke("spotify:saveLog", message, level);
+    },
     getLogs: (count?: number) => ipcRenderer.invoke("spotify:getLogs", count),
     clearLogs: () => ipcRenderer.invoke("spotify:clearLogs"),
     openLogsDirectory: () => ipcRenderer.invoke("spotify:openLogsDirectory"),

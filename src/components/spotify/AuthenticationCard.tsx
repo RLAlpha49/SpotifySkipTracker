@@ -52,4 +52,4 @@ export function AuthenticationCard({
       </CardContent>
     </Card>
   );
-} 
+}

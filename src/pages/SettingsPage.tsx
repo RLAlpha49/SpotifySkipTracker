@@ -192,7 +192,7 @@ export default function SettingsPage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             {/* Spotify API Settings */}
-            <ApiCredentialsForm 
+            <ApiCredentialsForm
               form={form}
               setSettingsChanged={setSettingsChanged}
             />

@@ -200,4 +200,4 @@ export function ApplicationSettingsForm({
       </Card>
     </div>
   );
-} 
+}

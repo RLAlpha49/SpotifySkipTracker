@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
-import { SkippedTrack } from "./types";
+import { SkippedTrack } from "@/types/spotify";
 import { shouldSuggestRemoval } from "./utils";
 import {
   AlertDialog,
@@ -40,8 +40,8 @@ export function SkippedTracksBulkActions({
   onClearSkippedData,
   onRemoveAllHighlighted,
 }: SkippedTracksBulkActionsProps) {
-  const tracksToRemove = tracks.filter(track => 
-    shouldSuggestRemoval(track, skipThreshold, timeframeInDays)
+  const tracksToRemove = tracks.filter((track) =>
+    shouldSuggestRemoval(track, skipThreshold, timeframeInDays),
   );
 
   return (
@@ -69,12 +69,10 @@ export function SkippedTracksBulkActions({
               Clear All Skipped Data
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete all skipped tracks data. Your
-              tracks will remain in your Spotify library, but all skip
-              statistics will be lost.
-              <p className="mt-2 font-medium">
-                This action cannot be undone.
-              </p>
+              This will permanently delete all skipped tracks data. Your tracks
+              will remain in your Spotify library, but all skip statistics will
+              be lost.
+              <p className="mt-2 font-medium">This action cannot be undone.</p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -112,13 +110,11 @@ export function SkippedTracksBulkActions({
               Remove All Highlighted Tracks
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove {tracksToRemove.length} tracks from
-              your Spotify library and tracking data. These tracks have been
-              skipped {skipThreshold} or more times within the last{" "}
-              {timeframeInDays} days.
-              <p className="mt-2 font-medium">
-                This action cannot be undone.
-              </p>
+              This will remove {tracksToRemove.length} tracks from your Spotify
+              library and tracking data. These tracks have been skipped{" "}
+              {skipThreshold} or more times within the last {timeframeInDays}{" "}
+              days.
+              <p className="mt-2 font-medium">This action cannot be undone.</p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -134,4 +130,4 @@ export function SkippedTracksBulkActions({
       </AlertDialog>
     </div>
   );
-} 
+}

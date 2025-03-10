@@ -2,6 +2,8 @@
  * Spotify-related types used throughout the application
  */
 
+import { LogLevel } from "./logging";
+
 /**
  * Interface representing Spotify playback state
  */
@@ -21,7 +23,7 @@ export interface PlaybackInfo {
  * Interface for log display settings
  */
 export interface LogSettings {
-  displayLogLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  displayLogLevel: LogLevel;
   logAutoRefresh: boolean;
 }
 
@@ -36,7 +38,7 @@ export interface SpotifySettings {
   redirectUri: string;
 
   // App settings
-  fileLogLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  fileLogLevel: LogLevel;
   logLineCount: number;
   maxLogFiles: number;
   logRetentionDays: number;
@@ -47,9 +49,24 @@ export interface SpotifySettings {
   autoUnlike: boolean;
 
   // Home page settings
-  displayLogLevel?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  displayLogLevel?: LogLevel;
   logAutoRefresh?: boolean;
 
   // Legacy format support
-  logLevel?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
-} 
+  logLevel?: LogLevel;
+}
+
+/**
+ * Track data with skip statistics and metadata
+ */
+export interface SkippedTrack {
+  id: string;
+  name: string;
+  artist: string;
+  skipCount: number;
+  notSkippedCount: number;
+  lastSkipped: string;
+  skipTimestamps?: string[]; // Current implementation
+  skipHistory?: string[]; // Legacy field name
+  autoProcessed?: boolean; // Flag for tracks that have been automatically processed
+}

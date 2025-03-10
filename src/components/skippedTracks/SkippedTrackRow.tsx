@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SkippedTrack } from "./types";
+import { SkippedTrack } from "@/types/spotify";
 import { calculateSkipRatio, formatDate, getRecentSkipCount } from "./utils";
 
 interface SkippedTrackRowProps {
@@ -64,9 +64,7 @@ export function SkippedTrackRow({
       </TableCell>
       <TableCell className="text-right">{track.skipCount}</TableCell>
       <TableCell className="text-right">{track.notSkippedCount}</TableCell>
-      <TableCell className="text-right">
-        {calculateSkipRatio(track)}
-      </TableCell>
+      <TableCell className="text-right">{calculateSkipRatio(track)}</TableCell>
       <TableCell className="text-right">
         {formatDate(track.lastSkipped)}
       </TableCell>
@@ -100,4 +98,4 @@ export function SkippedTrackRow({
       </TableCell>
     </TableRow>
   );
-} 
+}

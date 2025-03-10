@@ -10,6 +10,7 @@
  */
 
 import { ipcRenderer } from "electron";
+import { SkippedTrack } from "@/types/spotify";
 
 /**
  * Spotify API authentication credentials
@@ -32,18 +33,6 @@ export interface SpotifyPlaybackInfo {
   albumArt: string;
   progress: number;
   duration: number;
-}
-
-/**
- * Track skip statistics data structure
- */
-export interface SkippedTrack {
-  id: string;
-  name: string;
-  artist: string;
-  skipCount: number;
-  notSkippedCount: number;
-  lastSkipped: string;
 }
 
 /**

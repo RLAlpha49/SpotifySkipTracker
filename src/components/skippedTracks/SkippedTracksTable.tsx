@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { SkippedTrack } from "./types";
+import { SkippedTrack } from "@/types/spotify";
 import { shouldSuggestRemoval, sortBySkipCount } from "./utils";
 import { SkippedTrackRow } from "./SkippedTrackRow";
 
@@ -30,8 +30,8 @@ export function SkippedTracksTable({
   onUnlikeTrack,
   onRemoveTrackData,
 }: SkippedTracksTableProps) {
-  const sortedTracks = [...tracks].sort((a, b) => 
-    sortBySkipCount(a, b, timeframeInDays)
+  const sortedTracks = [...tracks].sort((a, b) =>
+    sortBySkipCount(a, b, timeframeInDays),
   );
 
   return (
@@ -47,9 +47,7 @@ export function SkippedTracksTable({
                 <TableHead className="w-[40%]">Track</TableHead>
                 <TableHead className="w-[8%] text-right">Recent</TableHead>
                 <TableHead className="w-[8%] text-right">Total</TableHead>
-                <TableHead className="w-[10%] text-right">
-                  Completed
-                </TableHead>
+                <TableHead className="w-[10%] text-right">Completed</TableHead>
                 <TableHead className="w-[8%] text-right">Ratio</TableHead>
                 <TableHead className="w-[20%] text-right">
                   Last Skipped
@@ -67,7 +65,7 @@ export function SkippedTracksTable({
                     shouldSuggestRemoval={shouldSuggestRemoval(
                       track,
                       skipThreshold,
-                      timeframeInDays
+                      timeframeInDays,
                     )}
                     onUnlikeTrack={onUnlikeTrack}
                     onRemoveTrackData={onRemoveTrackData}
@@ -90,4 +88,4 @@ export function SkippedTracksTable({
       </CardContent>
     </Card>
   );
-} 
+}

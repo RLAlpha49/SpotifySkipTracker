@@ -15,10 +15,11 @@
 import { BrowserWindow } from "electron";
 import * as spotifyApi from "./spotify-api";
 import * as store from "../helpers/storage/store";
+import { LogLevel } from "@/types/logging";
+import { SkippedTrack } from "@/types/spotify";
 
 /**
- * Internal state interface for playback monitoring
- * Maintains state between API polling intervals
+ * State information about current playback including track metadata and progress
  */
 interface PlaybackState {
   trackId: string | null;
@@ -111,19 +112,6 @@ interface SpotifyPlaybackItem {
  */
 interface RecentlyPlayedResponse {
   items: SpotifyPlaybackItem[];
-}
-
-/**
- * Information about tracks that are skipped, including counts and timestamps
- */
-interface SkippedTrackInfo {
-  id: string;
-  name: string;
-  artist: string;
-  skipCount: number;
-  notSkippedCount: number;
-  lastSkipped: string;
-  skipHistory: string[]; // Array of timestamps for timeframe filtering
 }
 
 // Add a variable for the progress update interval
@@ -610,13 +598,11 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
             // Update skip count in storage
             await store.updateSkippedTrack({
               id: playbackState.trackId,
-              name: playbackState.trackName || "",
-              artist: playbackState.artistName || "",
-              skipCount: 1,
-              notSkippedCount: 0,
+              name: playbackState.trackName,
+              artist: playbackState.artistName,
               lastSkipped: currentSkipTime,
-              skipHistory: [currentSkipTime],
-            } as SkippedTrackInfo);
+              skipTimestamps: [currentSkipTime],
+            } as SkippedTrack);
 
             // Check if track should be unliked
             const skipThresholdCount = settings.skipThreshold || 3; // This is correctly using skipThreshold
@@ -713,7 +699,7 @@ async function handleTrackChange(newTrackId: string): Promise<void> {
               skipCount: 0,
               notSkippedCount: 1,
               lastSkipped: "", // This wasn't skipped
-            } as SkippedTrackInfo);
+            } as SkippedTrack);
           } catch (error: unknown) {
             store.saveLog(
               `Error updating not skipped count: ${error}`,
@@ -803,7 +789,7 @@ function resetPlaybackState(): void {
  *
  * @returns List of skipped tracks with metadata and counts
  */
-async function getSkippedTracks(): Promise<SkippedTrackInfo[]> {
+async function getSkippedTracks(): Promise<SkippedTrack[]> {
   try {
     return store.getSkippedTracks();
   } catch (error) {

@@ -1,4 +1,4 @@
-import { SkippedTrack } from "./types";
+import { SkippedTrack } from "@/types/spotify";
 
 /**
  * Calculates skips within the configured time window
@@ -7,7 +7,10 @@ import { SkippedTrack } from "./types";
  * @param timeframeInDays - Number of days to consider for recent skips
  * @returns Number of skips within the timeframe
  */
-export const getRecentSkipCount = (track: SkippedTrack, timeframeInDays: number): number => {
+export const getRecentSkipCount = (
+  track: SkippedTrack,
+  timeframeInDays: number,
+): number => {
   if (!track.skipTimestamps || track.skipTimestamps.length === 0) {
     return track.skipCount;
   }
@@ -30,9 +33,9 @@ export const getRecentSkipCount = (track: SkippedTrack, timeframeInDays: number)
  * @returns Boolean indicating if track should be suggested for removal
  */
 export const shouldSuggestRemoval = (
-  track: SkippedTrack, 
-  skipThreshold: number, 
-  timeframeInDays: number
+  track: SkippedTrack,
+  skipThreshold: number,
+  timeframeInDays: number,
 ): boolean => {
   try {
     const recentSkips = getRecentSkipCount(track, timeframeInDays);
@@ -79,9 +82,9 @@ export const formatDate = (dateString: string): string => {
  * @returns Sort value (-1, 0, 1) for array sorting
  */
 export const sortBySkipCount = (
-  a: SkippedTrack, 
-  b: SkippedTrack, 
-  timeframeInDays: number
+  a: SkippedTrack,
+  b: SkippedTrack,
+  timeframeInDays: number,
 ): number => {
   const recentSkipsA = getRecentSkipCount(a, timeframeInDays);
   const recentSkipsB = getRecentSkipCount(b, timeframeInDays);
@@ -91,4 +94,4 @@ export const sortBySkipCount = (
   }
 
   return b.skipCount - a.skipCount;
-}; 
+};

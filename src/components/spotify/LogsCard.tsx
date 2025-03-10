@@ -281,4 +281,4 @@ export function LogsCard({
       </CardContent>
     </Card>
   );
-} 
+}

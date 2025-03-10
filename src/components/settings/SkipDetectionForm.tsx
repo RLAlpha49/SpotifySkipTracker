@@ -149,4 +149,4 @@ export function SkipDetectionForm({
       </Card>
     </div>
   );
-} 
+}

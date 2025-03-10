@@ -38,4 +38,4 @@ export function RestartDialog({
       </AlertDialogContent>
     </AlertDialog>
   );
-} 
+}

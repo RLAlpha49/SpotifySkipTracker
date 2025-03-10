@@ -11,6 +11,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { PlaybackInfo, LogSettings } from "@/types/spotify";
+import { LogLevel } from "@/types/logging";
 import { AuthenticationCard } from "@/components/spotify/AuthenticationCard";
 import { PlaybackMonitoringCard } from "@/components/spotify/PlaybackMonitoringCard";
 import { NowPlayingCard } from "@/components/spotify/NowPlayingCard";
@@ -195,10 +196,7 @@ export default function HomePage() {
    * @param level - Severity level for the log
    * @returns Promise<void>
    */
-  const addLog = async (
-    message: string,
-    level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" = "INFO",
-  ) => {
+  const addLog = async (message: string, level: LogLevel = "INFO") => {
     try {
       await window.spotify.saveLog(message, level);
       const updatedLogs = await window.spotify.getLogs();

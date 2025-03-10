@@ -39,10 +39,7 @@ export function PlaybackMonitoringCard({
                 Stop Monitoring
               </Button>
             ) : (
-              <Button
-                onClick={onStartMonitoring}
-                disabled={!isAuthenticated}
-              >
+              <Button onClick={onStartMonitoring} disabled={!isAuthenticated}>
                 Start Monitoring
               </Button>
             )}
@@ -55,4 +52,4 @@ export function PlaybackMonitoringCard({
       </CardContent>
     </Card>
   );
-} 
+}

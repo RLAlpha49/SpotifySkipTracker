@@ -145,4 +145,4 @@ export function NowPlayingCard({
       </CardContent>
     </Card>
   );
-} 
+}
