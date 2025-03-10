@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, Trash2, HelpCircle } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -15,6 +15,12 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { LogSettings } from "@/types/spotify";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface LogsCardProps {
   logs: string[];
@@ -201,26 +207,60 @@ export function LogsCard({
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Activity Logs</h2>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onOpenLogsDirectory}
-                title="Open logs directory in file explorer"
-                className="flex items-center gap-1"
-              >
-                <FolderOpen className="h-4 w-4" />
-                <span>Open Logs</span>
-              </Button>
-              <Button variant="outline" size="sm" onClick={onClearLogs}>
-                Clear Logs
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onOpenLogsDirectory}
+                      className="flex items-center gap-1"
+                    >
+                      <FolderOpen className="h-4 w-4" />
+                      <span>Open Logs</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Open the logs directory</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Button variant="outline" size="sm" onClick={onClearLogs}>
+                      <Trash2 className="h-4 w-4" />
+                      <span>Clear Logs</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Clear all log files</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
             <div className="flex items-center gap-2">
               <div className="flex flex-col">
-                <Label className="mb-1 text-xs">Display Filter</Label>
+                <div className="flex items-center space-x-1">
+                  <Label className="mb-1 text-xs">Display Filter</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="text-muted-foreground h-3 w-3" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          Filter logs by severity level. Each level includes all
+                          higher severity levels (e.g., INFO shows INFO,
+                          WARNING, ERROR, and CRITICAL).
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <Select
                   value={settings.displayLogLevel}
                   onValueChange={onDisplayLogLevelChange}
@@ -241,21 +281,48 @@ export function LogsCard({
 
             <div className="flex items-center gap-2">
               <div className="flex items-center space-x-2">
-                <Switch
-                  id="log-auto-refresh"
-                  checked={settings.logAutoRefresh}
-                  onCheckedChange={onToggleLogAutoRefresh}
-                />
-                <Label htmlFor="log-auto-refresh">Auto-refresh</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="log-auto-refresh"
+                          checked={settings.logAutoRefresh}
+                          onCheckedChange={onToggleLogAutoRefresh}
+                        />
+                        <Label htmlFor="log-auto-refresh">Auto-refresh</Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        When enabled, logs will automatically update as new
+                        events occur. Disable for better performance when
+                        analyzing specific log entries.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
 
-              <Input
-                type="text"
-                placeholder="Search logs..."
-                value={logSearchTerm}
-                onChange={onLogSearch}
-                className="flex-1"
-              />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Input
+                      type="text"
+                      placeholder="Search logs..."
+                      value={logSearchTerm}
+                      onChange={onLogSearch}
+                      className="flex-1"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      Filter logs by text content. Shows only logs containing
+                      the search term.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </div>

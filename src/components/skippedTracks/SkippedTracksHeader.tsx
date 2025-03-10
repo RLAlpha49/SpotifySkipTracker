@@ -1,6 +1,12 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, RefreshCw } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface SkippedTracksHeaderProps {
   timeframeInDays: number;
@@ -29,19 +35,48 @@ export function SkippedTracksHeader({
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onOpenSkipsDirectory}
-          title="Open skip data folder"
-          className="flex items-center gap-1"
-        >
-          <FolderOpen className="h-4 w-4" />
-          <span>Open Skips</span>
-        </Button>
-        <Button onClick={onRefresh} disabled={loading}>
-          {loading ? "Loading..." : "Refresh"}
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onOpenSkipsDirectory}
+                className="flex items-center gap-1"
+              >
+                <FolderOpen className="h-4 w-4" />
+                <span>Open Skips</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Open the folder containing skip tracking data files</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={onRefresh}
+                disabled={loading}
+                className="flex items-center gap-1"
+              >
+                {loading ? (
+                  "Loading..."
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4" />
+                    <span>Refresh</span>
+                  </>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Reload skip data to get the latest skip statistics</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   );

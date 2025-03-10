@@ -89,7 +89,7 @@ export default function HomePage() {
             const success = await window.spotify.startMonitoring();
             if (success) {
               setIsMonitoring(true);
-              addLog("Monitoring auto-started successfully", "INFO");
+              addLog("Playback monitoring started", "INFO");
             } else {
               addLog("Failed to auto-start monitoring", "ERROR");
             }
@@ -339,7 +339,7 @@ export default function HomePage() {
           const monitoringStarted = await window.spotify.startMonitoring();
           if (monitoringStarted) {
             setIsMonitoring(true);
-            addLog("Monitoring auto-started successfully", "INFO");
+            addLog("Playback monitoring started", "INFO");
           } else {
             addLog("Failed to auto-start monitoring", "ERROR");
           }

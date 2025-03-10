@@ -120,6 +120,7 @@ declare interface Window {
 
     // Skipped tracks
     getSkippedTracks: () => Promise<SkippedTrack[]>;
+    refreshSkippedTracks: () => Promise<SkippedTrack[]>;
     saveSkippedTracks: (tracks: SkippedTrack[]) => Promise<boolean>;
     updateSkippedTrack: (track: SkippedTrack) => Promise<boolean>;
     removeFromSkippedData: (trackId: string) => Promise<boolean>;

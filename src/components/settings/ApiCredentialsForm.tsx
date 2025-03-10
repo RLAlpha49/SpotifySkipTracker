@@ -11,6 +11,13 @@ import {
 } from "@/components/ui/form";
 import { UseFormReturn } from "react-hook-form";
 import * as z from "zod";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { HelpCircle } from "lucide-react";
 
 // Import the schema from a shared location for consistency
 import { settingsFormSchema } from "./settingsFormSchema";
@@ -47,7 +54,24 @@ export function ApiCredentialsForm({
               name="clientId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Client ID</FormLabel>
+                  <div className="flex items-center space-x-1">
+                    <FormLabel>Client ID</FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="text-muted-foreground h-4 w-4" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            The public identifier for your Spotify application.
+                            This is required to authenticate with the Spotify
+                            API. You can find it in your Spotify Developer
+                            Dashboard.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <FormControl>
                     <Input
                       placeholder="Spotify Client ID"
@@ -73,7 +97,21 @@ export function ApiCredentialsForm({
               name="clientSecret"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Client Secret</FormLabel>
+                  <div className="flex items-center space-x-1">
+                    <FormLabel>Client Secret</FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="text-muted-foreground h-4 w-4" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            The private secret key for your Spotify application.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <FormControl>
                     <Input
                       type="password"
@@ -100,7 +138,24 @@ export function ApiCredentialsForm({
               name="redirectUri"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Redirect URI</FormLabel>
+                  <div className="flex items-center space-x-1">
+                    <FormLabel>Redirect URI</FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="text-muted-foreground h-4 w-4" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            The URL where Spotify will redirect after
+                            authentication. This must exactly match one of the
+                            Redirect URIs configured in your Spotify Developer
+                            Dashboard.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <FormControl>
                     <Input
                       placeholder="http://localhost:8888/callback"

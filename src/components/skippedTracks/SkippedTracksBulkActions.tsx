@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, TrashIcon, MinusCircleIcon } from "lucide-react";
 import { SkippedTrack } from "@/types/spotify";
 import { shouldSuggestRemoval } from "./utils";
 import {
@@ -14,6 +14,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface SkippedTracksBulkActionsProps {
   loading: boolean;
@@ -51,17 +57,29 @@ export function SkippedTracksBulkActions({
         open={showClearDataDialog}
         onOpenChange={setShowClearDataDialog}
       >
-        <AlertDialogTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={loading || tracks.length === 0}
-            className="border-yellow-300 text-yellow-600 hover:text-yellow-800"
-            title="Remove all tracking data but keep tracks in library"
-          >
-            Clear All Skipped Data
-          </Button>
-        </AlertDialogTrigger>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={loading || tracks.length === 0}
+                  className="flex items-center gap-1 border-yellow-300 text-yellow-600 hover:text-yellow-800"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                  <span>Clear All Skipped Data</span>
+                </Button>
+              </AlertDialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                Delete all skip statistics while keeping your tracks in Spotify
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -92,17 +110,30 @@ export function SkippedTracksBulkActions({
         open={showRemoveHighlightedDialog}
         onOpenChange={setShowRemoveHighlightedDialog}
       >
-        <AlertDialogTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={loading || tracksToRemove.length === 0}
-            className="border-red-300 text-red-600 hover:text-red-800"
-            title="Remove all highlighted tracks from library"
-          >
-            Remove All Highlighted
-          </Button>
-        </AlertDialogTrigger>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={loading || tracksToRemove.length === 0}
+                  className="flex items-center gap-1 border-red-300 text-red-600 hover:text-red-800"
+                >
+                  <MinusCircleIcon className="h-4 w-4" />
+                  <span>Remove All Highlighted</span>
+                </Button>
+              </AlertDialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                Remove all frequently-skipped tracks (highlighted rows) from
+                your Spotify library
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">

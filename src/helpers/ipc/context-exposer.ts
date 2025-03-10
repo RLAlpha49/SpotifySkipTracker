@@ -49,6 +49,8 @@ export default function exposeContexts(): void {
 
     // Skipped tracks management
     getSkippedTracks: () => ipcRenderer.invoke("spotify:getSkippedTracks"),
+    refreshSkippedTracks: () =>
+      ipcRenderer.invoke("spotify:refreshSkippedTracks"),
     saveSkippedTracks: (tracks: SkippedTrack[]) =>
       ipcRenderer.invoke("spotify:saveSkippedTracks", tracks),
     updateSkippedTrack: (track: SkippedTrack) =>

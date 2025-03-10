@@ -10,11 +10,15 @@
 import fs from "fs";
 import path from "path";
 import { LogLevel } from "@/types/logging";
-import { logsPath } from "./utils";
+import { logsPath, cleanupOldLogs } from "./utils";
 import { getSettings } from "./settings-store";
 
 // Latest log file location
 const latestLogPath = path.join(logsPath, "latest.log");
+
+// Cache for recent logs to prevent duplicates
+const recentLogs = new Map<string, { count: number; timestamp: number }>();
+const DEDUPLICATION_WINDOW_MS = 5000; // 5 seconds window for deduplication
 
 /**
  * Saves a log message to the application log file
@@ -63,6 +67,39 @@ export function saveLog(
 
     const logLine = `[${formattedTime}] [${level}] ${message}\n`;
 
+    // Create a key for deduplication (exclude timestamp for comparing content)
+    const dedupeKey = `[${level}] ${message}`;
+    const timestamp = now.getTime();
+
+    // Check for duplicate logs within the deduplication window
+    const existingLog = recentLogs.get(dedupeKey);
+
+    if (existingLog) {
+      // If the log is identical and recent, just increment the count
+      if (timestamp - existingLog.timestamp < DEDUPLICATION_WINDOW_MS) {
+        existingLog.count++;
+        existingLog.timestamp = timestamp;
+        // Don't write duplicate logs
+        return true;
+      }
+
+      // If we've accumulated duplicates but it's been long enough, write a summary
+      if (existingLog.count > 1) {
+        const summaryLine = `[${formattedTime}] [${level}] Last message repeated ${existingLog.count} times\n`;
+        fs.appendFileSync(latestLogPath, summaryLine, { encoding: "utf-8" });
+      }
+    }
+
+    // Update the recent logs cache
+    recentLogs.set(dedupeKey, { count: 1, timestamp });
+
+    // Clean up old entries from the deduplication cache (older than the window)
+    for (const [key, entry] of recentLogs.entries()) {
+      if (timestamp - entry.timestamp > DEDUPLICATION_WINDOW_MS) {
+        recentLogs.delete(key);
+      }
+    }
+
     // Append log to file
     fs.appendFileSync(latestLogPath, logLine, { encoding: "utf-8" });
 
@@ -95,6 +132,11 @@ export function saveLog(
             "INFO",
             false,
           );
+
+          // Check and enforce the maximum number of log files
+          if (settings.maxLogFiles && settings.maxLogFiles > 0) {
+            cleanupOldLogs(settings.maxLogFiles);
+          }
         }
       }
     }
@@ -171,6 +213,8 @@ export function getLogs(count: number = 100): string[] {
 /**
  * Clears all log files
  *
+ * Deletes all archived log files and clears the current log file
+ *
  * @returns Boolean indicating success or failure
  */
 export function clearLogs(): boolean {
@@ -178,8 +222,28 @@ export function clearLogs(): boolean {
     // Clear the current log file
     fs.writeFileSync(latestLogPath, "", "utf-8");
 
+    // Delete all archived log files
+    if (fs.existsSync(logsPath)) {
+      const logFiles = fs
+        .readdirSync(logsPath)
+        .filter((file) => file !== "latest.log" && file.endsWith(".log"));
+
+      let deletedCount = 0;
+
+      for (const file of logFiles) {
+        try {
+          fs.unlinkSync(path.join(logsPath, file));
+          deletedCount++;
+        } catch (error) {
+          console.error(`Failed to delete log file ${file}:`, error);
+        }
+      }
+
+      console.log(`Deleted ${deletedCount} archived log files`);
+    }
+
     // Log the clearing action
-    saveLog("Logs cleared by user", "INFO");
+    saveLog("All logs cleared by user", "INFO", false);
 
     return true;
   } catch (error) {

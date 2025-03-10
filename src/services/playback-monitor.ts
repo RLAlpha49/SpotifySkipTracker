@@ -15,17 +15,16 @@
 import { BrowserWindow } from "electron";
 import * as spotifyApi from "./spotify-api";
 import * as store from "../helpers/storage/store";
-import { LogLevel } from "@/types/logging";
 import { SkippedTrack } from "@/types/spotify";
 
 /**
  * State information about current playback including track metadata and progress
  */
 interface PlaybackState {
-  trackId: string | null;
-  trackName: string | null;
-  artistName: string | null;
-  albumName: string | null;
+  trackId: string;
+  trackName: string;
+  artistName: string;
+  albumName: string;
   albumArt: string;
   progress: number;
   duration: number;
@@ -42,10 +41,10 @@ interface PlaybackState {
 }
 
 let playbackState: PlaybackState = {
-  trackId: null,
-  trackName: null,
-  artistName: null,
-  albumName: null,
+  trackId: "",
+  trackName: "",
+  artistName: "",
+  albumName: "",
   albumArt: "",
   progress: 0,
   duration: 0,
@@ -61,6 +60,8 @@ let playbackState: PlaybackState = {
 let monitoringInterval: NodeJS.Timeout | null = null;
 let clientId: string;
 let clientSecret: string;
+// Keep track of which tracks have been logged
+const trackLastLogged: Record<string, number> = {};
 
 // Spotify API response interfaces
 /**
@@ -142,6 +143,9 @@ export function startPlaybackMonitoring(
       clearInterval(progressUpdateInterval);
       progressUpdateInterval = null;
     }
+
+    // Reset the playback state to avoid false track change detection
+    resetPlaybackState();
 
     clientId = spotifyClientId;
     clientSecret = spotifyClientSecret;
@@ -452,10 +456,27 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
       }
     }
 
-    // If track changed, check for skip
-    if (playbackState.trackId && playbackState.trackId !== trackId) {
-      await handleTrackChange(trackId);
-      // Track changed, reset the libraryStatusLogged flag
+    // Check for track changes - detect when a track has changed
+    const trackChanged = playbackState.trackId !== trackId && trackId !== "";
+
+    // Only log each unique track once per session
+    const hasBeenLoggedBefore = trackId in trackLastLogged;
+
+    // If track changed, check for skip and log "Now playing"
+    if (trackChanged) {
+      if (playbackState.trackId && playbackState.trackId !== "") {
+        await handleTrackChange(trackId);
+      }
+
+      // Only log if we haven't seen this track before in this session
+      if (!hasBeenLoggedBefore) {
+        // Log the new track - ONLY when the track is new in this session
+        store.saveLog(`Now playing: ${trackName} by ${artistName}`, "INFO");
+        // Record that we've logged this track
+        trackLastLogged[trackId] = now;
+      }
+
+      // Reset the libraryStatusLogged flag on track change
       playbackState.libraryStatusLogged = false;
     }
 
@@ -466,46 +487,13 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
     if (
       isInLibrary &&
       !playbackState.libraryStatusLogged &&
-      (playbackState.trackId !== trackId ||
-        playbackState.isInLibrary !== isInLibrary)
+      (trackChanged || playbackState.isInLibrary !== isInLibrary)
     ) {
       store.saveLog(
         `Track "${trackName}" by ${artistName} is in your library - skips will be tracked`,
         "DEBUG",
       );
       playbackState.libraryStatusLogged = true;
-    }
-
-    // Store the current timestamp for logging purposes
-    const lastNowPlayingLog = playbackState.lastNowPlayingLog || 0;
-
-    // Log "Now playing" only when:
-    // 1. This is a new track (different from last one)
-    // 2. We haven't logged it yet in recent tracks
-    // 3. OR it's been more than 30 seconds since the last "Now playing" log for this track
-    const shouldLogNowPlaying =
-      !playbackState.recentTracks.includes(trackId) ||
-      trackId !== playbackState.trackId ||
-      now - lastNowPlayingLog > 30000;
-    playbackState = {
-      ...playbackState,
-      trackId,
-      trackName,
-      artistName,
-      albumName,
-      progress,
-      duration,
-      isInLibrary,
-      lastProgress: progress,
-      libraryStatusLogged: playbackState.libraryStatusLogged,
-      lastNowPlayingLog: shouldLogNowPlaying
-        ? now
-        : playbackState.lastNowPlayingLog || now,
-    };
-
-    // Log first play of a track or periodic update
-    if (shouldLogNowPlaying) {
-      store.saveLog(`Now playing: ${trackName} by ${artistName}`, "INFO");
     }
 
     // Update state with latest API values
@@ -516,6 +504,10 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
     playbackState.progress = progress;
     playbackState.duration = duration;
     playbackState.lastProgress = progress;
+    playbackState.isInLibrary = isInLibrary;
+    playbackState.lastNowPlayingLog = trackChanged
+      ? now
+      : playbackState.lastNowPlayingLog;
 
     if (!isPlaying) {
       mainWindow.webContents.send("spotify:playbackUpdate", {
@@ -767,10 +759,10 @@ async function updateRecentTracks(): Promise<void> {
  */
 function resetPlaybackState(): void {
   playbackState = {
-    trackId: null,
-    trackName: null,
-    artistName: null,
-    albumName: null,
+    trackId: "",
+    trackName: "",
+    artistName: "",
+    albumName: "",
     albumArt: "",
     progress: 0,
     duration: 0,

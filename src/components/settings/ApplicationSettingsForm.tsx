@@ -22,6 +22,13 @@ import { UseFormReturn } from "react-hook-form";
 import * as z from "zod";
 import ToggleTheme from "@/components/ToggleTheme";
 import { settingsFormSchema } from "./settingsFormSchema";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { HelpCircle } from "lucide-react";
 
 interface ApplicationSettingsFormProps {
   form: UseFormReturn<z.infer<typeof settingsFormSchema>>;
@@ -48,9 +55,26 @@ export function ApplicationSettingsForm({
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                   <div className="space-y-0.5">
-                    <FormLabel className="text-base">
-                      Auto-Start Monitoring
-                    </FormLabel>
+                    <div className="flex items-center space-x-1">
+                      <FormLabel className="text-base">
+                        Auto-Start Monitoring
+                      </FormLabel>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="text-muted-foreground h-4 w-4" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>
+                              When enabled, the app will automatically begin
+                              monitoring your Spotify activity when you launch
+                              the app or log in, without requiring you to
+                              manually start monitoring.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     <FormDescription>
                       Automatically start monitoring when the app launches or
                       when you log in
@@ -76,7 +100,25 @@ export function ApplicationSettingsForm({
               name="fileLogLevel"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Log File Level</FormLabel>
+                  <div className="flex items-center space-x-1">
+                    <FormLabel>Log File Level</FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="text-muted-foreground h-4 w-4" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            Controls the level of detail saved in log files.
+                            DEBUG includes all events, INFO includes normal
+                            operations, WARNING includes potential issues, ERROR
+                            includes failures, and CRITICAL includes only
+                            critical failures.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Select
                     onValueChange={(value) => {
                       field.onChange(value);
@@ -111,7 +153,24 @@ export function ApplicationSettingsForm({
               name="logLineCount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Log Line Count</FormLabel>
+                  <div className="flex items-center space-x-1">
+                    <FormLabel>Log Line Count</FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="text-muted-foreground h-4 w-4" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            The maximum number of log lines to keep in each log
+                            file. When this limit is reached, older logs are
+                            archived or rotated. Higher values retain more
+                            history but use more disk space.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <FormControl>
                     <Input
                       type="number"
@@ -139,7 +198,24 @@ export function ApplicationSettingsForm({
               name="maxLogFiles"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Max Log Files</FormLabel>
+                  <div className="flex items-center space-x-1">
+                    <FormLabel>Max Log Files</FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="text-muted-foreground h-4 w-4" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            The maximum number of archived log files to retain.
+                            Older archives beyond this limit will be
+                            automatically deleted. This prevents excessive disk
+                            usage while preserving some history.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <FormControl>
                     <Input
                       type="number"
@@ -167,7 +243,24 @@ export function ApplicationSettingsForm({
               name="logRetentionDays"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Log Retention Days</FormLabel>
+                  <div className="flex items-center space-x-1">
+                    <FormLabel>Log Retention Days</FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="text-muted-foreground h-4 w-4" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            The maximum age in days for log files before
+                            they&apos;re automatically deleted. This provides an
+                            additional time-based cleanup mechanism alongside
+                            the max files limit.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <FormControl>
                     <Input
                       type="number"

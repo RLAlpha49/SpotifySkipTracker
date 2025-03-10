@@ -188,7 +188,7 @@ export function removeSkippedTrack(trackId: string): boolean {
  * Filters skipped tracks by a specified timeframe
  *
  * @param days - Number of days to look back
- * @returns Tracks skipped within the timeframe
+ * @returns Tracks within the timeframe (including non-skipped tracks)
  */
 export function filterSkippedTracksByTimeframe(
   days: number = 30,
@@ -200,8 +200,14 @@ export function filterSkippedTracksByTimeframe(
   cutoffDate.setDate(cutoffDate.getDate() - days);
 
   return tracks.filter((track) => {
+    // Always include tracks that have never been skipped but were fully played
+    if (!track.skipCount || track.skipCount === 0) {
+      return true;
+    }
+
+    // For tracks with no skip timestamps, check the lastSkipped date
     if (!track.skipTimestamps || track.skipTimestamps.length === 0) {
-      if (!track.lastSkipped) return false;
+      if (!track.lastSkipped) return true; // Include if no timestamp available
       return new Date(track.lastSkipped) >= cutoffDate;
     }
 

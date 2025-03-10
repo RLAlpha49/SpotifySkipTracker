@@ -57,6 +57,34 @@ export default function SkippedTracksPage() {
   };
 
   /**
+   * Refreshes skipped tracks data using the dedicated refresh endpoint
+   */
+  const refreshSkippedData = async () => {
+    setLoading(true);
+    try {
+      const tracks = await window.spotify.refreshSkippedTracks();
+      setSkippedTracks(tracks);
+
+      toast.success("Data refreshed", {
+        description: "Skipped tracks data has been refreshed.",
+      });
+
+      window.spotify.saveLog("Refreshed skipped tracks data", "INFO");
+    } catch (error) {
+      console.error("Failed to refresh skipped tracks:", error);
+      toast.error("Failed to refresh data", {
+        description: "Could not refresh skipped tracks data.",
+      });
+      window.spotify.saveLog(
+        `Error refreshing skipped tracks: ${error}`,
+        "ERROR",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
    * Processes tracks for automatic removal based on skip threshold
    * Only runs when autoUnlike setting is enabled
    */
@@ -396,7 +424,7 @@ export default function SkippedTracksPage() {
         timeframeInDays={timeframeInDays}
         skipThreshold={skipThreshold}
         loading={loading}
-        onRefresh={loadSkippedData}
+        onRefresh={refreshSkippedData}
         onOpenSkipsDirectory={handleOpenSkipsDirectory}
       />
 

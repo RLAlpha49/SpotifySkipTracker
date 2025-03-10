@@ -15,6 +15,13 @@ import {
 import { UseFormReturn } from "react-hook-form";
 import * as z from "zod";
 import { settingsFormSchema } from "./settingsFormSchema";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { HelpCircle } from "lucide-react";
 
 interface SkipDetectionFormProps {
   form: UseFormReturn<z.infer<typeof settingsFormSchema>>;
@@ -44,7 +51,23 @@ export function SkipDetectionForm({
               name="skipThreshold"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Skip Count Threshold</FormLabel>
+                  <div className="flex items-center space-x-1">
+                    <FormLabel>Skip Count Threshold</FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="text-muted-foreground h-4 w-4" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            When a track is skipped this many times, it will be
+                            suggested for removal. A higher number means tracks
+                            need to be skipped more before being flagged.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <FormControl>
                     <Input
                       type="number"
@@ -72,7 +95,24 @@ export function SkipDetectionForm({
               name="timeframeInDays"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Analysis Timeframe (days)</FormLabel>
+                  <div className="flex items-center space-x-1">
+                    <FormLabel>Analysis Timeframe (days)</FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="text-muted-foreground h-4 w-4" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            Only skips within this many days are counted toward
+                            the threshold. A smaller timeframe focuses on recent
+                            behavior, while a larger one considers historical
+                            patterns.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <FormControl>
                     <Input
                       type="number"
@@ -96,9 +136,24 @@ export function SkipDetectionForm({
 
           <div>
             <div className="mb-2">
-              <Label htmlFor="skipProgress">
-                Skip Progress Threshold: {skipProgress}%
-              </Label>
+              <div className="flex items-center space-x-1">
+                <Label htmlFor="skipProgress">
+                  Skip Progress Threshold: {skipProgress}%
+                </Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="text-muted-foreground h-4 w-4" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        If you listen to more than this percentage of a track
+                        before switching, it won&apos;t count as a skip.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <Slider
                 id="skipProgress"
                 min={10}
@@ -124,9 +179,25 @@ export function SkipDetectionForm({
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                   <div className="space-y-0.5">
-                    <FormLabel className="text-base">
-                      Auto-Remove Skipped Tracks
-                    </FormLabel>
+                    <div className="flex items-center space-x-1">
+                      <FormLabel className="text-base">
+                        Auto-Remove Skipped Tracks
+                      </FormLabel>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="text-muted-foreground h-4 w-4" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>
+                              When enabled, tracks exceeding the skip threshold
+                              will automatically be removed from your library
+                              without requiring manual confirmation.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     <FormDescription>
                       Automatically remove tracks from your library when they
                       exceed the skip threshold
