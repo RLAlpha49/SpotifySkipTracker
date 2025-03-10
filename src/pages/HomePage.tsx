@@ -8,46 +8,13 @@
  * - Playback monitoring controls
  */
 
-import React, { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import React, { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import {
-  FolderOpen,
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  LucideLogIn,
-} from "lucide-react";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-
-/**
- * Interface representing Spotify playback state
- */
-interface PlaybackInfo {
-  albumArt: string;
-  trackName: string;
-  artist: string;
-  album: string;
-  progress: number;
-  duration: number;
-  currentTimeSeconds?: number;
-  isPlaying: boolean;
-  isInPlaylist?: boolean;
-}
+import { PlaybackInfo, LogSettings } from "@/types/spotify";
+import { AuthenticationCard } from "@/components/spotify/AuthenticationCard";
+import { PlaybackMonitoringCard } from "@/components/spotify/PlaybackMonitoringCard";
+import { NowPlayingCard } from "@/components/spotify/NowPlayingCard";
+import { LogsCard } from "@/components/spotify/LogsCard";
 
 export default function HomePage() {
   const [playbackInfo, setPlaybackInfo] = useState<PlaybackInfo | null>(null);
@@ -55,16 +22,11 @@ export default function HomePage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [needsReauthentication, setNeedsReauthentication] = useState(false);
-  const [settings, setSettings] = useState({
-    displayLogLevel: "INFO" as
-      | "DEBUG"
-      | "INFO"
-      | "WARNING"
-      | "ERROR"
-      | "CRITICAL",
+  const [settings, setSettings] = useState<LogSettings>({
+    displayLogLevel: "INFO",
     logAutoRefresh: true,
   });
-  const logsRefreshIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
+  const logsRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [logSearchTerm, setLogSearchTerm] = useState("");
 
   /**
@@ -606,455 +568,46 @@ export default function HomePage() {
     }
   };
 
-  /**
-   * Formats seconds to MM:SS format
-   *
-   * @param seconds - Number of seconds to format
-   * @returns Formatted time string in MM:SS format
-   */
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
-  };
-
-  /**
-   * Filters and processes logs for display
-   * - Parses timestamps for sorting
-   * - Groups logs into sessions
-   * - Filters by log level and search term
-   * - Deduplicates entries
-   *
-   * @returns Array of filtered log messages
-   */
-  const getFilteredLogs = () => {
-    const logLevels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
-    const selectedLevelIndex = logLevels.indexOf(settings.displayLogLevel);
-
-    // Parse timestamps and sort logs by timestamp (newest first)
-    const parsedLogs = logs.map((log) => {
-      const matches = log.match(/\[(.*?)\]\s+\[([A-Z]+)\]\s+(.*)/);
-      if (matches && matches.length >= 4) {
-        const timestamp = matches[1];
-        const level = matches[2];
-        const message = matches[3];
-
-        // Parse timestamp into a date object
-        const dateParts = timestamp.match(/(\d+):(\d+):(\d+)\s+([AP])M\.(\d+)/);
-        let dateObj = null;
-
-        if (dateParts) {
-          // Create date for today with the parsed time
-          const now = new Date();
-          let hours = parseInt(dateParts[1]);
-          const minutes = parseInt(dateParts[2]);
-          const seconds = parseInt(dateParts[3]);
-          const milliseconds = parseInt(dateParts[5]);
-          const isPM = dateParts[4] === "P";
-
-          // Convert to 24-hour format
-          if (isPM && hours < 12) hours += 12;
-          if (!isPM && hours === 12) hours = 0;
-
-          dateObj = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate(),
-            hours,
-            minutes,
-            seconds,
-            milliseconds,
-          );
-        }
-
-        return {
-          original: log,
-          timestamp,
-          dateObj,
-          level,
-          message,
-          contentKey: `${level}-${message}`,
-        };
-      }
-
-      return {
-        original: log,
-        timestamp: "",
-        dateObj: null,
-        level: "",
-        message: log,
-        contentKey: log,
-      };
-    });
-
-    // Sort by timestamp
-    const sortedLogs = parsedLogs.sort((a, b) => {
-      if (a.dateObj && b.dateObj) {
-        return b.dateObj.getTime() - a.dateObj.getTime();
-      }
-      return 0;
-    });
-
-    // Group logs by session (30 min threshold)
-    const sessionBreakThreshold = 30 * 60 * 1000;
-    const currentSession = [];
-    let previousTime = null;
-
-    for (const log of sortedLogs) {
-      if (log.dateObj && previousTime) {
-        const timeDiff = previousTime - log.dateObj.getTime();
-
-        if (timeDiff < 0 || timeDiff > sessionBreakThreshold) {
-          break;
-        }
-      }
-
-      currentSession.push(log);
-      if (log.dateObj) {
-        previousTime = log.dateObj.getTime();
-      }
-    }
-
-    // Deduplicate logs
-    const uniqueSessionLogs = new Map();
-    const seenMessages = new Set();
-
-    currentSession.forEach((log) => {
-      if (seenMessages.has(log.contentKey)) {
-        return;
-      }
-
-      seenMessages.add(log.contentKey);
-      uniqueSessionLogs.set(log.contentKey, log.original);
-    });
-
-    // Filter by log level and search term
-    const filteredSessionLogs = Array.from(uniqueSessionLogs.values()).filter(
-      (log) => {
-        // Filter by log level
-        const match = log.match(/\[.*?\]\s+\[([A-Z]+)\]/);
-        if (!match) return false;
-
-        const logLevel = match[1];
-        const logLevelIndex = logLevels.indexOf(logLevel);
-
-        const levelMatches = logLevelIndex >= selectedLevelIndex;
-
-        // Filter by search term
-        const searchMatches =
-          !logSearchTerm ||
-          log.toLowerCase().includes(logSearchTerm.toLowerCase());
-
-        return levelMatches && searchMatches;
-      },
-    );
-
-    return filteredSessionLogs;
-  };
-
-  /**
-   * Determines CSS class based on log level
-   *
-   * @param log - Log message string
-   * @returns CSS class name for styling the log entry
-   */
-  const getLogLevelClass = (log: string): string => {
-    if (log.includes("[DEBUG]")) {
-      return "text-muted-foreground";
-    } else if (log.includes("[INFO]")) {
-      return "text-primary";
-    } else if (log.includes("[WARNING]")) {
-      return "text-yellow-600 dark:text-yellow-400";
-    } else if (log.includes("[ERROR]")) {
-      return "text-red-600 dark:text-red-400";
-    } else if (log.includes("[CRITICAL]")) {
-      return "text-red-700 dark:text-red-300 font-bold";
-    }
-    return "";
-  };
-
   return (
     <div className="container mx-auto py-4">
       {/* Authentication and connection controls */}
       <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card>
-          <CardContent className="p-4">
-            <h2 className="mb-4 text-lg font-semibold">Authentication</h2>
-            {isAuthenticated ? (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-green-600 dark:text-green-400">
-                    Connected to Spotify
-                  </span>
-                  <Button variant="outline" onClick={handleLogout}>
-                    Logout
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-red-600 dark:text-red-400">
-                    Not connected to Spotify
-                  </span>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleAuthenticate()}
-                  >
-                    <LucideLogIn className="mr-2 h-4 w-4" />
-                    Login
-                  </Button>
-                </div>
-                <p className="text-muted-foreground mt-2 text-xs">
-                  {needsReauthentication
-                    ? "You've logged out. Click Login to authenticate with Spotify."
-                    : "Connect to Spotify to use playback monitoring and controls."}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <AuthenticationCard
+          isAuthenticated={isAuthenticated}
+          needsReauthentication={needsReauthentication}
+          onLogin={handleAuthenticate}
+          onLogout={handleLogout}
+        />
 
-        <Card>
-          <CardContent className="p-4">
-            <h2 className="mb-4 text-lg font-semibold">Playback Monitoring</h2>
-            {isAuthenticated ? (
-              <div className="flex items-center justify-between">
-                <span
-                  className={
-                    isMonitoring
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-red-600 dark:text-red-400"
-                  }
-                >
-                  {isMonitoring ? "Monitoring Active" : "Monitoring Inactive"}
-                </span>
-                {isMonitoring ? (
-                  <Button
-                    variant="outline"
-                    onClick={handleStopMonitoring}
-                    disabled={!isAuthenticated}
-                  >
-                    Stop Monitoring
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleStartMonitoring}
-                    disabled={!isAuthenticated}
-                  >
-                    Start Monitoring
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <span className="text-muted-foreground">
-                Authenticate to enable monitoring
-              </span>
-            )}
-          </CardContent>
-        </Card>
+        <PlaybackMonitoringCard
+          isAuthenticated={isAuthenticated}
+          isMonitoring={isMonitoring}
+          onStartMonitoring={handleStartMonitoring}
+          onStopMonitoring={handleStopMonitoring}
+        />
       </div>
 
       {/* Current playback display */}
-      <Card className="mb-4">
-        <CardContent className="p-4">
-          <h2 className="mb-4 text-lg font-semibold">Now Playing</h2>
-          {playbackInfo && isAuthenticated ? (
-            <div>
-              <div className="flex flex-col gap-4 md:flex-row">
-                <div className="flex-shrink-0">
-                  {playbackInfo.albumArt ? (
-                    <img
-                      src={playbackInfo.albumArt}
-                      alt="Album Artwork"
-                      className="h-32 w-32 rounded-md object-cover shadow-md"
-                    />
-                  ) : (
-                    <div className="bg-muted text-muted-foreground flex h-32 w-32 items-center justify-center rounded-md text-center text-xs">
-                      No Album Art
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-1 flex-col justify-between">
-                  <div>
-                    <h3 className="text-base font-semibold">
-                      {playbackInfo.trackName || "Unknown Track"}
-                    </h3>
-                    <p className="text-muted-foreground text-sm">
-                      {playbackInfo.artist || "Unknown Artist"}
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      {playbackInfo.album || "Unknown Album"}
-                    </p>
-                    {playbackInfo.isInPlaylist !== undefined && (
-                      <p
-                        className={`mt-2 text-xs ${
-                          playbackInfo.isInPlaylist
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-muted-foreground"
-                        }`}
-                      >
-                        {playbackInfo.isInPlaylist
-                          ? "Track is in your library"
-                          : "Track is not in your library"}
-                      </p>
-                    )}
-                  </div>
-                  <div className="mt-2">
-                    <Progress
-                      value={playbackInfo.progress}
-                      className="h-1.5 w-full"
-                    />
-                    <div className="text-muted-foreground mt-1 flex justify-between text-xs">
-                      <span>
-                        {playbackInfo.currentTimeSeconds !== undefined
-                          ? formatTime(playbackInfo.currentTimeSeconds)
-                          : formatTime(
-                              (playbackInfo.progress / 100) *
-                                playbackInfo.duration,
-                            )}
-                      </span>
-                      <span>{formatTime(playbackInfo.duration)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {/* Playback Controls */}
-              <div className="mt-3 flex justify-center space-x-4">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handlePreviousTrack}
-                  disabled={!isAuthenticated || !isMonitoring}
-                  title="Previous Track"
-                >
-                  <SkipBack className="h-4 w-4" />
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handlePlayPause}
-                  disabled={!isAuthenticated || !isMonitoring}
-                  title={playbackInfo.isPlaying ? "Pause" : "Play"}
-                >
-                  {playbackInfo.isPlaying ? (
-                    <Pause className="h-4 w-4" />
-                  ) : (
-                    <Play className="h-4 w-4" />
-                  )}
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleNextTrack}
-                  disabled={!isAuthenticated || !isMonitoring}
-                  title="Next Track"
-                >
-                  <SkipForward className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-muted-foreground">
-              {isAuthenticated
-                ? "No track currently playing"
-                : "Connect to Spotify to see playback information"}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      <NowPlayingCard
+        isAuthenticated={isAuthenticated}
+        isMonitoring={isMonitoring}
+        playbackInfo={playbackInfo}
+        onPlayPause={handlePlayPause}
+        onPreviousTrack={handlePreviousTrack}
+        onNextTrack={handleNextTrack}
+      />
 
       {/* Application logs interface */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="mb-2 flex flex-col space-y-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Activity Logs</h2>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleOpenLogsDirectory}
-                  title="Open logs directory in file explorer"
-                  className="flex items-center gap-1"
-                >
-                  <FolderOpen className="h-4 w-4" />
-                  <span>Open Logs</span>
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleClearLogs}>
-                  Clear Logs
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              <div className="flex items-center gap-2">
-                <div className="flex flex-col">
-                  <Label className="mb-1 text-xs">Display Filter</Label>
-                  <Select
-                    value={settings.displayLogLevel}
-                    onValueChange={handleDisplayLogLevelChange}
-                  >
-                    <SelectTrigger className="w-32">
-                      <SelectValue placeholder="Display Level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="DEBUG">DEBUG</SelectItem>
-                      <SelectItem value="INFO">INFO</SelectItem>
-                      <SelectItem value="WARNING">WARNING</SelectItem>
-                      <SelectItem value="ERROR">ERROR</SelectItem>
-                      <SelectItem value="CRITICAL">CRITICAL</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="log-auto-refresh"
-                    checked={settings.logAutoRefresh}
-                    onCheckedChange={handleToggleLogAutoRefresh}
-                  />
-                  <Label htmlFor="log-auto-refresh">Auto-refresh</Label>
-                </div>
-
-                <Input
-                  type="text"
-                  placeholder="Search logs..."
-                  value={logSearchTerm}
-                  onChange={handleLogSearch}
-                  className="flex-1"
-                />
-              </div>
-            </div>
-          </div>
-          <Separator className="my-2" />
-          <ScrollArea className="h-60 w-full rounded-md border p-4">
-            {(() => {
-              const filteredLogs = getFilteredLogs();
-              return filteredLogs.length > 0 ? (
-                <div className="space-y-1">
-                  {filteredLogs.map((log, index) => (
-                    <div
-                      key={index}
-                      className={`py-0.5 font-mono text-xs ${getLogLevelClass(log)}`}
-                    >
-                      {log}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-center text-sm">
-                  No logs to display
-                </p>
-              );
-            })()}
-          </ScrollArea>
-        </CardContent>
-      </Card>
+      <LogsCard
+        logs={logs}
+        settings={settings}
+        logSearchTerm={logSearchTerm}
+        onDisplayLogLevelChange={handleDisplayLogLevelChange}
+        onToggleLogAutoRefresh={handleToggleLogAutoRefresh}
+        onLogSearch={handleLogSearch}
+        onClearLogs={handleClearLogs}
+        onOpenLogsDirectory={handleOpenLogsDirectory}
+      />
     </div>
   );
 }

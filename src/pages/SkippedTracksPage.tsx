@@ -12,57 +12,13 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { toast } from "sonner";
-import {
-  FolderOpen,
-  Trash2,
-  MoreVertical,
-  XCircle,
-  AlertTriangle,
-} from "lucide-react";
-import { SpotifySettings } from "./SettingsPage";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-
-/**
- * Track data with skip statistics and metadata
- */
-type SkippedTrack = {
-  id: string;
-  name: string;
-  artist: string;
-  skipCount: number;
-  notSkippedCount: number;
-  lastSkipped: string;
-  skipTimestamps?: string[];
-  autoProcessed?: boolean;
-};
+import { SpotifySettings } from "@/types/spotify";
+import { SkippedTrack } from "@/components/skippedTracks/types";
+import { shouldSuggestRemoval } from "@/components/skippedTracks/utils";
+import { SkippedTracksHeader } from "@/components/skippedTracks/SkippedTracksHeader";
+import { SkippedTracksBulkActions } from "@/components/skippedTracks/SkippedTracksBulkActions";
+import { SkippedTracksTable } from "@/components/skippedTracks/SkippedTracksTable";
 
 export default function SkippedTracksPage() {
   const [skippedTracks, setSkippedTracks] = useState<SkippedTrack[]>([]);
@@ -84,7 +40,7 @@ export default function SkippedTracksPage() {
     try {
       const tracks = await window.spotify.getSkippedTracks();
 
-      const settings = (await window.spotify.getSettings()) as SpotifySettings;
+      const settings = await window.spotify.getSettings() as SpotifySettings;
       setTimeframeInDays(settings.timeframeInDays || 30);
       setSkipThreshold(settings.skipThreshold || 3);
       setAutoUnlike(settings.autoUnlike !== false);
@@ -102,42 +58,6 @@ export default function SkippedTracksPage() {
   };
 
   /**
-   * Calculates skips within the configured time window
-   *
-   * @param track - Track to analyze for recent skips
-   * @returns Number of skips within the timeframe
-   */
-  const getRecentSkipCount = (track: SkippedTrack): number => {
-    if (!track.skipTimestamps || track.skipTimestamps.length === 0) {
-      return track.skipCount;
-    }
-
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - timeframeInDays);
-
-    return track.skipTimestamps.filter((timestamp) => {
-      const skipDate = new Date(timestamp);
-      return skipDate >= cutoffDate;
-    }).length;
-  };
-
-  /**
-   * Evaluates if a track exceeds the skip threshold
-   *
-   * @param track - Track to evaluate against threshold
-   * @returns Boolean indicating if track should be suggested for removal
-   */
-  const shouldSuggestRemoval = (track: SkippedTrack): boolean => {
-    try {
-      const recentSkips = getRecentSkipCount(track);
-      return recentSkips >= skipThreshold;
-    } catch (error) {
-      console.error("Error calculating skip suggestion:", error);
-      return false;
-    }
-  };
-
-  /**
    * Processes tracks for automatic removal based on skip threshold
    * Only runs when autoUnlike setting is enabled
    */
@@ -145,7 +65,10 @@ export default function SkippedTracksPage() {
     if (!autoUnlike) return;
 
     try {
-      const tracksToUnlike = skippedTracks.filter(shouldSuggestRemoval);
+      const tracksToUnlike = skippedTracks.filter(track => 
+        shouldSuggestRemoval(track, skipThreshold, timeframeInDays)
+      );
+      
       if (tracksToUnlike.length === 0) return;
 
       const removedTrackIds: string[] = [];
@@ -158,7 +81,7 @@ export default function SkippedTracksPage() {
 
           if (unlikeSuccess) {
             window.spotify.saveLog(
-              `Auto-removed track ${track.id} "${track.name}" from library (${getRecentSkipCount(track)} skips)`,
+              `Auto-removed track ${track.id} "${track.name}" from library (${shouldSuggestRemoval(track, skipThreshold, timeframeInDays) ? "eligible for removal" : "not eligible for removal"})`,
               "INFO",
             );
 
@@ -230,51 +153,6 @@ export default function SkippedTracksPage() {
       checkForAutoUnlike();
     }
   }, [skippedTracks, autoUnlike, skipThreshold]);
-
-  /**
-   * Calculates percentage of skips relative to total plays
-   *
-   * @param track - Track to calculate skip ratio for
-   * @returns Formatted percentage string
-   */
-  const calculateSkipRatio = (track: SkippedTrack): string => {
-    const totalPlays = track.skipCount + track.notSkippedCount;
-    if (totalPlays === 0) return "0%";
-
-    const ratio = (track.skipCount / totalPlays) * 100;
-    return `${ratio.toFixed(0)}%`;
-  };
-
-  /**
-   * Formats ISO date string to localized date and time
-   *
-   * @param dateString - ISO timestamp string
-   * @returns Human-readable formatted date string
-   */
-  const formatDate = (dateString: string): string => {
-    if (!dateString) return "Never";
-
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + " " + date.toLocaleTimeString();
-  };
-
-  /**
-   * Comparison function for sorting tracks by skip frequency
-   *
-   * @param a - First track to compare
-   * @param b - Second track to compare
-   * @returns Sort value (-1, 0, 1) for array sorting
-   */
-  const sortBySkipCount = (a: SkippedTrack, b: SkippedTrack): number => {
-    const recentSkipsA = getRecentSkipCount(a);
-    const recentSkipsB = getRecentSkipCount(b);
-
-    if (recentSkipsB !== recentSkipsA) {
-      return recentSkipsB - recentSkipsA;
-    }
-
-    return b.skipCount - a.skipCount;
-  };
 
   /**
    * Removes track from skip tracking database only
@@ -392,7 +270,9 @@ export default function SkippedTracksPage() {
    * from both Spotify library and tracking database
    */
   const handleRemoveAllHighlighted = async () => {
-    const tracksToRemove = skippedTracks.filter(shouldSuggestRemoval);
+    const tracksToRemove = skippedTracks.filter(track => 
+      shouldSuggestRemoval(track, skipThreshold, timeframeInDays)
+    );
 
     if (tracksToRemove.length === 0) {
       toast.info("No tracks to remove", {
@@ -513,254 +393,35 @@ export default function SkippedTracksPage() {
 
   return (
     <div className="container mx-auto py-4">
-      <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row">
-        <div className="flex-1 pr-4">
-          <h1 className="text-2xl font-bold">Skipped Tracks</h1>
-          <p className="text-muted-foreground text-sm text-wrap">
-            Tracks you&apos;ve skipped within the last {timeframeInDays} days.
-            <span className="mt-0.5 block text-xs">
-              Tracks skipped {skipThreshold}+ times are highlighted for removal.
-            </span>
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleOpenSkipsDirectory}
-            title="Open skip data folder"
-            className="flex items-center gap-1"
-          >
-            <FolderOpen className="h-4 w-4" />
-            <span>Open Skips</span>
-          </Button>
-          <Button onClick={loadSkippedData} disabled={loading}>
-            {loading ? "Loading..." : "Refresh"}
-          </Button>
-        </div>
-      </div>
+      <SkippedTracksHeader
+        timeframeInDays={timeframeInDays}
+        skipThreshold={skipThreshold}
+        loading={loading}
+        onRefresh={loadSkippedData}
+        onOpenSkipsDirectory={handleOpenSkipsDirectory}
+      />
 
-      {/* Bulk Action Buttons */}
-      <div className="mb-4 flex justify-end gap-2">
-        {/* Clear All Skipped Data with AlertDialog */}
-        <AlertDialog
-          open={showClearDataDialog}
-          onOpenChange={setShowClearDataDialog}
-        >
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={loading || skippedTracks.length === 0}
-              className="border-yellow-300 text-yellow-600 hover:text-yellow-800"
-              title="Remove all tracking data but keep tracks in library"
-            >
-              Clear All Skipped Data
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                Clear All Skipped Data
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                This will permanently delete all skipped tracks data. Your
-                tracks will remain in your Spotify library, but all skip
-                statistics will be lost.
-                <p className="mt-2 font-medium">
-                  This action cannot be undone.
-                </p>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleClearSkippedData}
-                className="bg-yellow-600 hover:bg-yellow-700"
-              >
-                Clear All Data
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+      <SkippedTracksBulkActions
+        loading={loading}
+        tracks={skippedTracks}
+        skipThreshold={skipThreshold}
+        timeframeInDays={timeframeInDays}
+        showClearDataDialog={showClearDataDialog}
+        setShowClearDataDialog={setShowClearDataDialog}
+        showRemoveHighlightedDialog={showRemoveHighlightedDialog}
+        setShowRemoveHighlightedDialog={setShowRemoveHighlightedDialog}
+        onClearSkippedData={handleClearSkippedData}
+        onRemoveAllHighlighted={handleRemoveAllHighlighted}
+      />
 
-        {/* Remove All Highlighted with AlertDialog */}
-        <AlertDialog
-          open={showRemoveHighlightedDialog}
-          onOpenChange={setShowRemoveHighlightedDialog}
-        >
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={loading || !skippedTracks.some(shouldSuggestRemoval)}
-              className="border-red-300 text-red-600 hover:text-red-800"
-              title="Remove all highlighted tracks from library"
-            >
-              Remove All Highlighted
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-red-500" />
-                Remove All Highlighted Tracks
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                This will remove{" "}
-                {skippedTracks.filter(shouldSuggestRemoval).length} tracks from
-                your Spotify library and tracking data. These tracks have been
-                skipped {skipThreshold} or more times within the last{" "}
-                {timeframeInDays} days.
-                <p className="mt-2 font-medium">
-                  This action cannot be undone.
-                </p>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleRemoveAllHighlighted}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                Remove Tracks
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
-
-      <Card>
-        <CardContent className="p-2 sm:p-6">
-          <ScrollArea
-            className="h-[calc(80vh-20rem)] w-full overflow-x-auto overflow-y-hidden pr-2"
-            type="always"
-          >
-            <Table className="w-full border-collapse">
-              <TableHeader className="bg-background sticky top-0 z-10">
-                <TableRow>
-                  <TableHead className="w-[40%]">Track</TableHead>
-                  <TableHead className="w-[8%] text-right">Recent</TableHead>
-                  <TableHead className="w-[8%] text-right">Total</TableHead>
-                  <TableHead className="w-[10%] text-right">
-                    Completed
-                  </TableHead>
-                  <TableHead className="w-[8%] text-right">Ratio</TableHead>
-                  <TableHead className="w-[20%] text-right">
-                    Last Skipped
-                  </TableHead>
-                  <TableHead className="w-[6%] text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {skippedTracks.length > 0 ? (
-                  [...skippedTracks].sort(sortBySkipCount).map((track) => {
-                    const recentSkips = getRecentSkipCount(track);
-                    const suggestRemoval = shouldSuggestRemoval(track);
-
-                    return (
-                      <TableRow
-                        key={track.id}
-                        className={
-                          suggestRemoval ? "bg-red-50 dark:bg-red-950/20" : ""
-                        }
-                      >
-                        <TableCell className="w-full max-w-0 overflow-hidden">
-                          <div className="w-full">
-                            <div
-                              className={`w-full truncate font-medium ${
-                                suggestRemoval
-                                  ? "text-red-600 dark:text-red-400"
-                                  : ""
-                              }`}
-                              title={track.name}
-                            >
-                              {track.name}
-                              {suggestRemoval && " 🗑️"}
-                            </div>
-                            <div
-                              className="text-muted-foreground w-full truncate text-sm"
-                              title={track.artist}
-                            >
-                              {track.artist}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span
-                            className={
-                              suggestRemoval
-                                ? "font-bold text-red-600 dark:text-red-400"
-                                : ""
-                            }
-                          >
-                            {recentSkips}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {track.skipCount}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {track.notSkippedCount}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {calculateSkipRatio(track)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatDate(track.lastSkipped)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <span className="sr-only">Open menu</span>
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() => handleUnlikeTrack(track)}
-                                  className="cursor-pointer text-red-600 hover:text-red-800 dark:text-red-400 hover:dark:text-red-300"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  <span>Remove from library</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => handleRemoveTrackData(track)}
-                                  className="cursor-pointer text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 hover:dark:text-yellow-300"
-                                >
-                                  <XCircle className="mr-2 h-4 w-4" />
-                                  <span>Remove tracking data</span>
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={7} className="py-6 text-center">
-                      {loading ? (
-                        <p>Loading skipped tracks data...</p>
-                      ) : (
-                        <p>No skipped tracks data available.</p>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </ScrollArea>
-        </CardContent>
-      </Card>
+      <SkippedTracksTable
+        tracks={skippedTracks}
+        loading={loading}
+        skipThreshold={skipThreshold}
+        timeframeInDays={timeframeInDays}
+        onUnlikeTrack={handleUnlikeTrack}
+        onRemoveTrackData={handleRemoveTrackData}
+      />
     </div>
   );
 }

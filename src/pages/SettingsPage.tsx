@@ -13,92 +13,18 @@
 
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { CardContent } from "@/components/ui/card";
+import { Form } from "@/components/ui/form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "sonner";
-import ToggleTheme from "@/components/ToggleTheme";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Switch } from "@/components/ui/switch";
-
-/**
- * Form validation schema
- * Defines constraints and validation rules for all configurable settings
- */
-const settingsFormSchema = z.object({
-  // Spotify API credentials
-  clientId: z.string().min(1, { message: "Client ID is required" }),
-  clientSecret: z.string().min(1, { message: "Client Secret is required" }),
-  redirectUri: z.string().min(1, { message: "Redirect URI is required" }),
-
-  // App settings
-  fileLogLevel: z.enum(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
-  logLineCount: z.coerce.number().int().min(10).max(10000),
-  maxLogFiles: z.coerce.number().int().min(1).max(100),
-  logRetentionDays: z.coerce.number().int().min(1).max(365),
-  skipThreshold: z.coerce.number().int().min(1).max(10),
-  timeframeInDays: z.coerce.number().int().min(1).max(365),
-  autoStartMonitoring: z.boolean().default(true),
-  autoUnlike: z.boolean().default(true),
-});
-
-/**
- * Application settings type definition
- * Includes all application configuration parameters
- */
-export type SpotifySettings = {
-  // Spotify API credentials
-  clientId: string;
-  clientSecret: string;
-  redirectUri: string;
-
-  // App settings
-  fileLogLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
-  logLineCount: number;
-  maxLogFiles: number;
-  logRetentionDays: number;
-  skipThreshold: number;
-  timeframeInDays: number;
-  skipProgress: number;
-  autoStartMonitoring: boolean;
-  autoUnlike: boolean;
-
-  // Home page settings
-  displayLogLevel?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
-  logAutoRefresh?: boolean;
-
-  // Legacy format support
-  logLevel?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
-};
+import { SpotifySettings } from "@/types/spotify";
+import { ApiCredentialsForm } from "@/components/settings/ApiCredentialsForm";
+import { SkipDetectionForm } from "@/components/settings/SkipDetectionForm";
+import { ApplicationSettingsForm } from "@/components/settings/ApplicationSettingsForm";
+import { RestartDialog } from "@/components/settings/RestartDialog";
+import { settingsFormSchema } from "@/components/settings/settingsFormSchema";
 
 export default function SettingsPage() {
   // State for application restart confirmation dialog
@@ -266,394 +192,24 @@ export default function SettingsPage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             {/* Spotify API Settings */}
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold">Spotify API Credentials</h2>
-              <p className="text-muted-foreground mb-4 text-sm">
-                Enter your Spotify Developer credentials. You can get these from
-                the{" "}
-                <a
-                  href="https://developer.spotify.com/dashboard"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline"
-                >
-                  Spotify Developer Dashboard
-                </a>
-                .
-              </p>
-              <Card>
-                <CardContent className="p-6">
-                  <div className="mb-4">
-                    <FormField
-                      control={form.control}
-                      name="clientId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Client ID</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Spotify Client ID"
-                              {...field}
-                              onChange={(e) => {
-                                field.onChange(e);
-                                setSettingsChanged(true);
-                              }}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Your Spotify application Client ID
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="mb-4">
-                    <FormField
-                      control={form.control}
-                      name="clientSecret"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Client Secret</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="password"
-                              placeholder="Spotify Client Secret"
-                              {...field}
-                              onChange={(e) => {
-                                field.onChange(e);
-                                setSettingsChanged(true);
-                              }}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Your Spotify application Client Secret
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div>
-                    <FormField
-                      control={form.control}
-                      name="redirectUri"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Redirect URI</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="http://localhost:8888/callback"
-                              {...field}
-                              onChange={(e) => {
-                                field.onChange(e);
-                                setSettingsChanged(true);
-                              }}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            The redirect URI registered in your Spotify
-                            application
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <ApiCredentialsForm 
+              form={form}
+              setSettingsChanged={setSettingsChanged}
+            />
 
             {/* Skip Detection Settings */}
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold">Skip Detection Settings</h2>
-              <p className="text-muted-foreground mb-4 text-sm">
-                Configure how skips are detected and when tracks are removed
-              </p>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="mb-4">
-                    <FormField
-                      control={form.control}
-                      name="skipThreshold"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Skip Count Threshold</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min={1}
-                              max={10}
-                              {...field}
-                              onChange={(e) => {
-                                field.onChange(e);
-                                setSettingsChanged(true);
-                              }}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Number of skips before a track is suggested for
-                            removal
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="mb-4">
-                    <FormField
-                      control={form.control}
-                      name="timeframeInDays"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Analysis Timeframe (days)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min={1}
-                              max={365}
-                              {...field}
-                              onChange={(e) => {
-                                field.onChange(e);
-                                setSettingsChanged(true);
-                              }}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Period of time to consider for skip analysis
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div>
-                    <div className="mb-2">
-                      <Label htmlFor="skipProgress">
-                        Skip Progress Threshold: {skipProgress}%
-                      </Label>
-                      <Slider
-                        id="skipProgress"
-                        min={10}
-                        max={90}
-                        step={5}
-                        value={[skipProgress]}
-                        onValueChange={(value) => {
-                          setSkipProgress(value[0]);
-                          setSettingsChanged(true);
-                        }}
-                      />
-                    </div>
-                    <p className="text-muted-foreground text-xs">
-                      If a track is played beyond this percentage, it won&apos;t
-                      be considered skipped
-                    </p>
-                  </div>
-
-                  <div className="mt-4">
-                    <FormField
-                      control={form.control}
-                      name="autoUnlike"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">
-                              Auto-Remove Skipped Tracks
-                            </FormLabel>
-                            <FormDescription>
-                              Automatically remove tracks from your library when
-                              they exceed the skip threshold
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={(checked) => {
-                                field.onChange(checked);
-                                setSettingsChanged(true);
-                              }}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <SkipDetectionForm
+              form={form}
+              skipProgress={skipProgress}
+              setSkipProgress={setSkipProgress}
+              setSettingsChanged={setSettingsChanged}
+            />
 
             {/* Application Settings */}
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold">Application Settings</h2>
-              <p className="text-muted-foreground mb-4 text-sm">
-                Configure general application behavior
-              </p>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="mb-4">
-                    <FormField
-                      control={form.control}
-                      name="autoStartMonitoring"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">
-                              Auto-Start Monitoring
-                            </FormLabel>
-                            <FormDescription>
-                              Automatically start monitoring when the app
-                              launches or when you log in
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={(checked) => {
-                                field.onChange(checked);
-                                setSettingsChanged(true);
-                              }}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="mb-4">
-                    <FormField
-                      control={form.control}
-                      name="fileLogLevel"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Log File Level</FormLabel>
-                          <Select
-                            onValueChange={(value) => {
-                              field.onChange(value);
-                              setSettingsChanged(true);
-                            }}
-                            value={field.value}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select log level" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="DEBUG">Debug</SelectItem>
-                              <SelectItem value="INFO">Info</SelectItem>
-                              <SelectItem value="WARNING">Warning</SelectItem>
-                              <SelectItem value="ERROR">Error</SelectItem>
-                              <SelectItem value="CRITICAL">Critical</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>
-                            Controls what logs are saved to log files (display
-                            filtering is separate)
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="mb-4">
-                    <FormField
-                      control={form.control}
-                      name="logLineCount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Log Line Count</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min={10}
-                              max={10000}
-                              {...field}
-                              onChange={(e) => {
-                                field.onChange(e);
-                                setSettingsChanged(true);
-                              }}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Maximum number of log lines to keep
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="mb-4">
-                    <FormField
-                      control={form.control}
-                      name="maxLogFiles"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Max Log Files</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min={1}
-                              max={100}
-                              {...field}
-                              onChange={(e) => {
-                                field.onChange(e);
-                                setSettingsChanged(true);
-                              }}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Maximum number of log files to keep
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="mb-4">
-                    <FormField
-                      control={form.control}
-                      name="logRetentionDays"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Log Retention Days</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min={1}
-                              max={365}
-                              {...field}
-                              onChange={(e) => {
-                                field.onChange(e);
-                                setSettingsChanged(true);
-                              }}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Number of days to retain log files
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Theme</Label>
-                    <div className="mt-2 flex items-center space-x-2">
-                      <ToggleTheme />
-                      <span className="text-sm">Toggle dark/light mode</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <ApplicationSettingsForm
+              form={form}
+              setSettingsChanged={setSettingsChanged}
+            />
 
             <div className="mt-6 flex justify-end">
               <Button type="submit" disabled={!settingsChanged}>
@@ -664,23 +220,12 @@ export default function SettingsPage() {
         </Form>
       </CardContent>
 
-      <AlertDialog open={showRestartDialog} onOpenChange={setShowRestartDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Restart Required</AlertDialogTitle>
-            <AlertDialogDescription>
-              The changes you made require an application restart to take
-              effect. Do you want to restart now?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Later</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRestart}>
-              Restart Now
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Restart Dialog */}
+      <RestartDialog
+        showRestartDialog={showRestartDialog}
+        setShowRestartDialog={setShowRestartDialog}
+        onRestart={handleRestart}
+      />
     </div>
   );
 }
