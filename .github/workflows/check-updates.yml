@@ -99,6 +99,32 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: update npm dependencies"
           git push origin ${{ steps.check-pr.outputs.pr_branch }}
 
+      - name: Add comment to existing PR about updates
+        if: ${{ steps.check-pr.outputs.pr_exists == 'true' && steps.check-updates.outputs.has_updates == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.check-pr.outputs.pr_number }}
+        run: |
+          # Check if there were any actual changes committed
+          if git diff HEAD~1 --name-only | grep -E 'package(-lock)?.json'; then
+            # Format the update info for the comment
+            UPDATE_INFO='${{ steps.check-updates.outputs.update_info }}'
+            
+            # Create comment with update details
+            gh pr comment $PR_NUMBER --body "## 📦 New dependency updates added
+            
+            This PR has been updated with additional dependency updates.
+            
+            <details>
+            <summary>Latest Package Updates</summary>
+            
+            \`\`\`json
+            $UPDATE_INFO
+            \`\`\`
+            </details>
+            "
+          fi
+
       - name: Create new Pull Request
         if: ${{ steps.check-pr.outputs.pr_exists != 'true' && (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-updates.outputs.has_updates == 'true' }}
         uses: peter-evans/create-pull-request@v6
