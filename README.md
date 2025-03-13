@@ -1,4 +1,10 @@
+<div align="center">
+
+![SpotifySkipTrackerIconTransparent](https://github.com/user-attachments/assets/4023e57b-64b6-4b60-a369-42290dc887ab)
+
 # Spotify Skip Tracker
+
+</div>
 
 A desktop application that tracks your Spotify listening habits and identifies songs you frequently skip. Make data-driven decisions about which tracks to keep in your library.
 
@@ -16,7 +22,7 @@ A desktop application that tracks your Spotify listening habits and identifies s
 
 ### Prerequisites
 
-- Node.js (v16 or later)
+- Node.js (v22 or later)
 - npm or yarn
 - A Spotify account
 - Spotify Developer credentials (see below)
