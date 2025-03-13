@@ -121,6 +121,7 @@ jobs:
           fi
 
       - name: Incorporate Dependabot PRs
+        id: check-dependabot-incorporate
         if: ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
@@ -161,15 +162,16 @@ jobs:
             fi
           done
 
-          # Record which Dependabot PRs were incorporated
-          echo "INCORPORATED_DEPENDABOT_PRS=$(cat incorporated_prs.json)" >> $GITHUB_ENV
-
-          # Store the same info as output
+          # Store the incorporated PRs as output only, not as environment variable
           echo "incorporated_prs<<EOF" >> $GITHUB_OUTPUT
           cat incorporated_prs.json >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-          echo "Incorporated PRs:"
+          # Count how many PRs we incorporated
+          INCORPORATED_COUNT=$(jq 'length' incorporated_prs.json)
+          echo "incorporated_count=$INCORPORATED_COUNT" >> $GITHUB_OUTPUT
+
+          echo "Incorporated PRs ($INCORPORATED_COUNT):"
           cat incorporated_prs.json | jq '.'
 
       - name: Update packages
@@ -193,13 +195,12 @@ jobs:
           git push origin ${{ steps.check-pr.outputs.pr_branch }}
 
       - name: Add comment to existing PR about updates
-        if: ${{ steps.check-pr.outputs.pr_exists == 'true' && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
+        if: ${{ steps.check-pr.outputs.pr_exists == 'true' && (steps.check-updates.outputs.has_updates == 'true' || (steps.check-dependabot.outputs.has_dependabot_prs == 'true' && steps.check-dependabot-incorporate.outputs.incorporated_count > 0)) }}
         env:
           GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.check-pr.outputs.pr_number }}
           UPDATE_INFO: ${{ steps.check-updates.outputs.update_info }}
-          DEPENDABOT_PRS: ${{ steps.check-dependabot.outputs.dependabot_prs }}
-          INCORPORATED_PRS: ${{ steps.check-dependabot.outputs.incorporated_prs }}
+          INCORPORATED_PRS: ${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}
         run: |
           # Start building comment
           COMMENT="## 📦 New dependency updates added\n\nThis PR has been updated with "
@@ -215,25 +216,21 @@ jobs:
           fi
 
           # Check if there were any Dependabot PRs incorporated
-          if [ "${{ steps.check-dependabot.outputs.has_dependabot_prs }}" == "true" ]; then
-            # Check if we actually incorporated any PRs
-            INCORPORATED_COUNT=$(echo "$INCORPORATED_PRS" | jq -s 'length // 0')
-            
-            if [ "$INCORPORATED_COUNT" -gt 0 ]; then
-              if [ "$UPDATES_ADDED" == "true" ]; then
-                COMMENT+=" and "
-              fi
-              COMMENT+="Dependabot updates"
-              
-              # Add Dependabot updates section
-              COMMENT+="\n\n<details>\n<summary>Incorporated Dependabot PRs</summary>\n\n"
-              
-              echo "$INCORPORATED_PRS" | jq -r '.[] | "- PR #\(.number): \(.title)"' | while read -r LINE; do
-                COMMENT+="$LINE\n"
-              done
-              
-              COMMENT+="\n</details>"
+          INCORPORATED_COUNT=${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}
+          if [ "$INCORPORATED_COUNT" -gt 0 ]; then
+            if [ "$UPDATES_ADDED" == "true" ]; then
+              COMMENT+=" and "
             fi
+            COMMENT+="Dependabot updates"
+            
+            # Add Dependabot updates section
+            COMMENT+="\n\n<details>\n<summary>Incorporated Dependabot PRs</summary>\n\n"
+            
+            echo "$INCORPORATED_PRS" | jq -r '.[] | "- PR #\(.number): \(.title)"' | while read -r LINE; do
+              COMMENT+="$LINE\n"
+            done
+            
+            COMMENT+="\n</details>"
           fi
 
           # Only post comment if we have something meaningful to say
@@ -245,9 +242,7 @@ jobs:
           fi
 
       - name: Create new Pull Request
-        if: ${{ steps.check-pr.outputs.pr_exists != 'true' && (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
-        env:
-          INCORPORATED_PRS: ${{ steps.check-dependabot.outputs.incorporated_prs }}
+        if: ${{ steps.check-pr.outputs.pr_exists != 'true' && (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || (steps.check-dependabot.outputs.has_dependabot_prs == 'true' && steps.check-dependabot-incorporate.outputs.incorporated_count > 0)) }}
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
@@ -265,14 +260,14 @@ jobs:
             ${{ steps.check-updates.outputs.has_updates == 'true' && '```' || '' }}
             ${{ steps.check-updates.outputs.has_updates == 'true' && '</details>' || '' }}
 
-            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '### Incorporated Dependabot PRs' || '' }}
-            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '<details><summary>Show PRs</summary>' || '' }}
-            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && 'The following Dependabot PRs were incorporated:' || '' }}
+            ${{ steps.check-dependabot-incorporate.outputs.incorporated_count > 0 && '### Incorporated Dependabot PRs' || '' }}
+            ${{ steps.check-dependabot-incorporate.outputs.incorporated_count > 0 && '<details><summary>Show Incorporated PRs</summary>' || '' }}
+            ${{ steps.check-dependabot-incorporate.outputs.incorporated_count > 0 && 'The following Dependabot PRs were incorporated:' || '' }}
 
-            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '```json' || '' }}
-            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && steps.check-dependabot.outputs.incorporated_prs || '' }}
-            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '```' || '' }}
-            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '</details>' || '' }}
+            ${{ steps.check-dependabot-incorporate.outputs.incorporated_count > 0 && '```json' || '' }}
+            ${{ steps.check-dependabot-incorporate.outputs.incorporated_count > 0 && steps.check-dependabot-incorporate.outputs.incorporated_prs || '' }}
+            ${{ steps.check-dependabot-incorporate.outputs.incorporated_count > 0 && '```' || '' }}
+            ${{ steps.check-dependabot-incorporate.outputs.incorporated_count > 0 && '</details>' || '' }}
           branch: ${{ steps.check-pr.outputs.pr_branch }}
           delete-branch: true
           base: master
