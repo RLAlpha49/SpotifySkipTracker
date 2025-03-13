@@ -63,16 +63,29 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          # Find all open Dependabot PRs
-          DEPENDABOT_PRS=$(gh pr list --json number,title,headRefName,author --jq '.[] | select(.author.login == "dependabot[bot]") | {number: .number, title: .title, branch: .headRefName}')
+          echo "Checking for open Dependabot PRs..."
+
+          # Debug: List all open PRs to help diagnose issues
+          echo "All open PRs:"
+          gh pr list --json number,title,author --limit 10
+
+          # Find all open Dependabot PRs using multiple detection strategies
+          # 1. By author name AND
+          # 2. By PR title prefix "Bump"
+          DEPENDABOT_PRS=$(gh pr list --state open --json number,title,headRefName,author --jq '.[] | select((.author.login == "dependabot[bot]" or .author.login == "dependabot") or (.title | startswith("Bump "))) | {number: .number, title: .title, branch: .headRefName}')
+
+          echo "Found Dependabot PRs:"
+          echo "$DEPENDABOT_PRS" | jq -s '.'
 
           # Check if there are any Dependabot PRs
           if [ "$(echo "$DEPENDABOT_PRS" | jq -s 'length')" -gt 0 ]; then
+            echo "✅ Found Dependabot PRs"
             echo "has_dependabot_prs=true" >> $GITHUB_OUTPUT
             echo "dependabot_prs<<EOF" >> $GITHUB_OUTPUT
             echo "$DEPENDABOT_PRS" >> $GITHUB_OUTPUT 
             echo "EOF" >> $GITHUB_OUTPUT
           else
+            echo "❌ No Dependabot PRs found"
             echo "has_dependabot_prs=false" >> $GITHUB_OUTPUT
           fi
 
@@ -117,6 +130,9 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
+          # Create a file to track successfully incorporated PRs
+          echo "[]" > incorporated_prs.json
+
           # Parse the JSON array of dependabot PRs
           echo "$DEPENDABOT_PRS" | jq -c '.[]' | while read -r PR_INFO; do
             PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number')
@@ -126,12 +142,15 @@ jobs:
             echo "Processing Dependabot PR #$PR_NUMBER: $PR_TITLE (branch: $PR_BRANCH)"
             
             # Fetch the Dependabot branch
-            git fetch origin "$PR_BRANCH"
+            git fetch origin "$PR_BRANCH" || { echo "Failed to fetch $PR_BRANCH, skipping"; continue; }
             
             # Try to merge the branch (skip if conflict)
             if git merge --no-commit --no-ff "origin/$PR_BRANCH"; then
               echo "Successfully merged Dependabot PR #$PR_NUMBER"
               git commit -m "chore: incorporate Dependabot PR #$PR_NUMBER ($PR_TITLE)"
+              
+              # Add to successfully incorporated PRs
+              jq --arg num "$PR_NUMBER" --arg title "$PR_TITLE" '. += [{"number": $num, "title": $title}]' incorporated_prs.json > tmp.json && mv tmp.json incorporated_prs.json
             else
               echo "Merge conflict with Dependabot PR #$PR_NUMBER, skipping"
               git merge --abort
@@ -139,7 +158,15 @@ jobs:
           done
 
           # Record which Dependabot PRs were incorporated
-          echo "INCORPORATED_DEPENDABOT_PRS=$DEPENDABOT_PRS" >> $GITHUB_ENV
+          echo "INCORPORATED_DEPENDABOT_PRS=$(cat incorporated_prs.json)" >> $GITHUB_ENV
+
+          # Store the same info as output
+          echo "incorporated_prs<<EOF" >> $GITHUB_OUTPUT
+          cat incorporated_prs.json >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "Incorporated PRs:"
+          cat incorporated_prs.json | jq '.'
 
       - name: Update packages
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-updates.outputs.has_updates == 'true' }}
@@ -168,6 +195,7 @@ jobs:
           PR_NUMBER: ${{ steps.check-pr.outputs.pr_number }}
           UPDATE_INFO: ${{ steps.check-updates.outputs.update_info }}
           DEPENDABOT_PRS: ${{ steps.check-dependabot.outputs.dependabot_prs }}
+          INCORPORATED_PRS: ${{ steps.check-dependabot.outputs.incorporated_prs }}
         run: |
           # Start building comment
           COMMENT="## 📦 New dependency updates added\n\nThis PR has been updated with "
@@ -184,28 +212,38 @@ jobs:
 
           # Check if there were any Dependabot PRs incorporated
           if [ "${{ steps.check-dependabot.outputs.has_dependabot_prs }}" == "true" ]; then
-            if [ "$UPDATES_ADDED" == "true" ]; then
-              COMMENT+=" and "
+            # Check if we actually incorporated any PRs
+            INCORPORATED_COUNT=$(echo "$INCORPORATED_PRS" | jq -s 'length // 0')
+            
+            if [ "$INCORPORATED_COUNT" -gt 0 ]; then
+              if [ "$UPDATES_ADDED" == "true" ]; then
+                COMMENT+=" and "
+              fi
+              COMMENT+="Dependabot updates"
+              
+              # Add Dependabot updates section
+              COMMENT+="\n\n<details>\n<summary>Incorporated Dependabot PRs</summary>\n\n"
+              
+              echo "$INCORPORATED_PRS" | jq -r '.[] | "- PR #\(.number): \(.title)"' | while read -r LINE; do
+                COMMENT+="$LINE\n"
+              done
+              
+              COMMENT+="\n</details>"
             fi
-            COMMENT+="Dependabot updates"
-            
-            # Add Dependabot updates section
-            COMMENT+="\n\n<details>\n<summary>Incorporated Dependabot PRs</summary>\n\n"
-            
-            echo "$DEPENDABOT_PRS" | jq -c '.[]' | while read -r PR_INFO; do
-              PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number')
-              PR_TITLE=$(echo "$PR_INFO" | jq -r '.title')
-              COMMENT+="- PR #$PR_NUMBER: $PR_TITLE\n"
-            done
-            
-            COMMENT+="\n</details>"
           fi
 
-          # Create the comment
-          gh pr comment $PR_NUMBER --body "$COMMENT"
+          # Only post comment if we have something meaningful to say
+          if [ "$UPDATES_ADDED" == "true" ] || [ "$INCORPORATED_COUNT" -gt 0 ]; then
+            # Create the comment
+            gh pr comment $PR_NUMBER --body "$COMMENT"
+          else
+            echo "No updates to comment about"
+          fi
 
       - name: Create new Pull Request
         if: ${{ steps.check-pr.outputs.pr_exists != 'true' && (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
+        env:
+          INCORPORATED_PRS: ${{ steps.check-dependabot.outputs.incorporated_prs }}
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
@@ -226,9 +264,9 @@ jobs:
             ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '### Incorporated Dependabot PRs' || '' }}
             ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '<details><summary>Show PRs</summary>' || '' }}
             ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && 'The following Dependabot PRs were incorporated:' || '' }}
-            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && 'Each entry contains "PR number: PR title"' || '' }}
-            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '```' || '' }}
-            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && format('{0}', toJSON(fromJSON(steps.check-dependabot.outputs.dependabot_prs))) || '' }}
+
+            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '```json' || '' }}
+            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && steps.check-dependabot.outputs.incorporated_prs || '' }}
             ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '```' || '' }}
             ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '</details>' || '' }}
           branch: ${{ steps.check-pr.outputs.pr_branch }}
