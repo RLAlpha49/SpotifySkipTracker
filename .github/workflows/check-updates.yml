@@ -134,6 +134,9 @@ jobs:
           # Create a file to track successfully incorporated PRs
           echo "[]" > incorporated_prs.json
 
+          # Flag to track if any package.json changes were made
+          PACKAGE_JSON_CHANGED=false
+
           # Debug: Show what we received
           echo "Received Dependabot PRs:"
           echo "$DEPENDABOT_PRS" | jq '.'
@@ -146,12 +149,46 @@ jobs:
             
             echo "Processing Dependabot PR #$PR_NUMBER: $PR_TITLE (branch: $PR_BRANCH)"
             
+            # Check if this is a package update PR (contains "npm_and_yarn" in branch name)
+            IS_PACKAGE_UPDATE=$(echo "$PR_BRANCH" | grep -q "npm_and_yarn" && echo "true" || echo "false")
+            
             # Fetch the Dependabot branch
             git fetch origin "$PR_BRANCH" || { echo "Failed to fetch $PR_BRANCH, skipping"; continue; }
             
+            # Before merge - take a snapshot of package.json if this is a package update
+            if [ "$IS_PACKAGE_UPDATE" = "true" ]; then
+              echo "This is a package.json update PR"
+              BEFORE_PACKAGE_CONTENT=""
+              if [ -f package.json ]; then
+                BEFORE_PACKAGE_CONTENT=$(cat package.json)
+              fi
+            fi
+            
             # Try to merge the branch (skip if conflict)
             if git merge --no-commit --no-ff "origin/$PR_BRANCH"; then
-              echo "Successfully merged Dependabot PR #$PR_NUMBER"
+              echo "Successfully merged changes from PR #$PR_NUMBER"
+              
+              # For package updates, verify changes were made
+              if [ "$IS_PACKAGE_UPDATE" = "true" ]; then
+                if [ -f package.json ]; then
+                  AFTER_PACKAGE_CONTENT=$(cat package.json)
+                  if [ "$BEFORE_PACKAGE_CONTENT" != "$AFTER_PACKAGE_CONTENT" ]; then
+                    echo "✅ package.json was updated by merge"
+                    PACKAGE_JSON_CHANGED=true
+                  else
+                    echo "⚠️ Warning: package.json content didn't change after merge"
+                  fi
+                fi
+              fi
+              
+              # Make sure the package-lock is updated if package.json changed
+              if [ "$IS_PACKAGE_UPDATE" = "true" ] && [ -f package.json ] && [ -f package-lock.json ]; then
+                echo "Running npm install to update package-lock.json"
+                npm install --package-lock-only || true
+              fi
+              
+              # Commit the changes
+              git add --all
               git commit -m "chore: incorporate Dependabot PR #$PR_NUMBER ($PR_TITLE)"
               
               # Add to successfully incorporated PRs
@@ -159,10 +196,61 @@ jobs:
             else
               echo "Merge conflict with Dependabot PR #$PR_NUMBER, skipping"
               git merge --abort
+              
+              # For package updates with conflicts, try a more direct approach
+              if [ "$IS_PACKAGE_UPDATE" = "true" ]; then
+                echo "Attempting direct update for package using Dependabot changes..."
+                
+                # Create a temporary branch for the Dependabot changes
+                git checkout -b temp-dependabot-$PR_NUMBER "origin/$PR_BRANCH"
+                
+                # Get the specific package and version
+                if [ -f package.json ]; then
+                  # Find package name and new version from PR title
+                  if [[ "$PR_TITLE" =~ Bump[[:space:]]([^[:space:]]+)[[:space:]]from[[:space:]]([^[:space:]]+)[[:space:]]to[[:space:]]([^[:space:]]+) ]]; then
+                    PACKAGE_NAME="${BASH_REMATCH[1]}"
+                    OLD_VERSION="${BASH_REMATCH[2]}"
+                    NEW_VERSION="${BASH_REMATCH[3]}"
+                    
+                    echo "Found package info: $PACKAGE_NAME from $OLD_VERSION to $NEW_VERSION"
+                    
+                    # Go back to our main branch
+                    git checkout ${{ steps.check-pr.outputs.pr_branch }}
+                    
+                    # Try to update with npm directly
+                    npm install $PACKAGE_NAME@$NEW_VERSION || true
+                    
+                    # Commit if we have changes
+                    if git diff --quiet package.json package-lock.json; then
+                      echo "No changes made to package files"
+                    else
+                      echo "✅ Successfully updated $PACKAGE_NAME to $NEW_VERSION directly"
+                      PACKAGE_JSON_CHANGED=true
+                      git add package.json package-lock.json
+                      git commit -m "chore: incorporate Dependabot PR #$PR_NUMBER (update $PACKAGE_NAME to $NEW_VERSION)"
+                      
+                      # Add to successfully incorporated PRs
+                      jq --arg num "$PR_NUMBER" --arg title "$PR_TITLE" '. += [{"number": $num, "title": $title}]' incorporated_prs.json > tmp.json && mv tmp.json incorporated_prs.json
+                    fi
+                  else
+                    echo "Could not parse package information from PR title"
+                  fi
+                fi
+                
+                # Cleanup the temporary branch
+                git branch -D temp-dependabot-$PR_NUMBER || true
+              fi
             fi
           done
 
-          # Store the incorporated PRs as output only, not as environment variable
+          # Debug: Show git status
+          echo "Git status after incorporating Dependabot PRs:"
+          git status
+
+          # Set a flag indicating if package.json was changed
+          echo "package_json_changed=$PACKAGE_JSON_CHANGED" >> $GITHUB_OUTPUT
+
+          # Store the incorporated PRs as output only
           echo "incorporated_prs<<EOF" >> $GITHUB_OUTPUT
           cat incorporated_prs.json >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -174,7 +262,11 @@ jobs:
           echo "Incorporated PRs ($INCORPORATED_COUNT):"
           cat incorporated_prs.json | jq '.'
 
-      - name: Update packages
+          # List all changes in the working directory
+          echo "Files changed in our branch:"
+          git diff --name-only HEAD~$INCORPORATED_COUNT HEAD
+
+      - name: Update packages with npm-check-updates
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-updates.outputs.has_updates == 'true' }}
         run: |
           # Update packages and install
