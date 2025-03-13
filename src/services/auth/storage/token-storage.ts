@@ -8,6 +8,7 @@ import fs from "fs";
 import path from "path";
 import { appDataPath } from "../../../helpers/storage/utils";
 import { saveLog } from "../../../helpers/storage/logs-store";
+import { TokenStorage, TokenValue } from "@/types/token";
 
 // Storage location for auth tokens
 export const TOKEN_STORAGE_PATH = path.join(appDataPath, "auth_tokens.json");
@@ -16,10 +17,6 @@ export const TOKEN_STORAGE_PATH = path.join(appDataPath, "auth_tokens.json");
 export const ACCESS_TOKEN_KEY = "spotify_access_token";
 export const REFRESH_TOKEN_KEY = "spotify_refresh_token";
 export const TOKEN_EXPIRY_KEY = "spotify_token_expiry";
-
-// Define token value types
-export type TokenValue = string | number | null | undefined;
-export type TokenStorage = Record<string, TokenValue>;
 
 /**
  * Reads token data from persistent storage
