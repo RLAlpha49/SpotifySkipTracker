@@ -72,13 +72,13 @@ jobs:
           # Find all open Dependabot PRs using multiple detection strategies
           # 1. By author name AND
           # 2. By PR title prefix "Bump"
-          DEPENDABOT_PRS=$(gh pr list --state open --json number,title,headRefName,author --jq '.[] | select((.author.login == "dependabot[bot]" or .author.login == "dependabot") or (.title | startswith("Bump "))) | {number: .number, title: .title, branch: .headRefName}')
+          DEPENDABOT_PRS=$(gh pr list --state open --json number,title,headRefName,author --jq '[.[] | select((.author.login == "dependabot[bot]" or .author.login == "dependabot") or (.title | startswith("Bump "))) | {number: .number, title: .title, branch: .headRefName}]')
 
           echo "Found Dependabot PRs:"
-          echo "$DEPENDABOT_PRS" | jq -s '.'
+          echo "$DEPENDABOT_PRS" | jq '.'
 
           # Check if there are any Dependabot PRs
-          if [ "$(echo "$DEPENDABOT_PRS" | jq -s 'length')" -gt 0 ]; then
+          if [ "$(echo "$DEPENDABOT_PRS" | jq 'length')" -gt 0 ]; then
             echo "✅ Found Dependabot PRs"
             echo "has_dependabot_prs=true" >> $GITHUB_OUTPUT
             echo "dependabot_prs<<EOF" >> $GITHUB_OUTPUT
@@ -133,7 +133,11 @@ jobs:
           # Create a file to track successfully incorporated PRs
           echo "[]" > incorporated_prs.json
 
-          # Parse the JSON array of dependabot PRs
+          # Debug: Show what we received
+          echo "Received Dependabot PRs:"
+          echo "$DEPENDABOT_PRS" | jq '.'
+
+          # Parse the JSON array of dependabot PRs - ensure we're processing a JSON array
           echo "$DEPENDABOT_PRS" | jq -c '.[]' | while read -r PR_INFO; do
             PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number')
             PR_BRANCH=$(echo "$PR_INFO" | jq -r '.branch')
