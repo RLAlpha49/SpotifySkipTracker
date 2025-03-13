@@ -1,7 +1,0 @@
-setuptools
-requests
-customtkinter
-CTkMessagebox
-flask
-cryptography
-python-dotenv
