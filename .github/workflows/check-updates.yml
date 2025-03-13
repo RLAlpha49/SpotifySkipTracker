@@ -58,9 +58,27 @@ jobs:
             echo "has_updates=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Check for Dependabot PRs
+        id: check-dependabot
+        env:
+          GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # Find all open Dependabot PRs
+          DEPENDABOT_PRS=$(gh pr list --json number,title,headRefName,author --jq '.[] | select(.author.login == "dependabot[bot]") | {number: .number, title: .title, branch: .headRefName}')
+
+          # Check if there are any Dependabot PRs
+          if [ "$(echo "$DEPENDABOT_PRS" | jq -s 'length')" -gt 0 ]; then
+            echo "has_dependabot_prs=true" >> $GITHUB_OUTPUT
+            echo "dependabot_prs<<EOF" >> $GITHUB_OUTPUT
+            echo "$DEPENDABOT_PRS" >> $GITHUB_OUTPUT 
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "has_dependabot_prs=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Check for existing PR
         id: check-pr
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-updates.outputs.has_updates == 'true' }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
         env:
           GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
@@ -74,14 +92,54 @@ jobs:
           else
             echo "No existing PR found."
             echo "pr_exists=false" >> $GITHUB_OUTPUT
+            echo "pr_branch=deps/update-packages" >> $GITHUB_OUTPUT
           fi
 
-      - name: Checkout existing PR branch
-        if: ${{ steps.check-pr.outputs.pr_exists == 'true' }}
+      - name: Checkout or create update branch
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
         run: |
+          # Try to checkout existing branch or create new one
           git fetch origin
-          git checkout ${{ steps.check-pr.outputs.pr_branch }} || git checkout -b ${{ steps.check-pr.outputs.pr_branch }}
-          git pull origin ${{ steps.check-pr.outputs.pr_branch }} || true
+          git checkout ${{ steps.check-pr.outputs.pr_branch }} 2>/dev/null || git checkout -b ${{ steps.check-pr.outputs.pr_branch }}
+
+          # If the branch exists remotely, pull the latest changes
+          if git ls-remote --exit-code --heads origin ${{ steps.check-pr.outputs.pr_branch }} &>/dev/null; then
+            git pull origin ${{ steps.check-pr.outputs.pr_branch }} || true
+          fi
+
+      - name: Incorporate Dependabot PRs
+        if: ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
+          DEPENDABOT_PRS: ${{ steps.check-dependabot.outputs.dependabot_prs }}
+        run: |
+          # Configure git
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+          # Parse the JSON array of dependabot PRs
+          echo "$DEPENDABOT_PRS" | jq -c '.[]' | while read -r PR_INFO; do
+            PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number')
+            PR_BRANCH=$(echo "$PR_INFO" | jq -r '.branch')
+            PR_TITLE=$(echo "$PR_INFO" | jq -r '.title')
+            
+            echo "Processing Dependabot PR #$PR_NUMBER: $PR_TITLE (branch: $PR_BRANCH)"
+            
+            # Fetch the Dependabot branch
+            git fetch origin "$PR_BRANCH"
+            
+            # Try to merge the branch (skip if conflict)
+            if git merge --no-commit --no-ff "origin/$PR_BRANCH"; then
+              echo "Successfully merged Dependabot PR #$PR_NUMBER"
+              git commit -m "chore: incorporate Dependabot PR #$PR_NUMBER ($PR_TITLE)"
+            else
+              echo "Merge conflict with Dependabot PR #$PR_NUMBER, skipping"
+              git merge --abort
+            fi
+          done
+
+          # Record which Dependabot PRs were incorporated
+          echo "INCORPORATED_DEPENDABOT_PRS=$DEPENDABOT_PRS" >> $GITHUB_ENV
 
       - name: Update packages
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-updates.outputs.has_updates == 'true' }}
@@ -90,60 +148,89 @@ jobs:
           ncu -u
           npm install
 
-      - name: Commit changes to existing PR
-        if: ${{ steps.check-pr.outputs.pr_exists == 'true' && steps.check-updates.outputs.has_updates == 'true' }}
+      - name: Commit package updates
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-updates.outputs.has_updates == 'true' }}
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add package.json package-lock.json
           git diff --staged --quiet || git commit -m "chore: update npm dependencies"
+
+      - name: Push changes to branch
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
+        run: |
           git push origin ${{ steps.check-pr.outputs.pr_branch }}
 
       - name: Add comment to existing PR about updates
-        if: ${{ steps.check-pr.outputs.pr_exists == 'true' && steps.check-updates.outputs.has_updates == 'true' }}
+        if: ${{ steps.check-pr.outputs.pr_exists == 'true' && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
         env:
           GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.check-pr.outputs.pr_number }}
+          UPDATE_INFO: ${{ steps.check-updates.outputs.update_info }}
+          DEPENDABOT_PRS: ${{ steps.check-dependabot.outputs.dependabot_prs }}
         run: |
-          # Check if there were any actual changes committed
-          if git diff HEAD~1 --name-only | grep -E 'package(-lock)?.json'; then
-            # Format the update info for the comment
-            UPDATE_INFO='${{ steps.check-updates.outputs.update_info }}'
+          # Start building comment
+          COMMENT="## 📦 New dependency updates added\n\nThis PR has been updated with "
+          UPDATES_ADDED=false
+
+          # Check if there were any ncu updates
+          if [ "${{ steps.check-updates.outputs.has_updates }}" == "true" ] && git diff HEAD~1 --name-only | grep -E 'package(-lock)?.json'; then
+            COMMENT+="npm package updates"
+            UPDATES_ADDED=true
             
-            # Create comment with update details
-            gh pr comment $PR_NUMBER --body "## 📦 New dependency updates added
-            
-            This PR has been updated with additional dependency updates.
-            
-            <details>
-            <summary>Latest Package Updates</summary>
-            
-            \`\`\`json
-            $UPDATE_INFO
-            \`\`\`
-            </details>
-            "
+            # Add ncu updates section
+            COMMENT+="\n\n<details>\n<summary>Latest Package Updates</summary>\n\n\`\`\`json\n$UPDATE_INFO\n\`\`\`\n</details>"
           fi
 
+          # Check if there were any Dependabot PRs incorporated
+          if [ "${{ steps.check-dependabot.outputs.has_dependabot_prs }}" == "true" ]; then
+            if [ "$UPDATES_ADDED" == "true" ]; then
+              COMMENT+=" and "
+            fi
+            COMMENT+="Dependabot updates"
+            
+            # Add Dependabot updates section
+            COMMENT+="\n\n<details>\n<summary>Incorporated Dependabot PRs</summary>\n\n"
+            
+            echo "$DEPENDABOT_PRS" | jq -c '.[]' | while read -r PR_INFO; do
+              PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number')
+              PR_TITLE=$(echo "$PR_INFO" | jq -r '.title')
+              COMMENT+="- PR #$PR_NUMBER: $PR_TITLE\n"
+            done
+            
+            COMMENT+="\n</details>"
+          fi
+
+          # Create the comment
+          gh pr comment $PR_NUMBER --body "$COMMENT"
+
       - name: Create new Pull Request
-        if: ${{ steps.check-pr.outputs.pr_exists != 'true' && (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-updates.outputs.has_updates == 'true' }}
+        if: ${{ steps.check-pr.outputs.pr_exists != 'true' && (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
           commit-message: "chore: update npm dependencies"
           title: "chore: update npm dependencies"
           body: |
-            This PR updates npm dependencies to their latest versions.
+            This PR updates dependencies to their latest versions.
 
             ${{ github.event_name == 'workflow_dispatch' && 'Updated manually via GitHub Actions workflow dispatch.' || 'Updated automatically via GitHub Actions after detecting available updates.' }}
 
-            <details>
-            <summary>Package Updates</summary>
+            ${{ steps.check-updates.outputs.has_updates == 'true' && '### NPM Package Updates' || '' }}
+            ${{ steps.check-updates.outputs.has_updates == 'true' && '<details><summary>Show Updates</summary>' || '' }}
+            ${{ steps.check-updates.outputs.has_updates == 'true' && '```json' || '' }}
+            ${{ steps.check-updates.outputs.has_updates == 'true' && steps.check-updates.outputs.update_info || '' }}
+            ${{ steps.check-updates.outputs.has_updates == 'true' && '```' || '' }}
+            ${{ steps.check-updates.outputs.has_updates == 'true' && '</details>' || '' }}
 
-            ```json
-            ${{ steps.check-updates.outputs.update_info }}
-            ```
-            </details>
-          branch: deps/update-packages
+            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '### Incorporated Dependabot PRs' || '' }}
+            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '<details><summary>Show PRs</summary>' || '' }}
+            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && 'The following Dependabot PRs were incorporated:' || '' }}
+            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && 'Each entry contains "PR number: PR title"' || '' }}
+            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '```' || '' }}
+            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && format('{0}', toJSON(fromJSON(steps.check-dependabot.outputs.dependabot_prs))) || '' }}
+            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '```' || '' }}
+            ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' && '</details>' || '' }}
+          branch: ${{ steps.check-pr.outputs.pr_branch }}
           delete-branch: true
           base: master
