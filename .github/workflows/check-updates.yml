@@ -430,10 +430,29 @@ jobs:
         run: |
           # Skip comment creation when there are no new updates
 
-          # First check if there are any new npm updates
+          # First check if there are any new npm updates that ACTUALLY CHANGED files in this run
           NPM_UPDATED=false
-          if [ "${{ steps.check-updates.outputs.has_updates }}" == "true" ] && git diff HEAD~1 --name-only | grep -E 'package(-lock)?.json'; then
-            NPM_UPDATED=true
+
+          # Check if the 'Update packages with npm-check-updates' step actually ran and made changes in this run
+          # Only if both conditions are met do we have actual new npm updates to comment about
+          if [ "${{ steps.check-updates.outputs.has_updates }}" == "true" ]; then
+            # Double check that this run actually updated package files
+            # Look at files changed specifically in most recent commit
+            LATEST_COMMIT=$(git log -1 --pretty=format:%H)
+            PACKAGE_FILES_CHANGED=$(git show --name-only $LATEST_COMMIT | grep -E 'package(-lock)?.json')
+            if [ -n "$PACKAGE_FILES_CHANGED" ]; then
+              COMMIT_MSG=$(git log -1 --pretty=format:%s)
+              if [[ "$COMMIT_MSG" == *"update npm dependencies"* ]]; then
+                echo "Found package updates in the latest commit"
+                NPM_UPDATED=true
+              else
+                echo "Latest commit doesn't appear to be from npm updates"
+              fi
+            else
+              echo "No package files were changed in the latest commit"
+            fi
+          else
+            echo "No npm updates detected by ncu"
           fi
 
           # Check if there are any newly incorporated Dependabot PRs (not already incorporated in previous runs)
@@ -449,6 +468,7 @@ jobs:
             exit 0
           fi
 
+          # At this point, we've confirmed there are actual new updates to comment about
           echo "Found new updates to comment about - preparing comment"
 
           # Use a temporary file for comment construction
@@ -493,25 +513,36 @@ jobs:
             DEPENDABOT_ADDED=true
             
             # Build list of PRs
-            PR_LIST=""
             echo "$INCORPORATED_PRS" | jq -c '.[] | select(.already_incorporated == false)' | while read -r PR_ITEM; do
               PR_NUM=$(echo "$PR_ITEM" | jq -r '.number')
               PR_TITLE=$(echo "$PR_ITEM" | jq -r '.title')
               echo "- PR #${PR_NUM}: ${PR_TITLE}" >> "$COMMENT_FILE.list"
             done
             
-            # Add PR details in a collapsible section
-            {
-              echo ""
-              echo ""
-              echo "<details>"
-              echo "<summary>Newly Incorporated Dependabot PRs</summary>"
-              echo ""
-              cat "$COMMENT_FILE.list"
-              echo "</details>"
-            } >> "$COMMENT_FILE"
+            # Add PR details in a collapsible section if we have any
+            if [ -f "$COMMENT_FILE.list" ] && [ -s "$COMMENT_FILE.list" ]; then
+              {
+                echo ""
+                echo ""
+                echo "<details>"
+                echo "<summary>Newly Incorporated Dependabot PRs</summary>"
+                echo ""
+                cat "$COMMENT_FILE.list"
+                echo "</details>"
+              } >> "$COMMENT_FILE"
+            else
+              echo "Warning: Expected to find newly incorporated PRs but list is empty"
+              DEPENDABOT_ADDED=false
+            fi
             
-            rm -f "$COMMENT_FILE.list"
+            rm -f "$COMMENT_FILE.list" 2>/dev/null || true
+          fi
+
+          # Final check - if we didn't actually add any content, don't post the comment
+          if [ "$UPDATES_ADDED" != "true" ] && [ "$DEPENDABOT_ADDED" != "true" ]; then
+            echo "WARNING: No update details were added to the comment despite initial checks passing"
+            echo "Skipping comment creation to avoid an empty comment"
+            exit 0
           fi
 
           # Log what we're doing
@@ -533,4 +564,4 @@ jobs:
           gh pr comment "$PR_NUMBER" --body-file "$COMMENT_FILE"
 
           # Clean up
-          rm -f "$COMMENT_FILE"
+          rm -f "$COMMENT_FILE" 2>/dev/null || true
