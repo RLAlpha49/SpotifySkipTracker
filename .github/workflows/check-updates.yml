@@ -428,7 +428,49 @@ jobs:
           INCORPORATED_PRS: ${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}
         # Using pipe character for YAML block scalar - ensures proper parsing
         run: |
-          # Skip comment creation when there are no new updates
+          # First, check if we actually made any changes in this workflow run that would require a comment
+
+          # Check git history for commits made in this workflow
+          # At this point, changes would have been committed but NOT pushed
+          # Look for specific commit types we're interested in
+
+          NEW_COMMITS=0
+          PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
+
+          # Fetch the latest state of the PR branch from remote
+          git fetch origin $PR_BRANCH
+
+          # Check for unpushed commits (between remote and local)
+          UNPUSHED_COUNT=$(git rev-list --count origin/$PR_BRANCH..HEAD)
+
+          echo "Commit check status:"
+          echo "- Commits pending push: $UNPUSHED_COUNT"
+
+          # If we have unpushed commits, check their types to confirm they're relevant
+          if [ "$UNPUSHED_COUNT" -gt 0 ]; then
+            # Check for npm dependency updates
+            if git log origin/$PR_BRANCH..HEAD --grep="update npm dependencies" --oneline | grep -q .; then
+              echo "- Found npm dependency update commit"
+              NEW_COMMITS=$((NEW_COMMITS + 1))
+            fi
+            
+            # Check for Dependabot PR incorporations
+            DEPENDABOT_COMMITS=$(git log origin/$PR_BRANCH..HEAD --grep="incorporate Dependabot PR" --oneline | wc -l)
+            if [ "$DEPENDABOT_COMMITS" -gt 0 ]; then
+              echo "- Found $DEPENDABOT_COMMITS Dependabot incorporation commits"
+              NEW_COMMITS=$((NEW_COMMITS + DEPENDABOT_COMMITS))
+            fi
+          fi
+
+          echo "- Relevant new commits: $NEW_COMMITS"
+
+          # Only proceed if we actually made relevant changes in this run
+          if [ "$NEW_COMMITS" -eq 0 ]; then
+            echo "No relevant commits were made in this workflow run - skipping comment creation"
+            exit 0
+          fi
+
+          echo "Found $NEW_COMMITS relevant commits - proceeding with comment creation"
 
           # First check if there are any new npm updates that ACTUALLY CHANGED files in this run
           NPM_UPDATED=false
