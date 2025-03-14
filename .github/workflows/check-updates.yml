@@ -131,8 +131,9 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
-          # Create a file to track successfully incorporated PRs
-          echo "[]" > incorporated_prs.json
+          # Create a file to track successfully incorporated PRs (in /tmp, not in the repo)
+          TEMP_PR_FILE="/tmp/incorporated_prs.json"
+          echo "[]" > $TEMP_PR_FILE
 
           # Flag to track if any package.json changes were made
           PACKAGE_JSON_CHANGED=false
@@ -140,6 +141,9 @@ jobs:
           # Debug: Show what we received
           echo "Received Dependabot PRs:"
           echo "$DEPENDABOT_PRS" | jq '.'
+
+          # Keep track of successfully incorporated PRs
+          INCORPORATED_COUNT=0
 
           # Parse the JSON array of dependabot PRs - ensure we're processing a JSON array
           echo "$DEPENDABOT_PRS" | jq -c '.[]' | while read -r PR_INFO; do
@@ -191,8 +195,11 @@ jobs:
               git add --all
               git commit -m "chore: incorporate Dependabot PR #$PR_NUMBER ($PR_TITLE)"
               
-              # Add to successfully incorporated PRs
-              jq --arg num "$PR_NUMBER" --arg title "$PR_TITLE" '. += [{"number": $num, "title": $title}]' incorporated_prs.json > tmp.json && mv tmp.json incorporated_prs.json
+              # Increment counter
+              INCORPORATED_COUNT=$((INCORPORATED_COUNT + 1))
+              
+              # Add to successfully incorporated PRs in the temporary file
+              jq --arg num "$PR_NUMBER" --arg title "$PR_TITLE" '. += [{"number": $num, "title": $title}]' "$TEMP_PR_FILE" > "${TEMP_PR_FILE}.tmp" && mv "${TEMP_PR_FILE}.tmp" "$TEMP_PR_FILE"
             else
               echo "Merge conflict with Dependabot PR #$PR_NUMBER, skipping"
               git merge --abort
@@ -229,8 +236,11 @@ jobs:
                       git add package.json package-lock.json
                       git commit -m "chore: incorporate Dependabot PR #$PR_NUMBER (update $PACKAGE_NAME to $NEW_VERSION)"
                       
-                      # Add to successfully incorporated PRs
-                      jq --arg num "$PR_NUMBER" --arg title "$PR_TITLE" '. += [{"number": $num, "title": $title}]' incorporated_prs.json > tmp.json && mv tmp.json incorporated_prs.json
+                      # Increment counter
+                      INCORPORATED_COUNT=$((INCORPORATED_COUNT + 1))
+                      
+                      # Add to successfully incorporated PRs in the temporary file
+                      jq --arg num "$PR_NUMBER" --arg title "$PR_TITLE" '. += [{"number": $num, "title": $title}]' "$TEMP_PR_FILE" > "${TEMP_PR_FILE}.tmp" && mv "${TEMP_PR_FILE}.tmp" "$TEMP_PR_FILE"
                     fi
                   else
                     echo "Could not parse package information from PR title"
@@ -250,21 +260,24 @@ jobs:
           # Set a flag indicating if package.json was changed
           echo "package_json_changed=$PACKAGE_JSON_CHANGED" >> $GITHUB_OUTPUT
 
-          # Store the incorporated PRs as output only
-          echo "incorporated_prs<<EOF" >> $GITHUB_OUTPUT
-          cat incorporated_prs.json >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-          # Count how many PRs we incorporated
-          INCORPORATED_COUNT=$(jq 'length' incorporated_prs.json)
+          # Store the incorporated count
           echo "incorporated_count=$INCORPORATED_COUNT" >> $GITHUB_OUTPUT
 
+          # Store the incorporated PRs as output only
+          echo "incorporated_prs<<EOF" >> $GITHUB_OUTPUT
+          cat "$TEMP_PR_FILE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
           echo "Incorporated PRs ($INCORPORATED_COUNT):"
-          cat incorporated_prs.json | jq '.'
+          cat "$TEMP_PR_FILE" | jq '.'
 
           # List all changes in the working directory
-          echo "Files changed in our branch:"
-          git diff --name-only HEAD~$INCORPORATED_COUNT HEAD
+          if [ $INCORPORATED_COUNT -gt 0 ]; then
+            echo "Files changed in our branch:"
+            git diff --name-only HEAD~$INCORPORATED_COUNT HEAD
+          else
+            echo "No PRs were incorporated, no file changes to show."
+          fi
 
       - name: Update packages with npm-check-updates
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-updates.outputs.has_updates == 'true' }}
