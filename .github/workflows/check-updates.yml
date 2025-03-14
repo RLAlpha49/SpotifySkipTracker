@@ -111,14 +111,48 @@ jobs:
       - name: Checkout or create update branch
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
         run: |
+          # Debug info
+          echo "Using branch: ${{ steps.check-pr.outputs.pr_branch }}"
+
+          # Check if branch exists locally or remotely
+          LOCAL_BRANCH_EXISTS=false
+          REMOTE_BRANCH_EXISTS=false
+
+          # Check local
+          if git show-ref --verify --quiet refs/heads/${{ steps.check-pr.outputs.pr_branch }}; then
+            echo "Branch ${{ steps.check-pr.outputs.pr_branch }} exists locally"
+            LOCAL_BRANCH_EXISTS=true
+          fi
+
+          # Check remote
+          if git ls-remote --exit-code --heads origin ${{ steps.check-pr.outputs.pr_branch }} &>/dev/null; then
+            echo "Branch ${{ steps.check-pr.outputs.pr_branch }} exists remotely"
+            REMOTE_BRANCH_EXISTS=true
+          fi
+
           # Try to checkout existing branch or create new one
-          git fetch origin
-          git checkout ${{ steps.check-pr.outputs.pr_branch }} 2>/dev/null || git checkout -b ${{ steps.check-pr.outputs.pr_branch }}
+          git fetch origin --prune
+
+          if [ "$LOCAL_BRANCH_EXISTS" = "true" ]; then
+            echo "Checking out existing local branch"
+            git checkout ${{ steps.check-pr.outputs.pr_branch }}
+          elif [ "$REMOTE_BRANCH_EXISTS" = "true" ]; then
+            echo "Checking out existing remote branch"
+            git checkout -b ${{ steps.check-pr.outputs.pr_branch }} origin/${{ steps.check-pr.outputs.pr_branch }}
+          else
+            echo "Creating new branch"
+            git checkout -b ${{ steps.check-pr.outputs.pr_branch }}
+          fi
 
           # If the branch exists remotely, pull the latest changes
-          if git ls-remote --exit-code --heads origin ${{ steps.check-pr.outputs.pr_branch }} &>/dev/null; then
+          if [ "$REMOTE_BRANCH_EXISTS" = "true" ]; then
+            echo "Pulling latest changes from remote branch"
             git pull origin ${{ steps.check-pr.outputs.pr_branch }} || true
           fi
+
+          # Final status check
+          echo "Current branch: $(git rev-parse --abbrev-ref HEAD)"
+          echo "Current branch commits: $(git rev-list --count HEAD)"
 
       - name: Incorporate Dependabot PRs
         id: check-dependabot-incorporate
@@ -343,14 +377,37 @@ jobs:
       - name: Push changes to branch
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
         run: |
-          # Check if we have any unpushed changes first
-          UNPUSHED_COUNT=$(git rev-list --count origin/${{ steps.check-pr.outputs.pr_branch }}..HEAD 2>/dev/null || echo "0")
+          # Check if branch exists remotely
+          PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
+          BRANCH_EXISTS_REMOTELY=false
+
+          if git ls-remote --exit-code --heads origin $PR_BRANCH &>/dev/null; then
+            echo "Branch $PR_BRANCH already exists remotely"
+            BRANCH_EXISTS_REMOTELY=true
+          else
+            echo "Branch $PR_BRANCH doesn't exist remotely yet"
+          fi
+
+          # Check if we have any unpushed changes
+          UNPUSHED_COUNT=$(git rev-list --count origin/$PR_BRANCH..HEAD 2>/dev/null || echo "0")
 
           if [ "$UNPUSHED_COUNT" -gt 0 ]; then
             echo "Pushing $UNPUSHED_COUNT new commits to branch"
-            git push origin ${{ steps.check-pr.outputs.pr_branch }}
+            git push origin $PR_BRANCH
+          elif [ "$BRANCH_EXISTS_REMOTELY" = "false" ]; then
+            # Even if no new commits, ensure the branch is pushed remotely if it doesn't exist yet
+            echo "No new commits, but forcing push to ensure branch exists remotely"
+            git push origin $PR_BRANCH
           else
-            echo "No new commits to push"
+            echo "No new commits to push and branch already exists remotely"
+          fi
+
+          # Verify the branch exists remotely after our operations
+          if git ls-remote --exit-code --heads origin $PR_BRANCH &>/dev/null; then
+            echo "✅ Successfully verified branch $PR_BRANCH exists remotely"
+          else
+            echo "❌ ERROR: Branch $PR_BRANCH still doesn't exist remotely after push attempt!"
+            exit 1
           fi
 
       - name: Create custom PR body
@@ -358,7 +415,14 @@ jobs:
         if: ${{ steps.check-pr.outputs.pr_exists != 'true' && (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || (steps.check-dependabot.outputs.has_dependabot_prs == 'true' && steps.check-dependabot-incorporate.outputs.incorporated_count > 0)) }}
         env:
           INCORPORATED_PRS: ${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}
+          UPDATE_INFO: ${{ steps.check-updates.outputs.update_info }}
         run: |
+          # Debug info - print what we know
+          echo "Creating PR body with:"
+          echo "- has_updates: ${{ steps.check-updates.outputs.has_updates }}"
+          echo "- has_dependabot_prs: ${{ steps.check-dependabot.outputs.has_dependabot_prs }}"
+          echo "- incorporated_count: ${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}"
+
           # Create PR body with proper formatting
           PR_BODY="This PR updates dependencies to their latest versions.
 
@@ -367,13 +431,14 @@ jobs:
 
           # Add npm updates section if there are any
           if [ "${{ steps.check-updates.outputs.has_updates }}" == "true" ]; then
+            echo "Adding npm package updates section to PR body"
             PR_BODY="${PR_BODY}
 
           ### NPM Package Updates
           <details><summary>Show Updates</summary>
 
           \`\`\`json
-          ${{ steps.check-updates.outputs.update_info }}
+          $UPDATE_INFO
           \`\`\`
           </details>
           "
@@ -381,6 +446,7 @@ jobs:
 
           # Add dependabot updates section if there are any
           if [ "${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}" -gt 0 ]; then
+            echo "Adding Dependabot PRs section to PR body"
             echo "Incorporated PRs JSON: $INCORPORATED_PRS"
             
             # Create a temporary file for the PR list to avoid issues with complex strings
@@ -403,6 +469,9 @@ jobs:
             # Count newly incorporated PRs for better context
             NEWLY_ADDED=$(echo "$INCORPORATED_PRS" | jq '[.[] | select(.already_incorporated == false or .already_incorporated == null)] | length')
             PREV_ADDED=$(echo "$INCORPORATED_PRS" | jq '[.[] | select(.already_incorporated == true)] | length')
+            
+            echo "- Newly incorporated PRs: $NEWLY_ADDED"
+            echo "- Previously incorporated PRs: $PREV_ADDED"
             
             # Only add the section if the PR list file exists and has content
             if [ -s "$PR_LIST_FILE" ]; then
@@ -429,6 +498,13 @@ jobs:
             echo "- Previously incorporated: $PREV_ADDED"
           fi
 
+          # Show a preview of the PR body
+          echo "PR Body Preview:"
+          echo "-----------------"
+          echo "$PR_BODY" | head -20
+          echo "... (truncated) ..."
+          echo "-----------------"
+
           # Escape newlines for GitHub Actions output
           PR_BODY="${PR_BODY//$'\n'/%0A}"
           echo "body=$PR_BODY" >> $GITHUB_OUTPUT
@@ -440,29 +516,57 @@ jobs:
           PR_BRANCH: ${{ steps.check-pr.outputs.pr_branch }}
           PR_BODY: ${{ steps.pr-body.outputs.body }}
         run: |
+          # Debug info - print what we know
+          echo "Attempting to create PR for branch: $PR_BRANCH"
+          echo "PR exists flag: ${{ steps.check-pr.outputs.pr_exists }}"
+          echo "NPM updates?: ${{ steps.check-updates.outputs.has_updates }}"
+          echo "Dependabot PRs incorporated: ${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}"
+
           # Make sure the branch exists remotely (it should have been pushed in the previous step)
           if ! git ls-remote --exit-code --heads origin $PR_BRANCH &>/dev/null; then
             echo "Branch $PR_BRANCH doesn't exist remotely - was it pushed? Skipping PR creation"
-            exit 0
+            exit 1  # Use exit 1 to fail the workflow to make the issue more visible
           fi
 
-          # Verify we have changes in the branch
+          # Attempt to fetch latest remote branch state
+          git fetch origin $PR_BRANCH
+
+          # Verify we have changes in the branch compared to master
           if git diff --quiet origin/master origin/$PR_BRANCH; then
-            echo "No differences found between branches, skipping PR creation"
-            exit 0
+            # Double check that we haven't missed anything by examining commits directly
+            if [ "$(git log origin/master..origin/$PR_BRANCH --pretty=format:%H | wc -l)" -eq 0 ]; then
+              echo "No differences found between branches (neither files nor commits), skipping PR creation"
+              exit 0
+            else
+              echo "No file differences but found commits between branches - proceeding with PR creation"
+            fi
           fi
 
           # Count total commits in the branch that differ from master
           TOTAL_COMMITS=$(git rev-list --count origin/master..origin/$PR_BRANCH)
           echo "Found $TOTAL_COMMITS commits in branch compared to master"
 
+          # Also count how many of these are Dependabot incorporations
+          DEPENDABOT_COMMITS=$(git log origin/master..origin/$PR_BRANCH --grep="incorporate Dependabot PR" --pretty=format:%H | wc -l)
+          echo "Of which $DEPENDABOT_COMMITS are Dependabot incorporation commits"
+
           if [ "$TOTAL_COMMITS" -gt 0 ]; then
             echo "Creating PR with $TOTAL_COMMITS commits of changes"
+            
+            # Print body preview for debugging
+            echo "PR body preview (start) -------"
+            echo "${PR_BODY//%0A/$'\n'}" | head -20
+            echo "...(truncated)..."
+            echo "PR body preview (end) ---------"
+            
+            # Create the PR
             gh pr create \
               --title "chore: update npm dependencies" \
               --body "${PR_BODY//%0A/$'\n'}" \
               --base master \
               --head $PR_BRANCH
+            
+            echo "✅ PR created successfully for branch $PR_BRANCH"
           else
             echo "No commits to include in PR, skipping creation"
           fi
