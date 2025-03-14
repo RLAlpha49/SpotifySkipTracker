@@ -360,10 +360,41 @@ jobs:
           exit 0
 
       - name: Update packages with npm-check-updates
+        id: update-packages
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-updates.outputs.has_updates == 'true' }}
         run: |
+          # Capture package.json before updates
+          echo "Taking snapshot of package.json before updates"
+          cp package.json /tmp/package.json.before
+
           # Update packages and install
+          echo "Running ncu -u to update packages"
           ncu -u
+
+          # Capture differences for later use
+          if [ -f /tmp/package.json.before ] && [ -f package.json ]; then
+            echo "Capturing actual package changes"
+            PACKAGE_DIFF=$(diff -u /tmp/package.json.before package.json | grep -E '^\+.*".*":.*".*"' | grep -v "+++" | sed 's/^+//g' | sed 's/,//g' | sed 's/^ *//g')
+            
+            if [ -n "$PACKAGE_DIFF" ]; then
+              echo "actual_changes<<EOF" >> $GITHUB_OUTPUT
+              echo "$PACKAGE_DIFF" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+              echo "has_actual_changes=true" >> $GITHUB_OUTPUT
+              
+              echo "Actual package changes detected:"
+              echo "$PACKAGE_DIFF"
+            else
+              echo "No actual changes detected in package.json"
+              echo "has_actual_changes=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Warning: Could not compare package.json changes"
+            echo "has_actual_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Install updated packages
+          echo "Running npm install"
           npm install
 
       - name: Commit package updates
@@ -416,12 +447,16 @@ jobs:
         env:
           INCORPORATED_PRS: ${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}
           UPDATE_INFO: ${{ steps.check-updates.outputs.update_info }}
+          ACTUAL_CHANGES: ${{ steps.update-packages.outputs.actual_changes }}
+          HAS_ACTUAL_CHANGES: ${{ steps.update-packages.outputs.has_actual_changes }}
         run: |
           # Debug info - print what we know
           echo "Creating PR body with:"
           echo "- has_updates: ${{ steps.check-updates.outputs.has_updates }}"
           echo "- has_dependabot_prs: ${{ steps.check-dependabot.outputs.has_dependabot_prs }}"
           echo "- incorporated_count: ${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}"
+          echo "- has_actual_changes: $HAS_ACTUAL_CHANGES"
+          echo "INCORPORATED_PRS: $INCORPORATED_PRS"
 
           # Create PR body with proper formatting
           PR_BODY="This PR updates dependencies to their latest versions.
@@ -429,10 +464,68 @@ jobs:
           $([ "${{ github.event_name }}" == "workflow_dispatch" ] && echo "Updated manually via GitHub Actions workflow dispatch." || echo "Updated automatically via GitHub Actions after detecting available updates.")
           "
 
-          # Add npm updates section if there are any
+          # Add npm updates section if there are any - use actual package.json changes when available
           if [ "${{ steps.check-updates.outputs.has_updates }}" == "true" ]; then
             echo "Adding npm package updates section to PR body"
-            PR_BODY="${PR_BODY}
+            
+            # Check if we have actual changes from the diff
+            if [ "$HAS_ACTUAL_CHANGES" == "true" ] && [ -n "$ACTUAL_CHANGES" ]; then
+              echo "Using actual package changes captured from diff"
+              
+              # Generate a formatted JSON-like output for the PR body
+              FORMATTED_CHANGES="{\n"
+              while IFS= read -r line; do
+                if [[ -n "$line" ]]; then
+                  # Format each line as "package": "version"
+                  FORMATTED_CHANGES+="  $line\n"
+                fi
+              done <<< "$ACTUAL_CHANGES"
+              FORMATTED_CHANGES+="}"
+              
+              PR_BODY="${PR_BODY}
+
+          ### NPM Package Updates
+          <details><summary>Show Updates</summary>
+
+          \`\`\`json
+          ${FORMATTED_CHANGES}
+          \`\`\`
+          </details>
+          "
+            else
+              # If no actual changes were captured, try git diff
+              echo "No actual changes captured, falling back to git diff"
+              PACKAGE_CHANGES=$(git diff --staged package.json || git diff HEAD~1 package.json || git diff HEAD package.json)
+              
+              # Extract just the dependency changes
+              DEPENDENCY_CHANGES=$(echo "$PACKAGE_CHANGES" | grep -E '^\+.*".*":.*".*"' | sed 's/^+//g' | sed 's/,//g' | sed 's/"//g' | sed 's/^ *//g')
+              
+              if [[ -n "$DEPENDENCY_CHANGES" ]]; then
+                echo "Found changes via git diff"
+                # Generate a formatted JSON-like output for the PR body
+                FORMATTED_CHANGES="{\n"
+                while IFS= read -r line; do
+                  if [[ -n "$line" ]]; then
+                    # Format each line as "package": "version"
+                    FORMATTED_CHANGES+="  $line\n"
+                  fi
+                done <<< "$DEPENDENCY_CHANGES"
+                FORMATTED_CHANGES+="}"
+                
+                PR_BODY="${PR_BODY}
+
+          ### NPM Package Updates
+          <details><summary>Show Updates</summary>
+
+          \`\`\`json
+          ${FORMATTED_CHANGES}
+          \`\`\`
+          </details>
+          "
+              else
+                # Fallback to the ncu output if we couldn't determine changes
+                echo "No changes found via git diff, falling back to ncu output"
+                PR_BODY="${PR_BODY}
 
           ### NPM Package Updates
           <details><summary>Show Updates</summary>
@@ -442,40 +535,86 @@ jobs:
           \`\`\`
           </details>
           "
+              fi
+            fi
           fi
 
           # Add dependabot updates section if there are any
-          if [ "${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}" -gt 0 ]; then
+          INCORPORATED_COUNT="${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}"
+          echo "Incorporated count: $INCORPORATED_COUNT"
+
+          if [ "$INCORPORATED_COUNT" -gt 0 ]; then
             echo "Adding Dependabot PRs section to PR body"
             echo "Incorporated PRs JSON: $INCORPORATED_PRS"
             
-            # Create a temporary file for the PR list to avoid issues with complex strings
+            # Save JSON data to a temporary file for inspection
+            echo "$INCORPORATED_PRS" > /tmp/incorporated_prs_debug.json
+            cat /tmp/incorporated_prs_debug.json
+            
+            # Verify JSON is valid
+            if jq empty /tmp/incorporated_prs_debug.json 2>/dev/null; then
+              echo "JSON is valid"
+            else
+              echo "JSON is invalid, trying to clean it up"
+              # Try to clean up JSON - remove any extra whitespace or characters
+              sed -i 's/^[[:space:]]*//g; s/[[:space:]]*$//g' /tmp/incorporated_prs_debug.json
+              # Verify again
+              if jq empty /tmp/incorporated_prs_debug.json 2>/dev/null; then
+                echo "JSON is now valid after cleanup"
+              else
+                echo "JSON is still invalid, using fallback approach"
+                # Create a simple JSON array for fallback
+                echo "[]" > /tmp/incorporated_prs_debug.json
+              fi
+            fi
+            
+            # Create the PR list file
             PR_LIST_FILE=$(mktemp)
             
-            # Process each PR and add it to the list file
-            echo "$INCORPORATED_PRS" | jq -c '.[]' | while read -r PR_ITEM; do
-              PR_NUM=$(echo "$PR_ITEM" | jq -r '.number')
-              PR_TITLE=$(echo "$PR_ITEM" | jq -r '.title')
-              ALREADY_INC=$(echo "$PR_ITEM" | jq -r '.already_incorporated // false')
-              
-              # Add the PR to the list - format differs based on if it was newly incorporated or not
-              if [ "$ALREADY_INC" = "true" ]; then
-                echo "- PR #${PR_NUM}: ${PR_TITLE} (previously incorporated)" >> "$PR_LIST_FILE"
-              else
-                echo "- PR #${PR_NUM}: ${PR_TITLE}" >> "$PR_LIST_FILE"
-              fi
-            done
+            # Get the actual count from the JSON data
+            JQ_TOTAL=$(jq 'length' /tmp/incorporated_prs_debug.json || echo 0)
+            echo "JQ reports total PRs: $JQ_TOTAL"
             
-            # Count newly incorporated PRs for better context
-            NEWLY_ADDED=$(echo "$INCORPORATED_PRS" | jq '[.[] | select(.already_incorporated == false or .already_incorporated == null)] | length')
-            PREV_ADDED=$(echo "$INCORPORATED_PRS" | jq '[.[] | select(.already_incorporated == true)] | length')
+            if [ "$JQ_TOTAL" -gt 0 ]; then
+              # Process each PR and add it to the list file using jq
+              jq -r '.[] | "- PR #\(.number): \(.title) \(if .already_incorporated == true then \"(previously incorporated)\" else \"\" end)"' /tmp/incorporated_prs_debug.json > "$PR_LIST_FILE"
+              
+              # Count newly incorporated PRs
+              NEWLY_ADDED=$(jq '[.[] | select(.already_incorporated == false or .already_incorporated == null)] | length' /tmp/incorporated_prs_debug.json || echo 0)
+              PREV_ADDED=$(jq '[.[] | select(.already_incorporated == true)] | length' /tmp/incorporated_prs_debug.json || echo 0)
+            else
+              # Fallback: Process by iterating over lines in JSON array using bash
+              echo "Using fallback PR processing method"
+              echo "$INCORPORATED_PRS" | grep -o '{[^}]*}' | while read -r PR_ITEM; do
+                PR_NUM=$(echo "$PR_ITEM" | grep -o '"number":[^,]*' | cut -d':' -f2 | tr -d ' "')
+                PR_TITLE=$(echo "$PR_ITEM" | grep -o '"title":"[^"]*"' | cut -d':' -f2- | tr -d '"')
+                ALREADY_INC=$(echo "$PR_ITEM" | grep -o '"already_incorporated":[^,}]*' | cut -d':' -f2 | tr -d ' "')
+                
+                if [ "$ALREADY_INC" = "true" ]; then
+                  echo "- PR #${PR_NUM}: ${PR_TITLE} (previously incorporated)" >> "$PR_LIST_FILE"
+                else
+                  echo "- PR #${PR_NUM}: ${PR_TITLE}" >> "$PR_LIST_FILE"
+                fi
+              done
+              
+              # Manually count PRs for the fallback method
+              NEWLY_ADDED=$(grep -v "previously incorporated" "$PR_LIST_FILE" | wc -l)
+              PREV_ADDED=$(grep "previously incorporated" "$PR_LIST_FILE" | wc -l)
+            fi
             
             echo "- Newly incorporated PRs: $NEWLY_ADDED"
             echo "- Previously incorporated PRs: $PREV_ADDED"
+            echo "PR list file contents:"
+            cat "$PR_LIST_FILE"
             
-            # Only add the section if the PR list file exists and has content
-            if [ -s "$PR_LIST_FILE" ]; then
-              PR_BODY="${PR_BODY}
+            # If PR list is still empty, create a basic entry
+            if [ ! -s "$PR_LIST_FILE" ]; then
+              echo "Warning: PR list is empty, creating basic entry"
+              echo "- Dependabot PRs were incorporated but details could not be displayed" > "$PR_LIST_FILE"
+            fi
+            
+            # Add dependabot section to PR body
+            PR_BODY="${PR_BODY}
 
           ### Incorporated Dependabot PRs
           <details><summary>Show Incorporated PRs ($NEWLY_ADDED new, $PREV_ADDED previous)</summary>
@@ -484,25 +623,23 @@ jobs:
           $(cat "$PR_LIST_FILE")
           </details>
           "
-            else
-              echo "Warning: No PR items were processed, PR list is empty"
-            fi
             
             # Clean up
             rm -f "$PR_LIST_FILE" 2>/dev/null || true
             
             # Log what we found
             echo "Adding Dependabot PRs to initial PR body:"
-            echo "- Total PRs: ${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}"
+            echo "- Total PRs: $INCORPORATED_COUNT"
             echo "- Newly incorporated: $NEWLY_ADDED"
             echo "- Previously incorporated: $PREV_ADDED"
+          else
+            echo "No Dependabot PRs to add to the PR body"
           fi
 
           # Show a preview of the PR body
           echo "PR Body Preview:"
           echo "-----------------"
-          echo "$PR_BODY" | head -20
-          echo "... (truncated) ..."
+          echo "$PR_BODY"
           echo "-----------------"
 
           # Escape newlines for GitHub Actions output
