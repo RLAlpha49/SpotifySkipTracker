@@ -4,12 +4,12 @@
  * Provides functions for retrieving user profile information from Spotify.
  */
 
-import axios from "axios";
 import { saveLog } from "../../helpers/storage/logs-store";
 import { API_BASE_URL } from "./constants";
 import { SpotifyUserProfile } from "@/types/spotify-api";
 import { ensureValidToken, getAccessToken } from "./token";
 import { retryApiCall } from "../api-retry";
+import spotifyAxios from "./interceptors";
 
 /**
  * Retrieves the current user's Spotify profile
@@ -22,7 +22,7 @@ export async function getCurrentUser(): Promise<SpotifyUserProfile> {
 
   try {
     const response = await retryApiCall(async () => {
-      return await axios.get(`${API_BASE_URL}/me`, {
+      return await spotifyAxios.get(`${API_BASE_URL}/me`, {
         headers: {
           Authorization: `Bearer ${getAccessToken()}`,
         },

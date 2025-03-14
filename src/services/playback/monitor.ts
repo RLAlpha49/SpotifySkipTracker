@@ -71,11 +71,6 @@ export function startPlaybackMonitoring(
       "DEBUG",
     );
 
-    // Initialize recent tracks
-    updateRecentTracks().catch((error) => {
-      store.saveLog(`Failed to initialize recent tracks: ${error}`, "ERROR");
-    });
-
     // Start the progress update interval (updates more frequently than API calls)
     startProgressUpdateInterval(mainWindow);
 
@@ -84,6 +79,15 @@ export function startPlaybackMonitoring(
       monitorPlayback(mainWindow);
     }, 1000);
 
+    // Initialize recent tracks after establishing monitoring interval
+    // Use a small delay to avoid immediate API call at startup
+    setTimeout(() => {
+      updateRecentTracks().catch((error) => {
+        store.saveLog(`Failed to initialize recent tracks: ${error}`, "ERROR");
+      });
+    }, 3000);
+
+    store.saveLog("Playback monitoring started", "INFO");
     return true;
   } catch (error) {
     store.saveLog(`Failed to start playback monitoring: ${error}`, "ERROR");

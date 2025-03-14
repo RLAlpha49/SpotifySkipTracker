@@ -4,7 +4,6 @@
  * Provides functions for controlling and monitoring playback on Spotify.
  */
 
-import axios from "axios";
 import { saveLog } from "../../helpers/storage/logs-store";
 import { API_BASE_URL } from "./constants";
 import {
@@ -14,6 +13,7 @@ import {
 } from "@/types/spotify-api";
 import { ensureValidToken, getAccessToken } from "./token";
 import { retryApiCall } from "../api-retry";
+import spotifyAxios from "./interceptors";
 
 /**
  * Gets the user's current playback state
@@ -29,7 +29,7 @@ export async function getCurrentPlayback(
 
   try {
     const response = await retryApiCall(async () => {
-      return await axios.get(
+      return await spotifyAxios.get(
         `${API_BASE_URL}/me/player${detailed ? "?additional_types=episode" : ""}`,
         {
           headers: {
@@ -76,7 +76,7 @@ export async function getRecentlyPlayedTracks(
 
   try {
     const response = await retryApiCall(async () => {
-      return await axios.get(
+      return await spotifyAxios.get(
         `${API_BASE_URL}/me/player/recently-played?limit=${limit}`,
         {
           headers: {
@@ -104,7 +104,7 @@ export async function pause(): Promise<void> {
 
   try {
     await retryApiCall(async () => {
-      await axios.put(
+      await spotifyAxios.put(
         `${API_BASE_URL}/me/player/pause`,
         {},
         {
@@ -140,7 +140,7 @@ export async function play(): Promise<void> {
 
   try {
     await retryApiCall(async () => {
-      await axios.put(
+      await spotifyAxios.put(
         `${API_BASE_URL}/me/player/play`,
         {},
         {
@@ -175,7 +175,7 @@ export async function skipToPrevious(): Promise<void> {
   await ensureValidToken();
 
   await retryApiCall(async () => {
-    await axios.post(
+    await spotifyAxios.post(
       `${API_BASE_URL}/me/player/previous`,
       {},
       {
@@ -196,7 +196,7 @@ export async function skipToNext(): Promise<void> {
   await ensureValidToken();
 
   await retryApiCall(async () => {
-    await axios.post(
+    await spotifyAxios.post(
       `${API_BASE_URL}/me/player/next`,
       {},
       {

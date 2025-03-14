@@ -93,12 +93,18 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
             try {
               if (isTokenValid()) {
                 // Set valid tokens in API service
+                const now = Date.now();
+                const expiresIn = Math.max(
+                  0,
+                  (storedTokens.expiresAt - now) / 1000,
+                );
+
                 setApiTokens(
                   storedTokens.accessToken,
                   storedTokens.refreshToken,
-                  3600,
+                  Math.floor(expiresIn),
                 );
-                saveLog("Using existing valid tokens", "DEBUG");
+                saveLog("Using existing valid tokens from storage", "DEBUG");
                 return true;
               } else {
                 // Refresh expired token

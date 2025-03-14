@@ -48,8 +48,14 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
       "DEBUG",
     );
 
-    // If track changed before the skip threshold, consider it skipped
-    if (progressPercent < skipProgressThreshold) {
+    // Get recently played tracks to check if this is a navigation to previous tracks
+    const recentlyPlayed = await spotifyApi.getRecentlyPlayedTracks(20);
+    const isInRecentlyPlayed = recentlyPlayed?.items?.some(
+      (item) => item.track.id === previousTrackId,
+    );
+
+    // If track changed before the skip threshold and is not in recently played, consider it skipped
+    if (progressPercent < skipProgressThreshold && !isInRecentlyPlayed) {
       store.saveLog(
         `Track "${state.currentTrackName}" was skipped at ${(progressPercent * 100).toFixed(1)}% (threshold: ${skipProgressThreshold * 100}%)`,
         "INFO",
@@ -87,6 +93,12 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
           store.saveLog(`Failed to unlike track: ${error}`, "ERROR");
         }
       }
+    } else if (isInRecentlyPlayed) {
+      // Track was navigated to from recently played (likely using previous button)
+      store.saveLog(
+        `Track "${state.currentTrackName}" was navigated to from recently played (not counted as skip)`,
+        "DEBUG",
+      );
     } else {
       // Track was played through to completion (or close enough)
       store.saveLog(
