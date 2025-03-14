@@ -343,7 +343,15 @@ jobs:
       - name: Push changes to branch
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
         run: |
-          git push origin ${{ steps.check-pr.outputs.pr_branch }}
+          # Check if we have any unpushed changes first
+          UNPUSHED_COUNT=$(git rev-list --count origin/${{ steps.check-pr.outputs.pr_branch }}..HEAD 2>/dev/null || echo "0")
+
+          if [ "$UNPUSHED_COUNT" -gt 0 ]; then
+            echo "Pushing $UNPUSHED_COUNT new commits to branch"
+            git push origin ${{ steps.check-pr.outputs.pr_branch }}
+          else
+            echo "No new commits to push"
+          fi
 
       - name: Create custom PR body
         id: pr-body
@@ -373,27 +381,52 @@ jobs:
 
           # Add dependabot updates section if there are any
           if [ "${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}" -gt 0 ]; then
-            # Create a list of incorporated PRs in a user-friendly format
-            PR_LIST=""
-            while read -r PR_ITEM; do
+            echo "Incorporated PRs JSON: $INCORPORATED_PRS"
+            
+            # Create a temporary file for the PR list to avoid issues with complex strings
+            PR_LIST_FILE=$(mktemp)
+            
+            # Process each PR and add it to the list file
+            echo "$INCORPORATED_PRS" | jq -c '.[]' | while read -r PR_ITEM; do
               PR_NUM=$(echo "$PR_ITEM" | jq -r '.number')
               PR_TITLE=$(echo "$PR_ITEM" | jq -r '.title')
-              PR_LIST="${PR_LIST}- PR #${PR_NUM}: ${PR_TITLE}\n"
-            done < <(echo "$INCORPORATED_PRS" | jq -c '.[]')
-
-            PR_BODY="${PR_BODY}
+              ALREADY_INC=$(echo "$PR_ITEM" | jq -r '.already_incorporated // false')
+              
+              # Add the PR to the list - format differs based on if it was newly incorporated or not
+              if [ "$ALREADY_INC" = "true" ]; then
+                echo "- PR #${PR_NUM}: ${PR_TITLE} (previously incorporated)" >> "$PR_LIST_FILE"
+              else
+                echo "- PR #${PR_NUM}: ${PR_TITLE}" >> "$PR_LIST_FILE"
+              fi
+            done
+            
+            # Count newly incorporated PRs for better context
+            NEWLY_ADDED=$(echo "$INCORPORATED_PRS" | jq '[.[] | select(.already_incorporated == false or .already_incorporated == null)] | length')
+            PREV_ADDED=$(echo "$INCORPORATED_PRS" | jq '[.[] | select(.already_incorporated == true)] | length')
+            
+            # Only add the section if the PR list file exists and has content
+            if [ -s "$PR_LIST_FILE" ]; then
+              PR_BODY="${PR_BODY}
 
           ### Incorporated Dependabot PRs
-          <details><summary>Show Incorporated PRs</summary>
+          <details><summary>Show Incorporated PRs ($NEWLY_ADDED new, $PREV_ADDED previous)</summary>
           The following Dependabot PRs were incorporated:
 
-          ${PR_LIST}
+          $(cat "$PR_LIST_FILE")
           </details>
           "
+            else
+              echo "Warning: No PR items were processed, PR list is empty"
+            fi
             
-            # Log the incorporated PRs for debugging
-            echo "Including Dependabot PRs in the initial PR body:"
-            echo "$INCORPORATED_PRS" | jq -r '.[] | "  - PR #\(.number): \(.title)"'
+            # Clean up
+            rm -f "$PR_LIST_FILE" 2>/dev/null || true
+            
+            # Log what we found
+            echo "Adding Dependabot PRs to initial PR body:"
+            echo "- Total PRs: ${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}"
+            echo "- Newly incorporated: $NEWLY_ADDED"
+            echo "- Previously incorporated: $PREV_ADDED"
           fi
 
           # Escape newlines for GitHub Actions output
@@ -407,16 +440,31 @@ jobs:
           PR_BRANCH: ${{ steps.check-pr.outputs.pr_branch }}
           PR_BODY: ${{ steps.pr-body.outputs.body }}
         run: |
+          # Make sure the branch exists remotely (it should have been pushed in the previous step)
+          if ! git ls-remote --exit-code --heads origin $PR_BRANCH &>/dev/null; then
+            echo "Branch $PR_BRANCH doesn't exist remotely - was it pushed? Skipping PR creation"
+            exit 0
+          fi
+
           # Verify we have changes in the branch
           if git diff --quiet origin/master origin/$PR_BRANCH; then
             echo "No differences found between branches, skipping PR creation"
-          else
-            echo "Found differences between branches, creating PR"
+            exit 0
+          fi
+
+          # Count total commits in the branch that differ from master
+          TOTAL_COMMITS=$(git rev-list --count origin/master..origin/$PR_BRANCH)
+          echo "Found $TOTAL_COMMITS commits in branch compared to master"
+
+          if [ "$TOTAL_COMMITS" -gt 0 ]; then
+            echo "Creating PR with $TOTAL_COMMITS commits of changes"
             gh pr create \
               --title "chore: update npm dependencies" \
               --body "${PR_BODY//%0A/$'\n'}" \
               --base master \
               --head $PR_BRANCH
+          else
+            echo "No commits to include in PR, skipping creation"
           fi
 
       - name: Add comment to existing PR about updates
