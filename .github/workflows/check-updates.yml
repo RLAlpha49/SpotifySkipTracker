@@ -31,33 +31,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq
 
-      - name: Check for package updates
-        id: check-updates
-        run: |
-          # Capture ncu output
-          NCU_OUTPUT=$(ncu)
-
-          # Use echo to write to GITHUB_STEP_SUMMARY
-          echo "## 📦 Package Updates Available" >> $GITHUB_STEP_SUMMARY
-          echo "The following packages can be updated:" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "$NCU_OUTPUT" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "To update all packages, run: npm run update" >> $GITHUB_STEP_SUMMARY
-
-          # Capture JSON output for PR creation
-          UPDATE_INFO=$(ncu --jsonUpgraded)
-          echo "update_info<<EOF" >> $GITHUB_OUTPUT
-          echo "$UPDATE_INFO" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-          # Check if there are updates
-          if [ "$(echo "$UPDATE_INFO" | jq 'length')" -gt 0 ]; then
-            echo "has_updates=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_updates=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Check for Dependabot PRs
         id: check-dependabot
         env:
@@ -89,9 +62,10 @@ jobs:
             echo "has_dependabot_prs=false" >> $GITHUB_OUTPUT
           fi
 
+      # First check for PRs before we do any incorporation or updates
       - name: Check for existing PR
         id: check-pr
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-dependabot.outputs.has_dependabot_prs == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
@@ -108,8 +82,9 @@ jobs:
             echo "pr_branch=deps/update-packages" >> $GITHUB_OUTPUT
           fi
 
+      # Checkout branch (if we have Dependabot PRs to incorporate or will later find package updates)
       - name: Checkout or create update branch
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-dependabot.outputs.has_dependabot_prs == 'true' }}
         run: |
           # Debug info
           echo "Using branch: ${{ steps.check-pr.outputs.pr_branch }}"
@@ -154,6 +129,7 @@ jobs:
           echo "Current branch: $(git rev-parse --abbrev-ref HEAD)"
           echo "Current branch commits: $(git rev-list --count HEAD)"
 
+      # STEP REORDERING: First incorporate Dependabot PRs
       - name: Incorporate Dependabot PRs
         id: check-dependabot-incorporate
         if: ${{ steps.check-dependabot.outputs.has_dependabot_prs == 'true' }}
@@ -359,6 +335,34 @@ jobs:
           # Don't fail the job if there were no new incorporations but PRs exist in history
           exit 0
 
+      # STEP REORDERING: Now check for package updates AFTER incorporating Dependabot PRs
+      - name: Check for package updates
+        id: check-updates
+        run: |
+          # Capture ncu output
+          NCU_OUTPUT=$(ncu)
+
+          # Use echo to write to GITHUB_STEP_SUMMARY
+          echo "## 📦 Package Updates Available" >> $GITHUB_STEP_SUMMARY
+          echo "The following packages can be updated:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "$NCU_OUTPUT" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "To update all packages, run: npm run update" >> $GITHUB_STEP_SUMMARY
+
+          # Capture JSON output for PR creation
+          UPDATE_INFO=$(ncu --jsonUpgraded)
+          echo "update_info<<EOF" >> $GITHUB_OUTPUT
+          echo "$UPDATE_INFO" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # Check if there are updates
+          if [ "$(echo "$UPDATE_INFO" | jq 'length')" -gt 0 ]; then
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Update packages with npm-check-updates
         id: update-packages
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-updates.outputs.has_updates == 'true' }}
@@ -443,7 +447,7 @@ jobs:
 
       - name: Create custom PR body
         id: pr-body
-        if: ${{ steps.check-pr.outputs.pr_exists != 'true' && (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || (steps.check-dependabot.outputs.has_dependabot_prs == 'true' && steps.check-dependabot-incorporate.outputs.incorporated_count > 0)) }}
+        if: ${{ steps.check-pr.outputs.pr_exists != 'true' && (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
         env:
           INCORPORATED_PRS: ${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}
           UPDATE_INFO: ${{ steps.check-updates.outputs.update_info }}
@@ -455,7 +459,6 @@ jobs:
           echo "- has_updates: ${{ steps.check-updates.outputs.has_updates }}"
           echo "- has_dependabot_prs: ${{ steps.check-dependabot.outputs.has_dependabot_prs }}"
           echo "- incorporated_count: ${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}"
-          echo "- has_actual_changes: $HAS_ACTUAL_CHANGES"
           echo "INCORPORATED_PRS: $INCORPORATED_PRS"
 
           # Create PR body with proper formatting
@@ -543,7 +546,18 @@ jobs:
           INCORPORATED_COUNT="${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}"
           echo "Incorporated count: $INCORPORATED_COUNT"
 
-          if [ "$INCORPORATED_COUNT" -gt 0 ]; then
+          # Check if INCORPORATED_PRS contains actual data, regardless of incorporated_count
+          HAS_INCORPORATED_PRS=false
+          if [ -n "$INCORPORATED_PRS" ] && [ "$INCORPORATED_PRS" != "[]" ]; then
+            # Use jq to check if there are any elements in the array
+            PR_COUNT=$(echo "$INCORPORATED_PRS" | jq 'length')
+            if [ "$PR_COUNT" -gt 0 ]; then
+              echo "Found $PR_COUNT PRs in INCORPORATED_PRS JSON"
+              HAS_INCORPORATED_PRS=true
+            fi
+          fi
+
+          if [ "$INCORPORATED_COUNT" -gt 0 ] || [ "$HAS_INCORPORATED_PRS" = "true" ]; then
             echo "Adding Dependabot PRs section to PR body"
             echo "Incorporated PRs JSON: $INCORPORATED_PRS"
             
@@ -629,7 +643,7 @@ jobs:
             
             # Log what we found
             echo "Adding Dependabot PRs to initial PR body:"
-            echo "- Total PRs: $INCORPORATED_COUNT"
+            echo "- Total PRs: $JQ_TOTAL" # Use the count from jq instead of incorporated_count
             echo "- Newly incorporated: $NEWLY_ADDED"
             echo "- Previously incorporated: $PREV_ADDED"
           else
@@ -647,7 +661,7 @@ jobs:
           echo "body=$PR_BODY" >> $GITHUB_OUTPUT
 
       - name: Create new Pull Request with gh CLI
-        if: ${{ steps.check-pr.outputs.pr_exists != 'true' && (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || (steps.check-dependabot.outputs.has_dependabot_prs == 'true' && steps.check-dependabot-incorporate.outputs.incorporated_count > 0)) }}
+        if: ${{ steps.check-pr.outputs.pr_exists != 'true' && (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
         env:
           GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
           PR_BRANCH: ${{ steps.check-pr.outputs.pr_branch }}
@@ -657,7 +671,7 @@ jobs:
           echo "Attempting to create PR for branch: $PR_BRANCH"
           echo "PR exists flag: ${{ steps.check-pr.outputs.pr_exists }}"
           echo "NPM updates?: ${{ steps.check-updates.outputs.has_updates }}"
-          echo "Dependabot PRs incorporated: ${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}"
+          echo "Dependabot PRs incorporated: ${{ steps.check-dependabot.outputs.has_dependabot_prs }}"
 
           # Make sure the branch exists remotely (it should have been pushed in the previous step)
           if ! git ls-remote --exit-code --heads origin $PR_BRANCH &>/dev/null; then
