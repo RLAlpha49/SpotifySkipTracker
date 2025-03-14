@@ -7,8 +7,6 @@
       http-equiv="Content-Security-Policy"
       content="script-src 'self' 'unsafe-inline';"
     />
-    <!-- Use both relative and absolute paths for CSS to handle different contexts -->
-    <link rel="stylesheet" href="/src/styles/global.css" />
     <link rel="stylesheet" href="./src/styles/global.css" />
     <style>
       .fallback-container {
@@ -59,8 +57,6 @@
       });
     </script>
 
-    <!-- Module scripts for different contexts -->
-    <script type="module" src="/src/renderer.ts"></script>
     <script type="module" src="./src/renderer.ts"></script>
   </body>
 </html>
