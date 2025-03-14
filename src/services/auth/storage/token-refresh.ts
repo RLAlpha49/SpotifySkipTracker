@@ -75,16 +75,20 @@ export async function refreshAccessToken(): Promise<boolean> {
       // Add a fallback to the main token refresh function if not initialized
       initTokenRefresh((tokens) => {
         try {
-          // Try to import dynamically to avoid circular dependencies
-          const { setTokens: setTokensOp } = require("./token-operations");
-          if (setTokensOp) {
-            setTokensOp(tokens);
-          } else {
-            saveLog(
-              "Failed to initialize fallback token refresh mechanism",
-              "ERROR",
-            );
-          }
+          import("./token-operations")
+            .then(({ setTokens: setTokensOp }) => {
+              if (setTokensOp) {
+                setTokensOp(tokens);
+              } else {
+                saveLog(
+                  "Failed to initialize fallback token refresh mechanism",
+                  "ERROR",
+                );
+              }
+            })
+            .catch(() => {
+              saveLog(`Error initializing fallback token refresh`, "ERROR");
+            });
         } catch {
           saveLog(`Error initializing fallback token refresh`, "ERROR");
         }

@@ -27,8 +27,6 @@ let failedQueue: Array<{
 
 // Maximum number of retries for 5xx errors
 const MAX_RETRIES = 3;
-// Base delay for exponential backoff (in milliseconds)
-const BASE_DELAY = 1000;
 
 const processQueue = (error: Error | null = null) => {
   failedQueue.forEach((prom) => {
