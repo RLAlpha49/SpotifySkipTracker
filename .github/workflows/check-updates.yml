@@ -584,24 +584,24 @@ jobs:
           PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
           NEW_COMMITS=0
 
-          # Fetch latest remote branch state
-          git fetch origin $PR_BRANCH
+          # Instead of looking for unpushed commits, check if we made relevant updates in this run
+          NPM_UPDATED=false
+          DEPENDABOT_INCORPORATED=false
 
-          # Check for unpushed commits
-          UNPUSHED_COUNT=$(git rev-list --count origin/$PR_BRANCH..HEAD)
-          echo "[INFO] Analyzing unpushed commits: $UNPUSHED_COUNT"
+          # Check if we updated npm packages in this run
+          if [ "${{ steps.check-updates.outputs.has_updates }}" == "true" ] && [ "${{ steps.update-packages.outputs.has_actual_changes }}" == "true" ]; then
+            echo "[INFO] NPM packages were updated in this run"
+            NPM_UPDATED=true
+            NEW_COMMITS=$((NEW_COMMITS + 1))
+          fi
 
-          # Check commit types to determine relevance
-          if [ "$UNPUSHED_COUNT" -gt 0 ]; then
-            # Check for npm dependency updates
-            if git log origin/$PR_BRANCH..HEAD --grep="update npm dependencies" --oneline | grep -q .; then
-              NEW_COMMITS=$((NEW_COMMITS + 1))
-            fi
-            
-            # Check for Dependabot incorporations
-            DEPENDABOT_COMMITS=$(git log origin/$PR_BRANCH..HEAD --grep="incorporate Dependabot PR" --oneline | wc -l)
-            if [ "$DEPENDABOT_COMMITS" -gt 0 ]; then
-              NEW_COMMITS=$((NEW_COMMITS + DEPENDABOT_COMMITS))
+          # Check if we incorporated Dependabot PRs in this run
+          if [ -n "${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}" ]; then
+            NEWLY_INCORPORATED=$(echo "${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}" | jq '[.[] | select(.already_incorporated == false)] | length')
+            if [ "$NEWLY_INCORPORATED" -gt 0 ]; then
+              echo "[INFO] $NEWLY_INCORPORATED Dependabot PRs were incorporated in this run"
+              DEPENDABOT_INCORPORATED=true
+              NEW_COMMITS=$((NEW_COMMITS + NEWLY_INCORPORATED))
             fi
           fi
 
@@ -611,42 +611,7 @@ jobs:
             exit 0
           fi
 
-          echo "[INFO] Found $NEW_COMMITS relevant dependency update commits"
-
-          # Check for specific update types
-          NPM_UPDATED=false
-
-          # Check for npm updates in this run
-          if [ "${{ steps.check-updates.outputs.has_updates }}" == "true" ]; then
-            # Check latest commit for package changes
-            LATEST_COMMIT=$(git log -1 --pretty=format:%H)
-            PACKAGE_FILES_CHANGED=$(git show --name-only $LATEST_COMMIT | grep -E 'package(-lock)?.json')
-            if [ -n "$PACKAGE_FILES_CHANGED" ]; then
-              COMMIT_MSG=$(git log -1 --pretty=format:%s)
-              if [[ "$COMMIT_MSG" == *"update npm dependencies"* ]]; then
-                NPM_UPDATED=true
-              fi
-            fi
-          fi
-
-          # Check all recent commits if needed
-          if [ "$NPM_UPDATED" != "true" ] && [ "$UNPUSHED_COUNT" -gt 0 ]; then
-            PACKAGE_FILES_COMMITS=$(git log origin/$PR_BRANCH..HEAD --name-only --pretty=format: | grep -E 'package(-lock)?.json' | wc -l)
-            if [ "$PACKAGE_FILES_COMMITS" -gt 0 ]; then
-              NPM_UPDATED=true
-            fi
-          fi
-
-          # Check for newly incorporated Dependabot PRs
-          NEWLY_INCORPORATED=$(echo "$INCORPORATED_PRS" | jq '[.[] | select(.already_incorporated == false)] | length')
-
-          echo "[INFO] Update types: NPM=$NPM_UPDATED, Dependabot=$NEWLY_INCORPORATED"
-
-          # Only proceed if there are updates to comment about
-          if [ "$NPM_UPDATED" != "true" ] && [ "$NEWLY_INCORPORATED" -eq 0 ]; then
-            echo "[INFO] No new updates to comment about"
-            exit 0
-          fi
+          echo "[INFO] Found $NEW_COMMITS relevant dependency updates to comment about"
 
           # Prepare comment
           COMMENT_FILE=$(mktemp)
@@ -689,6 +654,8 @@ jobs:
           fi
 
           # Add Dependabot updates section
+          NEWLY_INCORPORATED=$(echo "$INCORPORATED_PRS" | jq '[.[] | select(.already_incorporated == false)] | length')
+
           if [ "$NEWLY_INCORPORATED" -gt 0 ]; then
             # Add conjunction if needed
             if [ "$UPDATES_ADDED" == "true" ]; then
