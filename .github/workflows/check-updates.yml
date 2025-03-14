@@ -145,11 +145,44 @@ jobs:
           # Keep track of successfully incorporated PRs
           INCORPORATED_COUNT=0
 
+          # Check commit history to determine if PRs were already incorporated
+          echo "Checking if any PRs were already incorporated..."
+          ALREADY_INCORPORATED=()
+
+          # Get the commit log for the current branch
+          COMMIT_LOG=$(git log --grep="incorporate Dependabot PR" --oneline)
+          echo "Commit log for Dependabot incorporations:"
+          echo "$COMMIT_LOG"
+
+          if [[ -n "$COMMIT_LOG" ]]; then
+            # Parse the JSON array of dependabot PRs to check for already incorporated PRs
+            echo "$DEPENDABOT_PRS" | jq -c '.[]' | while read -r PR_INFO; do
+              PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number')
+              if git log --grep="incorporate Dependabot PR #$PR_NUMBER" --oneline | grep -q .; then
+                echo "PR #$PR_NUMBER is already incorporated, skipping"
+                ALREADY_INCORPORATED+=($PR_NUMBER)
+                
+                # Add to successfully incorporated PRs in the temporary file
+                jq --arg num "$PR_NUMBER" --arg title "$(echo "$PR_INFO" | jq -r '.title')" \
+                  '. += [{"number": $num, "title": $title, "already_incorporated": true}]' "$TEMP_PR_FILE" > "${TEMP_PR_FILE}.tmp" && mv "${TEMP_PR_FILE}.tmp" "$TEMP_PR_FILE"
+                
+                # Increment counter for tracking
+                INCORPORATED_COUNT=$((INCORPORATED_COUNT + 1))
+              fi
+            done
+          fi
+
           # Parse the JSON array of dependabot PRs - ensure we're processing a JSON array
           echo "$DEPENDABOT_PRS" | jq -c '.[]' | while read -r PR_INFO; do
             PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number')
             PR_BRANCH=$(echo "$PR_INFO" | jq -r '.branch')
             PR_TITLE=$(echo "$PR_INFO" | jq -r '.title')
+            
+            # Skip if already incorporated
+            if [[ " ${ALREADY_INCORPORATED[@]} " =~ " ${PR_NUMBER} " ]]; then
+              echo "Skipping PR #$PR_NUMBER as it was already incorporated"
+              continue
+            fi
             
             echo "Processing Dependabot PR #$PR_NUMBER: $PR_TITLE (branch: $PR_BRANCH)"
             
@@ -170,36 +203,45 @@ jobs:
             
             # Try to merge the branch (skip if conflict)
             if git merge --no-commit --no-ff "origin/$PR_BRANCH"; then
-              echo "Successfully merged changes from PR #$PR_NUMBER"
+              git_status_output=$(git status --porcelain)
               
-              # For package updates, verify changes were made
-              if [ "$IS_PACKAGE_UPDATE" = "true" ]; then
-                if [ -f package.json ]; then
-                  AFTER_PACKAGE_CONTENT=$(cat package.json)
-                  if [ "$BEFORE_PACKAGE_CONTENT" != "$AFTER_PACKAGE_CONTENT" ]; then
-                    echo "✅ package.json was updated by merge"
-                    PACKAGE_JSON_CHANGED=true
-                  else
-                    echo "⚠️ Warning: package.json content didn't change after merge"
+              # Only proceed if there are changes to commit
+              if [ -n "$git_status_output" ]; then
+                echo "Found changes to commit from PR #$PR_NUMBER"
+                echo "Successfully merged changes from PR #$PR_NUMBER"
+                
+                # For package updates, verify changes were made
+                if [ "$IS_PACKAGE_UPDATE" = "true" ]; then
+                  if [ -f package.json ]; then
+                    AFTER_PACKAGE_CONTENT=$(cat package.json)
+                    if [ "$BEFORE_PACKAGE_CONTENT" != "$AFTER_PACKAGE_CONTENT" ]; then
+                      echo "✅ package.json was updated by merge"
+                      PACKAGE_JSON_CHANGED=true
+                    else
+                      echo "⚠️ Warning: package.json content didn't change after merge"
+                    fi
                   fi
                 fi
+                
+                # Make sure the package-lock is updated if package.json changed
+                if [ "$IS_PACKAGE_UPDATE" = "true" ] && [ -f package.json ] && [ -f package-lock.json ]; then
+                  echo "Running npm install to update package-lock.json"
+                  npm install --package-lock-only || true
+                fi
+                
+                # Commit the changes
+                git add --all
+                git commit -m "chore: incorporate Dependabot PR #$PR_NUMBER ($PR_TITLE)"
+                
+                # Increment counter
+                INCORPORATED_COUNT=$((INCORPORATED_COUNT + 1))
+                
+                # Add to successfully incorporated PRs in the temporary file
+                jq --arg num "$PR_NUMBER" --arg title "$PR_TITLE" '. += [{"number": $num, "title": $title, "already_incorporated": false}]' "$TEMP_PR_FILE" > "${TEMP_PR_FILE}.tmp" && mv "${TEMP_PR_FILE}.tmp" "$TEMP_PR_FILE"
+              else
+                echo "No changes to commit for PR #$PR_NUMBER, skipping commit"
+                git merge --abort || true
               fi
-              
-              # Make sure the package-lock is updated if package.json changed
-              if [ "$IS_PACKAGE_UPDATE" = "true" ] && [ -f package.json ] && [ -f package-lock.json ]; then
-                echo "Running npm install to update package-lock.json"
-                npm install --package-lock-only || true
-              fi
-              
-              # Commit the changes
-              git add --all
-              git commit -m "chore: incorporate Dependabot PR #$PR_NUMBER ($PR_TITLE)"
-              
-              # Increment counter
-              INCORPORATED_COUNT=$((INCORPORATED_COUNT + 1))
-              
-              # Add to successfully incorporated PRs in the temporary file
-              jq --arg num "$PR_NUMBER" --arg title "$PR_TITLE" '. += [{"number": $num, "title": $title}]' "$TEMP_PR_FILE" > "${TEMP_PR_FILE}.tmp" && mv "${TEMP_PR_FILE}.tmp" "$TEMP_PR_FILE"
             else
               echo "Merge conflict with Dependabot PR #$PR_NUMBER, skipping"
               git merge --abort
@@ -240,7 +282,7 @@ jobs:
                       INCORPORATED_COUNT=$((INCORPORATED_COUNT + 1))
                       
                       # Add to successfully incorporated PRs in the temporary file
-                      jq --arg num "$PR_NUMBER" --arg title "$PR_TITLE" '. += [{"number": $num, "title": $title}]' "$TEMP_PR_FILE" > "${TEMP_PR_FILE}.tmp" && mv "${TEMP_PR_FILE}.tmp" "$TEMP_PR_FILE"
+                      jq --arg num "$PR_NUMBER" --arg title "$PR_TITLE" '. += [{"number": $num, "title": $title, "already_incorporated": false}]' "$TEMP_PR_FILE" > "${TEMP_PR_FILE}.tmp" && mv "${TEMP_PR_FILE}.tmp" "$TEMP_PR_FILE"
                     fi
                   else
                     echo "Could not parse package information from PR title"
@@ -260,7 +302,7 @@ jobs:
           # Set a flag indicating if package.json was changed
           echo "package_json_changed=$PACKAGE_JSON_CHANGED" >> $GITHUB_OUTPUT
 
-          # Store the incorporated count
+          # Store the incorporated count - including ones already incorporated from previous runs
           echo "incorporated_count=$INCORPORATED_COUNT" >> $GITHUB_OUTPUT
 
           # Store the incorporated PRs as output only
@@ -271,13 +313,17 @@ jobs:
           echo "Incorporated PRs ($INCORPORATED_COUNT):"
           cat "$TEMP_PR_FILE" | jq '.'
 
-          # List all changes in the working directory
-          if [ $INCORPORATED_COUNT -gt 0 ]; then
-            echo "Files changed in our branch:"
-            git diff --name-only HEAD~$INCORPORATED_COUNT HEAD
+          # List all changes in the working directory, if any new changes were made
+          NEWLY_INCORPORATED=$(cat "$TEMP_PR_FILE" | jq '[.[] | select(.already_incorporated == false)] | length')
+          if [ "$NEWLY_INCORPORATED" -gt 0 ]; then
+            echo "Files changed in our branch from newly incorporated PRs:"
+            git diff --name-only HEAD~$NEWLY_INCORPORATED HEAD || true
           else
-            echo "No PRs were incorporated, no file changes to show."
+            echo "No new PRs were incorporated in this run, no new file changes to show."
           fi
+
+          # Don't fail the job if there were no new incorporations but PRs exist in history
+          exit 0
 
       - name: Update packages with npm-check-updates
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-updates.outputs.has_updates == 'true' }}
