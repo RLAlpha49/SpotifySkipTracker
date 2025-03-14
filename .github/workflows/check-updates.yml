@@ -302,6 +302,8 @@ jobs:
       - name: Create custom PR body
         id: pr-body
         if: ${{ steps.check-pr.outputs.pr_exists != 'true' && (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || (steps.check-dependabot.outputs.has_dependabot_prs == 'true' && steps.check-dependabot-incorporate.outputs.incorporated_count > 0)) }}
+        env:
+          INCORPORATED_PRS: ${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}
         run: |
           # Create PR body with proper formatting
           PR_BODY="This PR updates dependencies to their latest versions.
@@ -325,17 +327,27 @@ jobs:
 
           # Add dependabot updates section if there are any
           if [ "${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}" -gt 0 ]; then
+            # Create a list of incorporated PRs in a user-friendly format
+            PR_LIST=""
+            while read -r PR_ITEM; do
+              PR_NUM=$(echo "$PR_ITEM" | jq -r '.number')
+              PR_TITLE=$(echo "$PR_ITEM" | jq -r '.title')
+              PR_LIST="${PR_LIST}- PR #${PR_NUM}: ${PR_TITLE}\n"
+            done < <(echo "$INCORPORATED_PRS" | jq -c '.[]')
+
             PR_BODY="${PR_BODY}
 
           ### Incorporated Dependabot PRs
           <details><summary>Show Incorporated PRs</summary>
           The following Dependabot PRs were incorporated:
 
-          \`\`\`json
-          ${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}
-          \`\`\`
+          ${PR_LIST}
           </details>
           "
+            
+            # Log the incorporated PRs for debugging
+            echo "Including Dependabot PRs in the initial PR body:"
+            echo "$INCORPORATED_PRS" | jq -r '.[] | "  - PR #\(.number): \(.title)"'
           fi
 
           # Escape newlines for GitHub Actions output
@@ -372,6 +384,7 @@ jobs:
           # Start building comment
           COMMENT="## 📦 New dependency updates added\n\nThis PR has been updated with "
           UPDATES_ADDED=false
+          DEPENDABOT_ADDED=false
 
           # Check if there were any ncu updates
           if [ "${{ steps.check-updates.outputs.has_updates }}" == "true" ] && git diff HEAD~1 --name-only | grep -E 'package(-lock)?.json'; then
@@ -389,20 +402,32 @@ jobs:
               COMMENT+=" and "
             fi
             COMMENT+="Dependabot updates"
+            DEPENDABOT_ADDED=true
+            
+            # Create a list of incorporated PRs
+            PR_LIST=""
+            while read -r PR_ITEM; do
+              PR_NUM=$(echo "$PR_ITEM" | jq -r '.number')
+              PR_TITLE=$(echo "$PR_ITEM" | jq -r '.title')
+              PR_LIST="${PR_LIST}- PR #${PR_NUM}: ${PR_TITLE}\n"
+            done < <(echo "$INCORPORATED_PRS" | jq -c '.[]')
             
             # Add Dependabot updates section
-            COMMENT+="\n\n<details>\n<summary>Incorporated Dependabot PRs</summary>\n\n"
-            
-            echo "$INCORPORATED_PRS" | jq -r '.[] | "- PR #\(.number): \(.title)"' | while read -r LINE; do
-              COMMENT+="$LINE\n"
-            done
-            
-            COMMENT+="\n</details>"
+            COMMENT+="\n\n<details>\n<summary>Incorporated Dependabot PRs</summary>\n\n${PR_LIST}\n</details>"
           fi
 
           # Only post comment if we have something meaningful to say
-          if [ "$UPDATES_ADDED" == "true" ] || [ "$INCORPORATED_COUNT" -gt 0 ]; then
+          if [ "$UPDATES_ADDED" == "true" ] || [ "$DEPENDABOT_ADDED" == "true" ]; then
             # Create the comment
+            echo -e "Posting comment to PR #$PR_NUMBER with updates:"
+            if [ "$UPDATES_ADDED" == "true" ]; then
+              echo -e "- NPM Package Updates"
+            fi
+            if [ "$DEPENDABOT_ADDED" == "true" ]; then
+              echo -e "- Dependabot PRs (count: $INCORPORATED_COUNT)"
+              echo "$INCORPORATED_PRS" | jq -r '.[] | "  - PR #\(.number): \(.title)"'
+            fi
+            
             gh pr comment $PR_NUMBER --body "$COMMENT"
           else
             echo "No updates to comment about"
