@@ -426,55 +426,111 @@ jobs:
           PR_NUMBER: ${{ steps.check-pr.outputs.pr_number }}
           UPDATE_INFO: ${{ steps.check-updates.outputs.update_info }}
           INCORPORATED_PRS: ${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}
+        # Using pipe character for YAML block scalar - ensures proper parsing
         run: |
-          # Start building comment
-          COMMENT="## 📦 New dependency updates added\n\nThis PR has been updated with "
+          # Skip comment creation when there are no new updates
+
+          # First check if there are any new npm updates
+          NPM_UPDATED=false
+          if [ "${{ steps.check-updates.outputs.has_updates }}" == "true" ] && git diff HEAD~1 --name-only | grep -E 'package(-lock)?.json'; then
+            NPM_UPDATED=true
+          fi
+
+          # Check if there are any newly incorporated Dependabot PRs (not already incorporated in previous runs)
+          NEWLY_INCORPORATED=$(echo "$INCORPORATED_PRS" | jq '[.[] | select(.already_incorporated == false)] | length')
+
+          echo "Status check:"
+          echo "- NPM Updates: $NPM_UPDATED"
+          echo "- Newly Incorporated Dependabot PRs: $NEWLY_INCORPORATED"
+
+          # Only proceed if we have actual updates to comment about
+          if [ "$NPM_UPDATED" != "true" ] && [ "$NEWLY_INCORPORATED" -eq 0 ]; then
+            echo "No new updates to comment about - skipping comment creation"
+            exit 0
+          fi
+
+          echo "Found new updates to comment about - preparing comment"
+
+          # Use a temporary file for comment construction
+          COMMENT_FILE=$(mktemp)
+
+          # Write header
+          echo "## 📦 New dependency updates added" > "$COMMENT_FILE"
+          echo "" >> "$COMMENT_FILE"
+          echo -n "This PR has been updated with " >> "$COMMENT_FILE"
+
+          # Track what's included in the update
           UPDATES_ADDED=false
           DEPENDABOT_ADDED=false
 
-          # Check if there were any ncu updates
-          if [ "${{ steps.check-updates.outputs.has_updates }}" == "true" ] && git diff HEAD~1 --name-only | grep -E 'package(-lock)?.json'; then
-            COMMENT+="npm package updates"
+          # Add npm updates section
+          if [ "$NPM_UPDATED" == "true" ]; then
+            echo -n "npm package updates" >> "$COMMENT_FILE"
             UPDATES_ADDED=true
             
-            # Add ncu updates section
-            COMMENT+="\n\n<details>\n<summary>Latest Package Updates</summary>\n\n\`\`\`json\n$UPDATE_INFO\n\`\`\`\n</details>"
+            # Add update details in a collapsible section
+            {
+              echo ""
+              echo ""
+              echo "<details>"
+              echo "<summary>Latest Package Updates</summary>"
+              echo ""
+              echo "```json"
+              echo "$UPDATE_INFO"
+              echo "```"
+              echo "</details>"
+            } >> "$COMMENT_FILE"
           fi
 
-          # Check if there were any Dependabot PRs incorporated
-          INCORPORATED_COUNT=${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}
-          if [ "$INCORPORATED_COUNT" -gt 0 ]; then
+          # Add Dependabot PR updates section
+          if [ "$NEWLY_INCORPORATED" -gt 0 ]; then
+            # Add conjunction if needed
             if [ "$UPDATES_ADDED" == "true" ]; then
-              COMMENT+=" and "
+              echo -n " and " >> "$COMMENT_FILE"
             fi
-            COMMENT+="Dependabot updates"
+            
+            echo -n "Dependabot updates" >> "$COMMENT_FILE"
             DEPENDABOT_ADDED=true
             
-            # Create a list of incorporated PRs
+            # Build list of PRs
             PR_LIST=""
-            while read -r PR_ITEM; do
+            echo "$INCORPORATED_PRS" | jq -c '.[] | select(.already_incorporated == false)' | while read -r PR_ITEM; do
               PR_NUM=$(echo "$PR_ITEM" | jq -r '.number')
               PR_TITLE=$(echo "$PR_ITEM" | jq -r '.title')
-              PR_LIST="${PR_LIST}- PR #${PR_NUM}: ${PR_TITLE}\n"
-            done < <(echo "$INCORPORATED_PRS" | jq -c '.[]')
+              echo "- PR #${PR_NUM}: ${PR_TITLE}" >> "$COMMENT_FILE.list"
+            done
             
-            # Add Dependabot updates section
-            COMMENT+="\n\n<details>\n<summary>Incorporated Dependabot PRs</summary>\n\n${PR_LIST}\n</details>"
+            # Add PR details in a collapsible section
+            {
+              echo ""
+              echo ""
+              echo "<details>"
+              echo "<summary>Newly Incorporated Dependabot PRs</summary>"
+              echo ""
+              cat "$COMMENT_FILE.list"
+              echo "</details>"
+            } >> "$COMMENT_FILE"
+            
+            rm -f "$COMMENT_FILE.list"
           fi
 
-          # Only post comment if we have something meaningful to say
-          if [ "$UPDATES_ADDED" == "true" ] || [ "$DEPENDABOT_ADDED" == "true" ]; then
-            # Create the comment
-            echo -e "Posting comment to PR #$PR_NUMBER with updates:"
-            if [ "$UPDATES_ADDED" == "true" ]; then
-              echo -e "- NPM Package Updates"
-            fi
-            if [ "$DEPENDABOT_ADDED" == "true" ]; then
-              echo -e "- Dependabot PRs (count: $INCORPORATED_COUNT)"
-              echo "$INCORPORATED_PRS" | jq -r '.[] | "  - PR #\(.number): \(.title)"'
-            fi
-            
-            gh pr comment $PR_NUMBER --body "$COMMENT"
-          else
-            echo "No updates to comment about"
+          # Log what we're doing
+          echo "Posting comment to PR #$PR_NUMBER with updates:"
+          if [ "$UPDATES_ADDED" == "true" ]; then
+            echo "- NPM Package Updates"
           fi
+          if [ "$DEPENDABOT_ADDED" == "true" ]; then
+            echo "- New Dependabot PRs: $NEWLY_INCORPORATED"
+            echo "$INCORPORATED_PRS" | jq -c '.[] | select(.already_incorporated == false)' | jq -r '"  - PR #\(.number): \(.title)"'
+          fi
+
+          # Show preview
+          echo "Comment to be posted (preview):"
+          cat "$COMMENT_FILE" | head -15
+          echo "... (more content) ..."
+
+          # Submit the comment
+          gh pr comment "$PR_NUMBER" --body-file "$COMMENT_FILE"
+
+          # Clean up
+          rm -f "$COMMENT_FILE"
