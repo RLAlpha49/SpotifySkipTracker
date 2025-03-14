@@ -591,7 +591,7 @@ jobs:
             
             if [ "$JQ_TOTAL" -gt 0 ]; then
               # Process each PR and add it to the list file using jq
-              jq -r '.[] | "- PR #\(.number): \(.title) \(if .already_incorporated == true then \"(previously incorporated)\" else \"\" end)"' /tmp/incorporated_prs_debug.json > "$PR_LIST_FILE"
+              jq -r '.[] | "- PR #\(.number): \(.title)" + (if .already_incorporated then " (previously incorporated)" else "" end)' /tmp/incorporated_prs_debug.json > "$PR_LIST_FILE"
               
               # Count newly incorporated PRs
               NEWLY_ADDED=$(jq '[.[] | select(.already_incorporated == false or .already_incorporated == null)] | length' /tmp/incorporated_prs_debug.json || echo 0)
@@ -635,7 +635,7 @@ jobs:
           The following Dependabot PRs were incorporated:
 
           $(cat "$PR_LIST_FILE")
-          </details>
+            </details>
           "
             
             # Clean up
