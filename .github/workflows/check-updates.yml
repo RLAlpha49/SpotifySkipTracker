@@ -359,13 +359,17 @@ jobs:
           # Check if there are updates
           if [ "$(echo "$UPDATE_INFO" | jq 'length')" -gt 0 ]; then
             echo "has_updates=true" >> $GITHUB_OUTPUT
+            echo "Found $(echo "$UPDATE_INFO" | jq 'length') package updates"
           else
             echo "has_updates=false" >> $GITHUB_OUTPUT
+            echo "No package updates found"
           fi
 
       - name: Update packages with npm-check-updates
         id: update-packages
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-updates.outputs.has_updates == 'true' }}
+        # Always run this step for workflow_dispatch, regardless of whether updates were found
+        # This ensures that the PR shows all incorporated changes
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true) || (github.event_name != 'workflow_dispatch' && steps.check-updates.outputs.has_updates == 'true') }}
         run: |
           # Capture package.json before updates
           echo "Taking snapshot of package.json before updates"
@@ -723,12 +727,13 @@ jobs:
           fi
 
       - name: Add comment to existing PR about updates
-        if: ${{ steps.check-pr.outputs.pr_exists == 'true' && (steps.check-updates.outputs.has_updates == 'true' || (steps.check-dependabot.outputs.has_dependabot_prs == 'true' && steps.check-dependabot-incorporate.outputs.incorporated_count > 0)) }}
+        if: ${{ steps.check-pr.outputs.pr_exists == 'true' && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
         env:
           GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.check-pr.outputs.pr_number }}
           UPDATE_INFO: ${{ steps.check-updates.outputs.update_info }}
           INCORPORATED_PRS: ${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}
+          ACTUAL_CHANGES: ${{ steps.update-packages.outputs.actual_changes }}
         # Using pipe character for YAML block scalar - ensures proper parsing
         run: |
           # First, check if we actually made any changes in this workflow run that would require a comment
@@ -800,6 +805,16 @@ jobs:
             echo "No npm updates detected by ncu"
           fi
 
+          # More reliable approach - check all recent unpushed commits for package changes
+          if [ "$NPM_UPDATED" != "true" ] && [ "$UNPUSHED_COUNT" -gt 0 ]; then
+            echo "Checking all recent commits for package changes..."
+            PACKAGE_FILES_COMMITS=$(git log origin/$PR_BRANCH..HEAD --name-only --pretty=format: | grep -E 'package(-lock)?.json' | wc -l)
+            if [ "$PACKAGE_FILES_COMMITS" -gt 0 ]; then
+              echo "Found package file changes across $PACKAGE_FILES_COMMITS commits"
+              NPM_UPDATED=true
+            fi
+          fi
+
           # Check if there are any newly incorporated Dependabot PRs (not already incorporated in previous runs)
           NEWLY_INCORPORATED=$(echo "$INCORPORATED_PRS" | jq '[.[] | select(.already_incorporated == false)] | length')
 
@@ -840,9 +855,21 @@ jobs:
               echo "<details>"
               echo "<summary>Latest Package Updates</summary>"
               echo ""
-              echo "```json"
-              echo "$UPDATE_INFO"
-              echo "```"
+              
+              # First try to use actual changes detected
+              if [ -n "$ACTUAL_CHANGES" ]; then
+                echo "```json"
+                echo "{"
+                echo "$ACTUAL_CHANGES" | sed 's/^/  /'
+                echo "}"
+                echo "```"
+              else
+                # Fallback to ncu output
+                echo "```json"
+                echo "$UPDATE_INFO"
+                echo "```"
+              fi
+              
               echo "</details>"
             } >> "$COMMENT_FILE"
           fi
