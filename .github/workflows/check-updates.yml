@@ -387,13 +387,13 @@ jobs:
             # Check if we have actual changes from the diff
             if [ "$HAS_ACTUAL_CHANGES" == "true" ] && [ -n "$ACTUAL_CHANGES" ]; then
               # Generate a formatted JSON-like output
-              FORMATTED_CHANGES="{\n"
+              FORMATTED_CHANGES="{"
               while IFS= read -r line; do
                 if [[ -n "$line" ]]; then
-                  FORMATTED_CHANGES+="  $line\n"
+                  FORMATTED_CHANGES+=$'\n  '"$line"
                 fi
               done <<< "$ACTUAL_CHANGES"
-              FORMATTED_CHANGES+="}"
+              FORMATTED_CHANGES+=$'\n}'
               
               PR_BODY="${PR_BODY}
 
@@ -412,13 +412,13 @@ jobs:
               
               if [[ -n "$DEPENDENCY_CHANGES" ]]; then
                 # Format for PR body
-                FORMATTED_CHANGES="{\n"
+                FORMATTED_CHANGES="{"
                 while IFS= read -r line; do
                   if [[ -n "$line" ]]; then
-                    FORMATTED_CHANGES+="  $line\n"
+                    FORMATTED_CHANGES+=$'\n  '"$line"
                   fi
                 done <<< "$DEPENDENCY_CHANGES"
-                FORMATTED_CHANGES+="}"
+                FORMATTED_CHANGES+=$'\n}'
                 
                 PR_BODY="${PR_BODY}
 
@@ -432,13 +432,14 @@ jobs:
           "
               else
                 # Fallback to ncu output
+                FORMATTED_JSON=$(echo "$UPDATE_INFO" | jq -r 'if type == "object" then . else . end')
                 PR_BODY="${PR_BODY}
 
           ### NPM Package Updates
           <details><summary>Show Updates</summary>
 
           \`\`\`json
-          $UPDATE_INFO
+          ${FORMATTED_JSON}
           \`\`\`
           </details>
           "
@@ -510,7 +511,7 @@ jobs:
             PR_BODY="${PR_BODY}
 
           ### Incorporated Dependabot PRs
-          <details><summary>Show Incorporated PRs ($NEWLY_ADDED new, $PREV_ADDED previous)</summary>
+          <details><summary>Show Incorporated PRs</summary>
           The following Dependabot PRs were incorporated:
 
           $(cat "$PR_LIST_FILE")
@@ -677,8 +678,9 @@ jobs:
                 echo "}"
                 echo "```"
               else
+                FORMATTED_JSON=$(echo "$UPDATE_INFO" | jq -r 'if type == "object" then . else . end')
                 echo "```json"
-                echo "$UPDATE_INFO"
+                echo "$FORMATTED_JSON"
                 echo "```"
               fi
               
