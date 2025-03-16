@@ -15,9 +15,6 @@
     "format:write": "prettier --config config/.prettierrc --ignore-path config/.prettierignore --write .",
     "test": "vitest run --config vite-config/vitest.config.ts",
     "test:watch": "vitest watch --config vite-config/vitest.config.ts",
-    "test:unit": "vitest --config vite-config/vitest.config.ts",
-    "test:e2e": "playwright test --config config/playwright.config.ts",
-    "test:all": "vitest run --config vite-config/vitest.config.ts && playwright test --config config/playwright.config.ts",
     "update": "ncu --configFilePath config/.ncurc.json -u"
   },
   "author": "Alex Pettigrew <alexpettigrew29@gmail.com>",
