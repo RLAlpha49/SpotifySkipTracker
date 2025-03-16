@@ -52,7 +52,7 @@ jobs:
             workflow_name=$(echo "$workflow_json" | jq --raw-output '.name')
             
             # Skip if not the build workflow
-            if [[ "$workflow_name" != "Build" ]]; then
+            if [[ "$workflow_name" != "Build Electron App" ]]; then
               echo "Skipping workflow '$workflow_name' as it's not the build workflow"
               continue
             fi

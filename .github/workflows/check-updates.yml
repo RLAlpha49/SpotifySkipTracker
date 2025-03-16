@@ -643,12 +643,20 @@ jobs:
                 
                 echo "```json" >> "$COMMENT_FILE"
                 echo "{" >> "$COMMENT_FILE"
-                # Process each line individually to add proper indentation
-                while IFS= read -r line; do
-                  if [ -n "$line" ]; then
-                    echo "  $line" >> "$COMMENT_FILE"
+                if grep -q $'\n' "$CHANGES_FILE"; then
+                  # Multi-line case
+                  while IFS= read -r line; do
+                    if [ -n "$line" ]; then
+                      echo "  $line" >> "$COMMENT_FILE"
+                    fi
+                  done < "$CHANGES_FILE"
+                else
+                  # Single-line case
+                  if [ -s "$CHANGES_FILE" ]; then
+                    echo "  $(cat "$CHANGES_FILE")" >> "$COMMENT_FILE"
                   fi
-                done < "$CHANGES_FILE"
+                fi
+                
                 echo "}" >> "$COMMENT_FILE"
                 echo "```" >> "$COMMENT_FILE"
                 
