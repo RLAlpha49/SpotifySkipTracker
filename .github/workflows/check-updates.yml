@@ -637,16 +637,27 @@ jobs:
               echo ""
               
               if [ -n "$ACTUAL_CHANGES" ]; then
-                echo "```json"
-                echo "{"
-                echo "$ACTUAL_CHANGES" | sed 's/^/  /'
-                echo "}"
-                echo "```"
+                # Write changes to a temp file to avoid issues with newlines
+                CHANGES_FILE=$(mktemp)
+                echo "$ACTUAL_CHANGES" > "$CHANGES_FILE"
+                
+                echo "```json" >> "$COMMENT_FILE"
+                echo "{" >> "$COMMENT_FILE"
+                # Process each line individually to add proper indentation
+                while IFS= read -r line; do
+                  if [ -n "$line" ]; then
+                    echo "  $line" >> "$COMMENT_FILE"
+                  fi
+                done < "$CHANGES_FILE"
+                echo "}" >> "$COMMENT_FILE"
+                echo "```" >> "$COMMENT_FILE"
+                
+                # Clean up temp file
+                rm -f "$CHANGES_FILE" 2>/dev/null || true
               else
-                FORMATTED_JSON=$(echo "$UPDATE_INFO" | jq -r 'if type == "object" then . else . end')
-                echo "```json"
-                echo "$FORMATTED_JSON"
-                echo "```"
+                echo "```json" >> "$COMMENT_FILE"
+                echo "$UPDATE_INFO" >> "$COMMENT_FILE"
+                echo "```" >> "$COMMENT_FILE"
               fi
               
               echo "</details>"
