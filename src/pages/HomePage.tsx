@@ -79,6 +79,7 @@ export default function HomePage() {
 
         const authStatus = await window.spotify.isAuthenticated();
         setIsAuthenticated(authStatus);
+        setNeedsReauthentication(!authStatus);
 
         if (authStatus) {
           const monitoringStatus = await window.spotify.isMonitoringActive();
@@ -94,6 +95,19 @@ export default function HomePage() {
               addLog("Failed to auto-start monitoring", "ERROR");
             }
           }
+        } else {
+          // Set default playback info when not authenticated
+          setPlaybackInfo({
+            albumArt: "",
+            trackName: "Not Logged In",
+            artist: "Please authenticate with Spotify",
+            album: "Authentication required to track playback",
+            progress: 0,
+            duration: 0,
+            currentTimeSeconds: 0,
+            isPlaying: false,
+            isInPlaylist: false,
+          });
         }
       } catch (error) {
         console.error("Error loading initial data:", error);
@@ -293,12 +307,6 @@ export default function HomePage() {
    */
   const handleAuthenticate = async () => {
     try {
-      // Always clear cookies to ensure fresh login
-      toast.info("Connecting to Spotify", {
-        description: "Clearing session data and opening Spotify login...",
-      });
-      addLog("Authenticating with Spotify - clearing auth cookies", "INFO");
-
       const currentSettings = await window.spotify.getSettings();
 
       if (!currentSettings.clientId || !currentSettings.clientSecret) {
@@ -313,8 +321,21 @@ export default function HomePage() {
         return;
       }
 
-      // Always force re-authentication to ensure a fresh login
-      const shouldForceAuth = true;
+      // Only force re-authentication when explicitly logging in
+      // On page reload, we'll use existing tokens if they're valid
+      const shouldForceAuth = needsReauthentication;
+
+      toast.info("Connecting to Spotify", {
+        description: shouldForceAuth
+          ? "Clearing session data and opening Spotify login..."
+          : "Checking authentication status...",
+      });
+
+      if (shouldForceAuth) {
+        addLog("Authenticating with Spotify - clearing auth cookies", "INFO");
+      } else {
+        addLog("Checking existing Spotify authentication", "INFO");
+      }
 
       const success = await window.spotify.authenticate(
         {

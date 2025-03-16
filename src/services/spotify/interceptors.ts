@@ -6,7 +6,6 @@
 
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { saveLog } from "../../helpers/storage/logs-store";
-import { refreshAccessToken } from "../auth/storage/token-refresh";
 import { getAccessToken } from "../spotify/token";
 
 // Extend the AxiosRequestConfig type to include our custom properties
@@ -77,15 +76,18 @@ spotifyAxios.interceptors.request.use(
   (config: CustomAxiosRequestConfig) => {
     // Add request timestamp for timeout tracking
     config.metadata = { startTime: new Date().getTime() };
-    
+
     // Make sure we always have the latest access token in the request
     const token = getAccessToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
       // Add debug logging to track token usage
-      saveLog(`Setting Authorization header with token: ${token.substring(0, 5)}...`, "DEBUG");
+      saveLog(
+        `Setting Authorization header with token: ${token.substring(0, 5)}...`,
+        "DEBUG",
+      );
     }
-    
+
     return config;
   },
   (error) => {
@@ -126,13 +128,19 @@ spotifyAxios.interceptors.response.use(
     }
 
     const status = error.response.status;
-    saveLog(`Request to ${originalRequest.url} failed with status ${status}`, "DEBUG");
+    saveLog(
+      `Request to ${originalRequest.url} failed with status ${status}`,
+      "DEBUG",
+    );
 
     // Handle 401 Unauthorized
     if (status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         // If token refresh is in progress, queue this request
-        saveLog(`Token refresh in progress, queueing request to ${originalRequest.url}`, "DEBUG");
+        saveLog(
+          `Token refresh in progress, queueing request to ${originalRequest.url}`,
+          "DEBUG",
+        );
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
@@ -141,7 +149,10 @@ spotifyAxios.interceptors.response.use(
             const token = getAccessToken();
             if (token && originalRequest.headers) {
               originalRequest.headers.Authorization = `Bearer ${token}`;
-              saveLog(`Retrying request with new token: ${token.substring(0, 5)}...`, "DEBUG");
+              saveLog(
+                `Retrying request with new token: ${token.substring(0, 5)}...`,
+                "DEBUG",
+              );
             }
             return spotifyAxios(originalRequest);
           })
@@ -156,7 +167,12 @@ spotifyAxios.interceptors.response.use(
       try {
         // Attempt to refresh the token
         saveLog("Starting token refresh due to 401 error", "INFO");
+
+        const { refreshAccessToken } = await import(
+          "../auth/storage/token-refresh"
+        );
         const success = await refreshAccessToken();
+
         if (!success) {
           throw new Error("Failed to refresh token");
         }
@@ -169,7 +185,10 @@ spotifyAxios.interceptors.response.use(
         if (newToken && originalRequest.headers) {
           // Update the Authorization header with the new token
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          saveLog(`Using new token after refresh: ${newToken.substring(0, 5)}...`, "DEBUG");
+          saveLog(
+            `Using new token after refresh: ${newToken.substring(0, 5)}...`,
+            "DEBUG",
+          );
         } else {
           saveLog("No access token available after refresh", "ERROR");
         }

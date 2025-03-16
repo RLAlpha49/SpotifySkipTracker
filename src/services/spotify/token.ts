@@ -28,7 +28,24 @@ const TOKEN_REFRESH_MARGIN = 300;
  * @returns true if the token is valid and not expired
  */
 export function isTokenValid(): boolean {
-  return Boolean(accessToken && tokenExpiryTime > Date.now());
+  // Check if token exists and has not yet reached expiry time
+  // Add extra check to ensure the token isn't near expiration
+  const now = Date.now();
+  const isValid = Boolean(
+    accessToken &&
+      tokenExpiryTime > now &&
+      // Ensure token has at least 60 seconds before expiry to be considered valid
+      tokenExpiryTime - now > 60000,
+  );
+
+  if (!isValid && accessToken) {
+    saveLog(
+      `Token considered invalid: ${accessToken.substring(0, 5)}...`,
+      "DEBUG",
+    );
+  }
+
+  return isValid;
 }
 
 /**

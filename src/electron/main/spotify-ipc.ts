@@ -25,10 +25,8 @@ import {
 // Spotify service imports
 import {
   setCredentials,
-  getTokenInfo,
   getCurrentPlayback,
   setTokens as setApiTokens,
-  refreshAccessToken,
   unlikeTrack,
   pause,
   play,
@@ -48,6 +46,14 @@ import {
   loadTokens,
   clearTokens as clearStoredTokens,
 } from "../../services/token-storage";
+import {
+  getTokenInfo as getSpotifyTokenInfo,
+  refreshAccessToken as refreshSpotifyToken,
+  setTokens as setSpotifyApiTokens,
+  getAccessToken,
+  getRefreshToken,
+} from "../../services/spotify/token";
+import axios from "axios";
 
 /**
  * Configures IPC handlers for Spotify functionality
@@ -91,42 +97,62 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
           const storedTokens = loadTokens();
           if (storedTokens) {
             try {
-              if (isTokenValid()) {
-                // Set valid tokens in API service
-                const now = Date.now();
-                const expiresIn = Math.max(
-                  0,
-                  (storedTokens.expiresAt - now) / 1000,
-                );
+              const now = Date.now();
+              const expiresIn = Math.max(
+                0,
+                (storedTokens.expiresAt - now) / 1000,
+              );
 
-                setApiTokens(
+              // If token has already expired or is about to expire in less than 2 minutes,
+              // don't try to use it and go directly to refresh
+              if (expiresIn > 120) {
+                // Set valid tokens in API service
+                setSpotifyApiTokens(
                   storedTokens.accessToken,
                   storedTokens.refreshToken,
                   Math.floor(expiresIn),
                 );
                 saveLog("Using existing valid tokens from storage", "DEBUG");
-                return true;
-              } else {
-                // Refresh expired token
-                await refreshAccessToken();
 
-                // Update stored tokens
-                const tokenInfo = getTokenInfo();
-                if (tokenInfo.hasAccessToken && tokenInfo.hasRefreshToken) {
-                  // We need dummy values here since the token info doesn't contain the actual tokens
-                  const loadedTokens = loadTokens();
+                // Verify token with a quick API call
+                try {
+                  await axios.get("https://api.spotify.com/v1/me", {
+                    headers: {
+                      Authorization: `Bearer ${storedTokens.accessToken}`,
+                    },
+                  });
+                  saveLog("Verified token is valid with Spotify API", "DEBUG");
+                  return true;
+                } catch (apiError) {
+                  saveLog(
+                    `Token validation failed, refreshing: ${apiError}`,
+                    "DEBUG",
+                  );
+                  // Fall through to token refresh
+                }
+              } else {
+                saveLog(
+                  `Token expired or about to expire (${expiresIn}s remaining), refreshing`,
+                  "DEBUG",
+                );
+              }
+
+              // Refresh expired token
+              await refreshSpotifyToken();
+
+              // Update stored tokens
+              const tokenInfo = getSpotifyTokenInfo();
+              if (tokenInfo.hasAccessToken && tokenInfo.hasRefreshToken) {
+                // We need the actual values here since the token info doesn't contain the actual tokens
+                const loadedTokens = loadTokens();
+                if (loadedTokens) {
                   saveTokens({
-                    accessToken: loadedTokens?.accessToken || "",
-                    refreshToken: loadedTokens?.refreshToken || "",
+                    accessToken: getAccessToken() || loadedTokens.accessToken,
+                    refreshToken:
+                      getRefreshToken() || loadedTokens.refreshToken,
                     expiresAt: Date.now() + tokenInfo.expiresIn * 1000,
                   });
                 }
-
-                saveLog(
-                  "Successfully refreshed and saved access token",
-                  "INFO",
-                );
-                return true;
               }
             } catch (error) {
               console.error("Error using stored tokens:", error);
@@ -208,40 +234,63 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
 
       if (storedTokens) {
         // Initialize API with stored tokens
-        setApiTokens(
+        const now = Date.now();
+        const expiresIn = Math.max(0, (storedTokens.expiresAt - now) / 1000);
+
+        setSpotifyApiTokens(
           storedTokens.accessToken,
           storedTokens.refreshToken,
-          Math.floor((storedTokens.expiresAt - Date.now()) / 1000),
+          Math.floor(expiresIn),
         );
 
-        if (isTokenValid()) {
-          saveLog("Using existing valid tokens from storage", "DEBUG");
-          return true;
-        } else {
-          // Attempt token refresh
+        // If token has already expired or is about to expire in less than 2 minutes,
+        // don't try to use it and go directly to refresh
+        if (expiresIn > 120) {
+          // Verify token with a quick API call
           try {
-            if (hasCredentials()) {
-              await refreshAccessToken();
-
-              // Update token storage
-              const tokenInfo = getTokenInfo();
-              if (tokenInfo.hasAccessToken && tokenInfo.hasRefreshToken) {
-                // Need to use the storedTokens values since getTokenInfo() doesn't return the actual tokens
-                saveTokens({
-                  accessToken: storedTokens.accessToken,
-                  refreshToken: storedTokens.refreshToken,
-                  expiresAt: Date.now() + tokenInfo.expiresIn * 1000,
-                });
-
-                saveLog("Successfully refreshed and saved tokens", "DEBUG");
-                return true;
-              }
-            } else {
-              saveLog("Cannot refresh token: Credentials not set", "WARNING");
-            }
-          } catch (error) {
-            saveLog(`Failed to refresh token: ${error}`, "WARNING");
+            await axios.get("https://api.spotify.com/v1/me", {
+              headers: {
+                Authorization: `Bearer ${storedTokens.accessToken}`,
+              },
+            });
+            saveLog("Verified token is valid with Spotify API", "DEBUG");
+            return true;
+          } catch (apiError) {
+            saveLog(
+              `Token validation failed, attempting refresh: ${apiError}`,
+              "DEBUG",
+            );
+            // Fall through to token refresh
           }
+        } else {
+          saveLog(
+            `Token expired or about to expire (${expiresIn}s remaining), refreshing`,
+            "DEBUG",
+          );
+        }
+
+        // Attempt token refresh
+        try {
+          if (hasCredentials()) {
+            await refreshSpotifyToken();
+
+            // Update token storage with the newest tokens
+            const tokenInfo = getSpotifyTokenInfo();
+            if (tokenInfo.hasAccessToken && tokenInfo.hasRefreshToken) {
+              saveTokens({
+                accessToken: getAccessToken() || storedTokens.accessToken,
+                refreshToken: getRefreshToken() || storedTokens.refreshToken,
+                expiresAt: Date.now() + tokenInfo.expiresIn * 1000,
+              });
+
+              saveLog("Successfully refreshed and saved tokens", "DEBUG");
+              return true;
+            }
+          } else {
+            saveLog("Cannot refresh token: Credentials not set", "WARNING");
+          }
+        } catch (error) {
+          saveLog(`Failed to refresh token: ${error}`, "WARNING");
         }
       }
 
