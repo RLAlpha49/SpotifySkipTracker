@@ -35,7 +35,7 @@
     "@electron/fuses": "^1.8.0",
     "@eslint/compat": "^1.2.7",
     "@eslint/js": "^9.22.0",
-    "@playwright/test": "^1.51.0",
+    "@playwright/test": "^1.51.1",
     "@tailwindcss/postcss": "^4.0.14",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
@@ -43,7 +43,7 @@
     "@types/electron-squirrel-startup": "^1.0.2",
     "@types/eslint-config-prettier": "^6.11.3",
     "@types/node": "^22.13.10",
-    "@types/react": "^19.0.10",
+    "@types/react": "^19.0.11",
     "@types/react-dom": "^19.0.4",
     "babel-plugin-react-compiler": "^0.0.0-experimental-7449567-20240905",
     "electron": "35.0.2",
@@ -64,7 +64,7 @@
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.26.1",
     "vite": "^6.2.2",
-    "vitest": "^3.0.8"
+    "vitest": "^3.0.9"
   },
   "dependencies": {
     "@electron-forge/maker-dmg": "^7.7.0",
