@@ -560,12 +560,19 @@ jobs:
           if [ "$TOTAL_COMMITS" -gt 0 ]; then
             echo "[INFO] Creating PR with $TOTAL_COMMITS commits ($DEPENDABOT_COMMITS Dependabot incorporations)"
             
+            # Create a temp file with the PR body to avoid shell expansion issues
+            PR_BODY_FILE=$(mktemp)
+            echo "${PR_BODY//%0A/$'\n'}" > "$PR_BODY_FILE"
+            
             # Create the PR
             gh pr create \
               --title "chore: update npm dependencies" \
-              --body "${PR_BODY//%0A/$'\n'}" \
+              --body-file "$PR_BODY_FILE" \
               --base master \
               --head $PR_BRANCH
+            
+            # Clean up
+            rm -f "$PR_BODY_FILE" 2>/dev/null || true
             
             echo "[SUCCESS] PR created successfully for branch $PR_BRANCH"
           else
@@ -589,7 +596,7 @@ jobs:
           DEPENDABOT_INCORPORATED=false
 
           # Check if we updated npm packages in this run
-          if [ "${{ steps.check-updates.outputs.has_updates }}" == "true" ] && [ "${{ steps.update-packages.outputs.has_actual_changes }}" == "true" ]; then
+          if [ "${{ steps.check-updates.outputs.has_updates }}" = "true" ] && [ "${{ steps.update-packages.outputs.has_actual_changes }}" = "true" ]; then
             echo "[INFO] NPM packages were updated in this run"
             NPM_UPDATED=true
             NEW_COMMITS=$((NEW_COMMITS + 1))
@@ -624,7 +631,7 @@ jobs:
           DEPENDABOT_ADDED=false
 
           # Add npm updates section
-          if [ "$NPM_UPDATED" == "true" ]; then
+          if [ "$NPM_UPDATED" = "true" ]; then
             echo -n "npm package updates" >> "$COMMENT_FILE"
             UPDATES_ADDED=true
             
@@ -664,7 +671,7 @@ jobs:
                 rm -f "$CHANGES_FILE" 2>/dev/null || true
               else
                 echo "```json" >> "$COMMENT_FILE"
-                echo "$UPDATE_INFO" >> "$COMMENT_FILE"
+                echo "$UPDATE_INFO" | jq '.' >> "$COMMENT_FILE" || echo "$UPDATE_INFO" >> "$COMMENT_FILE"
                 echo "```" >> "$COMMENT_FILE"
               fi
               
