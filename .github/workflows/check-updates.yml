@@ -604,7 +604,9 @@ jobs:
 
           # Check if we incorporated Dependabot PRs in this run
           if [ -n "${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}" ]; then
-            NEWLY_INCORPORATED=$(echo "${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}" | jq '[.[] | select(.already_incorporated == false)] | length')
+            # Put the JSON into a file to avoid shell quoting issues
+            echo '${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}' > /tmp/dependabot_incorporated.json
+            NEWLY_INCORPORATED=$(jq '[.[] | select(.already_incorporated == false)] | length' /tmp/dependabot_incorporated.json)
             if [ "$NEWLY_INCORPORATED" -gt 0 ]; then
               echo "[INFO] $NEWLY_INCORPORATED Dependabot PRs were incorporated in this run"
               DEPENDABOT_INCORPORATED=true
@@ -646,21 +648,22 @@ jobs:
               if [ -n "$ACTUAL_CHANGES" ]; then
                 # Write changes to a temp file to avoid issues with newlines
                 CHANGES_FILE=$(mktemp)
-                echo "$ACTUAL_CHANGES" > "$CHANGES_FILE"
+                printf "%s\n" "$ACTUAL_CHANGES" > "$CHANGES_FILE"
                 
                 echo "```json" >> "$COMMENT_FILE"
                 echo "{" >> "$COMMENT_FILE"
                 if grep -q $'\n' "$CHANGES_FILE"; then
                   # Multi-line case
                   while IFS= read -r line; do
-                    if [ -n "$line" ]; then
+                    if [ -n "${line:-}" ]; then
                       echo "  $line" >> "$COMMENT_FILE"
                     fi
                   done < "$CHANGES_FILE"
                 else
                   # Single-line case
                   if [ -s "$CHANGES_FILE" ]; then
-                    echo "  $(cat "$CHANGES_FILE")" >> "$COMMENT_FILE"
+                    SINGLE_LINE=$(cat "$CHANGES_FILE")
+                    echo "  $SINGLE_LINE" >> "$COMMENT_FILE"
                   fi
                 fi
                 
@@ -670,8 +673,17 @@ jobs:
                 # Clean up temp file
                 rm -f "$CHANGES_FILE" 2>/dev/null || true
               else
+                # Fallback to UPDATE_INFO
                 echo "```json" >> "$COMMENT_FILE"
-                echo "$UPDATE_INFO" | jq '.' >> "$COMMENT_FILE" || echo "$UPDATE_INFO" >> "$COMMENT_FILE"
+                if [ -n "${UPDATE_INFO:-}" ]; then
+                  # Create a temp file for UPDATE_INFO to avoid pipe issues
+                  UPDATE_FILE=$(mktemp)
+                  printf "%s\n" "$UPDATE_INFO" > "$UPDATE_FILE"
+                  jq '.' "$UPDATE_FILE" >> "$COMMENT_FILE" 2>/dev/null || cat "$UPDATE_FILE" >> "$COMMENT_FILE"
+                  rm -f "$UPDATE_FILE" 2>/dev/null || true
+                else
+                  echo "{}" >> "$COMMENT_FILE"
+                fi
                 echo "```" >> "$COMMENT_FILE"
               fi
               
@@ -680,7 +692,9 @@ jobs:
           fi
 
           # Add Dependabot updates section
-          NEWLY_INCORPORATED=$(echo "$INCORPORATED_PRS" | jq '[.[] | select(.already_incorporated == false)] | length')
+          # Save JSON to a file first to avoid shell quoting issues
+          echo "$INCORPORATED_PRS" > /tmp/dependabot_incorporated.json
+          NEWLY_INCORPORATED=$(jq '[.[] | select(.already_incorporated == false)] | length' /tmp/dependabot_incorporated.json || echo "0")
 
           if [ "$NEWLY_INCORPORATED" -gt 0 ]; then
             # Add conjunction if needed
@@ -692,7 +706,7 @@ jobs:
             DEPENDABOT_ADDED=true
             
             # Build list of PRs
-            echo "$INCORPORATED_PRS" | jq -c '.[] | select(.already_incorporated == false)' | while read -r PR_ITEM; do
+            jq -c '.[] | select(.already_incorporated == false)' /tmp/dependabot_incorporated.json | while read -r PR_ITEM; do
               PR_NUM=$(echo "$PR_ITEM" | jq -r '.number')
               PR_TITLE=$(echo "$PR_ITEM" | jq -r '.title')
               echo "- PR #${PR_NUM}: ${PR_TITLE}" >> "$COMMENT_FILE.list"
