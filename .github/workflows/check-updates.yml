@@ -604,23 +604,14 @@ jobs:
 
           # Check if we incorporated Dependabot PRs in this run
           if [ -n "${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}" ]; then
-            DEPENDABOT_FILE=$(mktemp)
-            echo '${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}' > "$DEPENDABOT_FILE"
-            
-            # Use jq to safely parse the JSON file
-            NEWLY_INCORPORATED=$(jq -r '[.[] | select(.already_incorporated == false)] | length' "$DEPENDABOT_FILE")
-            
-            # Check numeric value safely
-            if [ "$NEWLY_INCORPORATED" -gt 0 ] 2>/dev/null; then
+            # Put the JSON into a file to avoid shell quoting issues
+            echo '${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}' > /tmp/dependabot_incorporated.json
+            NEWLY_INCORPORATED=$(jq '[.[] | select(.already_incorporated == false)] | length' /tmp/dependabot_incorporated.json)
+            if [ "$NEWLY_INCORPORATED" -gt 0 ]; then
               echo "[INFO] $NEWLY_INCORPORATED Dependabot PRs were incorporated in this run"
               DEPENDABOT_INCORPORATED=true
               NEW_COMMITS=$((NEW_COMMITS + NEWLY_INCORPORATED))
-            else
-              echo "[INFO] No new Dependabot PRs incorporated in this run"
             fi
-            
-            # Clean up the temp file
-            rm -f "$DEPENDABOT_FILE" 2>/dev/null || true
           fi
 
           # Only proceed if relevant changes exist
@@ -653,49 +644,24 @@ jobs:
               echo "<details>"
               echo "<summary>Latest Package Updates</summary>"
               echo ""
+              echo "```"
+              echo "Updated packages:"
+              echo ""
               
-              # Start JSON block
-              echo "```json" >> "$COMMENT_FILE"
-              echo "{" >> "$COMMENT_FILE"
-              
-              # Simple and direct formatting of package updates
-              # Create a temp file with properly quoted content
+              # Skip JSON formatting entirely and just list packages directly
               if [ -n "$ACTUAL_CHANGES" ]; then
-                # Save ACTUAL_CHANGES to file, one entry per line
-                CHANGES_FILE=$(mktemp)
-                echo "$ACTUAL_CHANGES" > "$CHANGES_FILE"
-                
-                # Process each line safely
-                while IFS= read -r line || [[ -n "$line" ]]; do
-                  # Skip empty lines
+                # Write each package directly as a simple list
+                echo "$ACTUAL_CHANGES" | while IFS= read -r line; do
                   if [ -n "$line" ]; then
-                    echo "  $line" >> "$COMMENT_FILE"
+                    echo "- $line" >> "$COMMENT_FILE" 
                   fi
-                done < "$CHANGES_FILE"
-                
-                rm -f "$CHANGES_FILE" 2>/dev/null || true
+                done
               else
-                # Use UPDATE_INFO as fallback
-                # Create a temp file for UPDATE_INFO
-                UPDATE_FILE=$(mktemp)
-                echo "$UPDATE_INFO" > "$UPDATE_FILE"
-                
-                # Try to parse with jq first for nice formatting
-                if jq -e '.' "$UPDATE_FILE" > /dev/null 2>&1; then
-                  # Extract key-value pairs from the JSON and format for display
-                  jq -r 'to_entries | .[] | "  \"\(.key)\": \"\(.value)\""' "$UPDATE_FILE" >> "$COMMENT_FILE"
-                else
-                  # Fallback plain text with minimal formatting if jq fails
-                  echo "  \"dependencies\": \"check PR description for details\"" >> "$COMMENT_FILE"
-                fi
-                
-                rm -f "$UPDATE_FILE" 2>/dev/null || true
+                # Fallback to formatted UPDATE_INFO if possible
+                echo "$UPDATE_INFO" | sed -e 's/{//' -e 's/}//' -e 's/"//g' -e 's/,//' -e 's/^ */- /' >> "$COMMENT_FILE"
               fi
               
-              # End JSON block
-              echo "}" >> "$COMMENT_FILE"
-              echo "```" >> "$COMMENT_FILE"
-              
+              echo "```"
               echo "</details>"
             } >> "$COMMENT_FILE"
           fi
