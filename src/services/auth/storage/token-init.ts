@@ -6,6 +6,7 @@
 
 import { saveLog } from "../../../helpers/storage/logs-store";
 import * as spotifyApi from "../../spotify";
+import { AuthTokens } from "@/types/auth";
 import {
   getAccessTokenState,
   getRefreshTokenState,
@@ -15,19 +16,25 @@ import {
   setTokenExpiryState,
   REFRESH_MARGIN,
 } from "./token-state";
-import {
-  refreshAccessToken,
-  scheduleTokenRefresh,
-  initTokenRefresh,
-} from "./token-refresh";
-import { setTokens } from "./token-operations";
+import { initTokenRefresh } from "./token-refresh";
+
+// Import setTokens directly to avoid circular dependency
+let setTokens: (tokens: AuthTokens) => void = null as unknown as (
+  tokens: AuthTokens,
+) => void;
 
 /**
  * Initializes the token store, loading tokens from persistent storage
  * and scheduling refresh if needed
  */
-export function initTokenStore(): void {
+export async function initTokenStore(): Promise<void> {
   try {
+    const tokenOperations = await import("./token-operations");
+    setTokens = tokenOperations.setTokens;
+
+    const tokenRefresh = await import("./token-refresh");
+    const { refreshAccessToken, scheduleTokenRefresh } = tokenRefresh;
+
     // First initialize the token refresh system
     initTokenRefresh(setTokens);
 

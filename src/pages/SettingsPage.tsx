@@ -221,11 +221,13 @@ export default function SettingsPage() {
       </CardContent>
 
       {/* Restart Dialog */}
-      <RestartDialog
-        showRestartDialog={showRestartDialog}
-        setShowRestartDialog={setShowRestartDialog}
-        onRestart={handleRestart}
-      />
+      {showRestartDialog && (
+        <RestartDialog
+          showRestartDialog={showRestartDialog}
+          setShowRestartDialog={setShowRestartDialog}
+          onRestart={handleRestart}
+        />
+      )}
     </div>
   );
 }

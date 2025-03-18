@@ -9,11 +9,22 @@
  * - /settings → SettingsPage - Application configuration
  */
 
+import React, { Suspense, lazy } from "react";
 import { createRoute } from "@tanstack/react-router";
 import { RootRoute } from "./__root";
-import HomePage from "../pages/HomePage";
-import SkippedTracksPage from "@/pages/SkippedTracksPage";
-import SettingsPage from "@/pages/SettingsPage";
+import { LoadingSpinner } from "@/components/ui/spinner";
+
+// Lazy load all page components
+const HomePage = lazy(() => import("../pages/HomePage"));
+const SkippedTracksPage = lazy(() => import("../pages/SkippedTracksPage"));
+const SettingsPage = lazy(() => import("../pages/SettingsPage"));
+
+// Loading component for suspense fallback
+const PageLoader = () => (
+  <div className="flex h-[calc(100vh-120px)] w-full items-center justify-center">
+    <LoadingSpinner size="lg" text="Loading page..." />
+  </div>
+);
 
 /**
  * Home route - Dashboard with playback controls and monitoring
@@ -22,7 +33,11 @@ import SettingsPage from "@/pages/SettingsPage";
 export const HomeRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: "/",
-  component: HomePage,
+  component: () => (
+    <Suspense fallback={<PageLoader />}>
+      <HomePage />
+    </Suspense>
+  ),
 });
 
 /**
@@ -32,7 +47,11 @@ export const HomeRoute = createRoute({
 export const SkippedTracksRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: "/skipped-tracks",
-  component: SkippedTracksPage,
+  component: () => (
+    <Suspense fallback={<PageLoader />}>
+      <SkippedTracksPage />
+    </Suspense>
+  ),
 });
 
 /**
@@ -42,7 +61,11 @@ export const SkippedTracksRoute = createRoute({
 export const SettingsRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: "/settings",
-  component: SettingsPage,
+  component: () => (
+    <Suspense fallback={<PageLoader />}>
+      <SettingsPage />
+    </Suspense>
+  ),
 });
 
 /**

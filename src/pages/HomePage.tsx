@@ -8,14 +8,84 @@
  * - Playback monitoring controls
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { toast } from "sonner";
 import { PlaybackInfo, LogSettings } from "@/types/spotify";
 import { LogLevel } from "@/types/logging";
-import { AuthenticationCard } from "@/components/spotify/AuthenticationCard";
-import { PlaybackMonitoringCard } from "@/components/spotify/PlaybackMonitoringCard";
-import { NowPlayingCard } from "@/components/spotify/NowPlayingCard";
-import { LogsCard } from "@/components/spotify/LogsCard";
+import { LoadingSpinner } from "@/components/ui/spinner";
+
+const AuthenticationCard = lazy(() => {
+  return import("@/components/spotify/AuthenticationCard")
+    .then((module) => ({ default: module.AuthenticationCard }))
+    .catch((err) => {
+      console.error("Failed to load AuthenticationCard:", err);
+      // Using JSX for the fallback component
+      return {
+        default: () =>
+          React.createElement(
+            "div",
+            {
+              className: "p-4 border border-red-500",
+            },
+            "Failed to load authentication component",
+          ),
+      };
+    });
+});
+
+const PlaybackMonitoringCard = lazy(() => {
+  return import("@/components/spotify/PlaybackMonitoringCard")
+    .then((module) => ({ default: module.PlaybackMonitoringCard }))
+    .catch((err) => {
+      console.error("Failed to load PlaybackMonitoringCard:", err);
+      return {
+        default: () =>
+          React.createElement(
+            "div",
+            {
+              className: "p-4 border border-red-500",
+            },
+            "Failed to load playback monitoring component",
+          ),
+      };
+    });
+});
+
+const NowPlayingCard = lazy(() => {
+  return import("@/components/spotify/NowPlayingCard")
+    .then((module) => ({ default: module.NowPlayingCard }))
+    .catch((err) => {
+      console.error("Failed to load NowPlayingCard:", err);
+      return {
+        default: () =>
+          React.createElement(
+            "div",
+            {
+              className: "p-4 border border-red-500",
+            },
+            "Failed to load now playing component",
+          ),
+      };
+    });
+});
+
+const LogsCard = lazy(() => {
+  return import("@/components/spotify/LogsCard")
+    .then((module) => ({ default: module.LogsCard }))
+    .catch((err) => {
+      console.error("Failed to load LogsCard:", err);
+      return {
+        default: () =>
+          React.createElement(
+            "div",
+            {
+              className: "p-4 border border-red-500",
+            },
+            "Failed to load logs component",
+          ),
+      };
+    });
+});
 
 export default function HomePage() {
   const [playbackInfo, setPlaybackInfo] = useState<PlaybackInfo | null>(null);
@@ -588,45 +658,76 @@ export default function HomePage() {
   };
 
   return (
-    <div className="container mx-auto py-4">
-      {/* Authentication and connection controls */}
-      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <AuthenticationCard
-          isAuthenticated={isAuthenticated}
-          needsReauthentication={needsReauthentication}
-          onLogin={handleAuthenticate}
-          onLogout={handleLogout}
-        />
+    <div className="container mx-auto flex flex-col gap-6 py-4">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <Suspense
+          fallback={
+            <div className="border p-4">
+              <LoadingSpinner size="md" text="Loading authentication..." />
+            </div>
+          }
+        >
+          <AuthenticationCard
+            isAuthenticated={isAuthenticated}
+            needsReauthentication={needsReauthentication}
+            onLogin={handleAuthenticate}
+            onLogout={handleLogout}
+          />
+        </Suspense>
 
-        <PlaybackMonitoringCard
-          isAuthenticated={isAuthenticated}
-          isMonitoring={isMonitoring}
-          onStartMonitoring={handleStartMonitoring}
-          onStopMonitoring={handleStopMonitoring}
-        />
+        <Suspense
+          fallback={
+            <div className="border p-4">
+              <LoadingSpinner size="md" text="Loading playback controls..." />
+            </div>
+          }
+        >
+          <PlaybackMonitoringCard
+            isAuthenticated={isAuthenticated}
+            isMonitoring={isMonitoring}
+            onStartMonitoring={handleStartMonitoring}
+            onStopMonitoring={handleStopMonitoring}
+          />
+        </Suspense>
       </div>
 
-      {/* Current playback display */}
-      <NowPlayingCard
-        isAuthenticated={isAuthenticated}
-        isMonitoring={isMonitoring}
-        playbackInfo={playbackInfo}
-        onPlayPause={handlePlayPause}
-        onPreviousTrack={handlePreviousTrack}
-        onNextTrack={handleNextTrack}
-      />
+      {(isAuthenticated || playbackInfo) && (
+        <Suspense
+          fallback={
+            <div className="border p-4">
+              <LoadingSpinner size="md" text="Loading now playing..." />
+            </div>
+          }
+        >
+          <NowPlayingCard
+            isAuthenticated={isAuthenticated}
+            isMonitoring={isMonitoring}
+            playbackInfo={playbackInfo}
+            onPlayPause={handlePlayPause}
+            onPreviousTrack={handlePreviousTrack}
+            onNextTrack={handleNextTrack}
+          />
+        </Suspense>
+      )}
 
-      {/* Application logs interface */}
-      <LogsCard
-        logs={logs}
-        settings={settings}
-        logSearchTerm={logSearchTerm}
-        onDisplayLogLevelChange={handleDisplayLogLevelChange}
-        onToggleLogAutoRefresh={handleToggleLogAutoRefresh}
-        onLogSearch={handleLogSearch}
-        onClearLogs={handleClearLogs}
-        onOpenLogsDirectory={handleOpenLogsDirectory}
-      />
+      <Suspense
+        fallback={
+          <div className="border p-4">
+            <LoadingSpinner size="md" text="Loading logs..." />
+          </div>
+        }
+      >
+        <LogsCard
+          logs={logs}
+          settings={settings}
+          logSearchTerm={logSearchTerm}
+          onDisplayLogLevelChange={handleDisplayLogLevelChange}
+          onToggleLogAutoRefresh={handleToggleLogAutoRefresh}
+          onLogSearch={handleLogSearch}
+          onClearLogs={handleClearLogs}
+          onOpenLogsDirectory={handleOpenLogsDirectory}
+        />
+      </Suspense>
     </div>
   );
 }

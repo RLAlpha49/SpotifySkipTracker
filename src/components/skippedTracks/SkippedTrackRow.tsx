@@ -1,15 +1,16 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, Trash2, XCircle } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { MoreVertical } from "lucide-react";
 import { SkippedTrack } from "@/types/spotify";
 import { calculateSkipRatio, formatDate, getRecentSkipCount } from "./utils";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+// Lazy load the track actions menu
+const TrackActionsMenu = lazy(() => import("./TrackActionsMenu"));
 
 interface SkippedTrackRowProps {
   track: SkippedTrack;
@@ -75,22 +76,13 @@ export function SkippedTrackRow({
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => onUnlikeTrack(track)}
-                className="cursor-pointer text-red-600 hover:text-red-800 dark:text-red-400 hover:dark:text-red-300"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                <span>Remove from library</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onRemoveTrackData(track)}
-                className="cursor-pointer text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 hover:dark:text-yellow-300"
-              >
-                <XCircle className="mr-2 h-4 w-4" />
-                <span>Remove tracking data</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
+            <Suspense fallback={null}>
+              <TrackActionsMenu
+                track={track}
+                onUnlikeTrack={onUnlikeTrack}
+                onRemoveTrackData={onRemoveTrackData}
+              />
+            </Suspense>
           </DropdownMenu>
         </div>
       </TableCell>

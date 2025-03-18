@@ -13,10 +13,10 @@ import {
   setRefreshTimer,
   REFRESH_MARGIN,
 } from "./token-state";
-import { setScheduleTokenRefreshFunction } from "./token-operations";
 
 // The function reference to avoid circular dependency
 let setTokensFunction: ((tokens: AuthTokens) => void) | null = null;
+let scheduleTokenRefreshFnRegistered = false;
 
 /**
  * Sets the reference to the setTokens function to avoid circular dependency
@@ -27,10 +27,15 @@ export function initTokenRefresh(
   setTokensFn: (tokens: AuthTokens) => void,
 ): void {
   setTokensFunction = setTokensFn;
-}
 
-// Register the scheduleTokenRefresh function with token-operations
-setScheduleTokenRefreshFunction(scheduleTokenRefresh);
+  // Register the scheduleTokenRefresh function with token-operations if not already done
+  if (!scheduleTokenRefreshFnRegistered) {
+    scheduleTokenRefreshFnRegistered = true;
+    import("./token-operations").then(({ setScheduleTokenRefreshFunction }) => {
+      setScheduleTokenRefreshFunction(scheduleTokenRefresh);
+    });
+  }
+}
 
 /**
  * Schedules a token refresh before the current token expires

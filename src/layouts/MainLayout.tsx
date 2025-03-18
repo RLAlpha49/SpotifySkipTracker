@@ -10,11 +10,13 @@
  * in frameless window mode.
  */
 
-import React, { useState, ReactNode } from "react";
+import React, { useState, ReactNode, lazy, Suspense } from "react";
 import { Link } from "@tanstack/react-router";
-import ToggleTheme from "@/components/ToggleTheme";
 import { HomeIcon, SettingsIcon, SkipForwardIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { LoadingSpinner } from "@/components/ui/spinner";
+
+const ToggleTheme = lazy(() => import("@/components/ToggleTheme"));
 
 /**
  * Props interface for MainLayout component
@@ -52,31 +54,30 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="flex h-screen flex-col">
-      {/* Header - Make draggable with app-region */}
-      <header className="app-region-drag border-b">
-        <div className="flex w-full items-center justify-between px-6 py-4">
-          <h1 className="font-mono text-xl font-bold">Spotify Skip Tracker</h1>
-          <div className="app-region-no-drag flex items-center gap-2">
+      {/* App header with draggable region */}
+      <header className="flex h-14 items-center border-b px-4 backdrop-blur-sm dark:border-gray-800">
+        <div className="app-region-drag flex flex-1 items-center">
+          <h1 className="text-xl font-semibold">Spotify Skip Tracker</h1>
+        </div>
+        <div className="app-region-no-drag shrink-0">
+          <Suspense fallback={<LoadingSpinner size="sm" />}>
             <ToggleTheme />
-          </div>
+          </Suspense>
         </div>
       </header>
 
       {/* Main Content - scrollable */}
       <ScrollArea className="flex-1 overflow-hidden">{children}</ScrollArea>
 
-      {/* Bottom Navigation - fixed at the bottom */}
-      <nav className="bg-background border-t">
-        <div className="flex w-full justify-between px-6 py-2">
+      {/* Bottom navigation */}
+      <nav className="bg-background sticky bottom-0 border-t py-2 dark:border-slate-800">
+        <div className="container flex justify-around">
           <Link
             to="/"
-            onClick={() => handleNavigation("/")}
             className={`flex flex-col items-center p-2 ${
-              isHomeActive
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
+              isHomeActive ? "text-primary" : "text-muted-foreground"
             }`}
-            aria-current={isHomeActive ? "page" : undefined}
+            onClick={() => handleNavigation("/")}
           >
             <HomeIcon className="h-5 w-5" />
             <span className="text-xs">Home</span>
@@ -84,27 +85,21 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
           <Link
             to="/skipped-tracks"
-            onClick={() => handleNavigation("/skipped-tracks")}
             className={`flex flex-col items-center p-2 ${
-              isSkippedTracksActive
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
+              isSkippedTracksActive ? "text-primary" : "text-muted-foreground"
             }`}
-            aria-current={isSkippedTracksActive ? "page" : undefined}
+            onClick={() => handleNavigation("/skipped-tracks")}
           >
             <SkipForwardIcon className="h-5 w-5" />
-            <span className="text-xs">Skipped</span>
+            <span className="text-xs">Skips</span>
           </Link>
 
           <Link
             to="/settings"
-            onClick={() => handleNavigation("/settings")}
             className={`flex flex-col items-center p-2 ${
-              isSettingsActive
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
+              isSettingsActive ? "text-primary" : "text-muted-foreground"
             }`}
-            aria-current={isSettingsActive ? "page" : undefined}
+            onClick={() => handleNavigation("/settings")}
           >
             <SettingsIcon className="h-5 w-5" />
             <span className="text-xs">Settings</span>
