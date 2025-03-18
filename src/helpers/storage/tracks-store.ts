@@ -185,6 +185,27 @@ export function removeSkippedTrack(trackId: string): boolean {
 }
 
 /**
+ * Safely converts any timestamp format to a Date object
+ *
+ * @param timestamp - Timestamp string (ISO or numeric)
+ * @returns Date object or null if invalid
+ */
+export const parseTimestamp = (timestamp: string): Date | null => {
+  if (!timestamp) return null;
+
+  try {
+    if (!isNaN(Number(timestamp))) {
+      return new Date(Number(timestamp));
+    } else {
+      return new Date(timestamp);
+    }
+  } catch (error) {
+    console.error("Error parsing timestamp:", error);
+    return null;
+  }
+};
+
+/**
  * Filters skipped tracks by a specified timeframe
  *
  * @param days - Number of days to look back
@@ -208,12 +229,14 @@ export function filterSkippedTracksByTimeframe(
     // For tracks with no skip timestamps, check the lastSkipped date
     if (!track.skipTimestamps || track.skipTimestamps.length === 0) {
       if (!track.lastSkipped) return true; // Include if no timestamp available
-      return new Date(track.lastSkipped) >= cutoffDate;
+      const lastSkippedDate = parseTimestamp(track.lastSkipped);
+      return lastSkippedDate && lastSkippedDate >= cutoffDate;
     }
 
     // Check if any skip timestamps are within the timeframe
     return track.skipTimestamps.some((timestamp) => {
-      return new Date(timestamp) >= cutoffDate;
+      const skipDate = parseTimestamp(timestamp);
+      return skipDate && skipDate >= cutoffDate;
     });
   });
 }

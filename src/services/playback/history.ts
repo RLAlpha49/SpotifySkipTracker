@@ -95,7 +95,10 @@ export async function recordSkippedTrack(
       (track) => track.id === trackId,
     );
 
+    // Always use ISO string format for consistency
+    const skippedAtIso = new Date(skippedAt).toISOString();
     const skippedAtStr = skippedAt.toString();
+
     const skipEvent = {
       timestamp: skippedAtStr,
       progress,

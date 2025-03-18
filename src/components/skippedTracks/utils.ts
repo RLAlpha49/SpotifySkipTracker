@@ -1,6 +1,27 @@
 import { SkippedTrack } from "@/types/spotify";
 
 /**
+ * Safely converts any timestamp format to a Date object
+ *
+ * @param timestamp - Timestamp string (ISO or numeric)
+ * @returns Date object or null if invalid
+ */
+export const parseTimestamp = (timestamp: string): Date | null => {
+  if (!timestamp) return null;
+
+  try {
+    if (!isNaN(Number(timestamp))) {
+      return new Date(Number(timestamp));
+    } else {
+      return new Date(timestamp);
+    }
+  } catch (error) {
+    console.error("Error parsing timestamp:", error);
+    return null;
+  }
+};
+
+/**
  * Calculates skips within the configured time window
  *
  * @param track - Track to analyze for recent skips
@@ -19,8 +40,8 @@ export const getRecentSkipCount = (
   cutoffDate.setDate(cutoffDate.getDate() - timeframeInDays);
 
   return track.skipTimestamps.filter((timestamp) => {
-    const skipDate = new Date(timestamp);
-    return skipDate >= cutoffDate;
+    const skipDate = parseTimestamp(timestamp);
+    return skipDate && skipDate >= cutoffDate;
   }).length;
 };
 
@@ -61,16 +82,49 @@ export const calculateSkipRatio = (track: SkippedTrack): string => {
 };
 
 /**
+ * Gets the most recent timestamp from a track's skip history
+ *
+ * @param track - Track to get the most recent timestamp from
+ * @returns The most recent timestamp string
+ */
+export const getMostRecentTimestamp = (track: SkippedTrack): string => {
+  if (track.skipTimestamps && track.skipTimestamps.length > 0) {
+    // Sort timestamps in descending order (newest first)
+    const sortedTimestamps = [...track.skipTimestamps].sort((a, b) => {
+      const dateA = isNaN(Number(a)) ? new Date(a).getTime() : Number(a);
+      const dateB = isNaN(Number(b)) ? new Date(b).getTime() : Number(b);
+      return dateB - dateA;
+    });
+    return sortedTimestamps[0];
+  }
+
+  // Fallback to lastSkipped
+  return track.lastSkipped;
+};
+
+/**
  * Formats ISO date string to localized date and time
  *
- * @param dateString - ISO timestamp string
+ * @param dateString - ISO timestamp string or track object
  * @returns Human-readable formatted date string
  */
-export const formatDate = (dateString: string): string => {
+export const formatDate = (dateString: string | SkippedTrack): string => {
+  // Handle case where the entire track is passed in
+  if (typeof dateString !== "string") {
+    const track = dateString;
+    dateString = getMostRecentTimestamp(track);
+  }
+
   if (!dateString) return "Never";
 
-  const date = new Date(dateString);
-  return date.toLocaleDateString() + " " + date.toLocaleTimeString();
+  try {
+    const date = parseTimestamp(dateString);
+    if (!date || isNaN(date.getTime())) return "Invalid date";
+    return date.toLocaleDateString() + " " + date.toLocaleTimeString();
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    return "Invalid date";
+  }
 };
 
 /**

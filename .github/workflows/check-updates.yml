@@ -675,12 +675,6 @@ jobs:
           NEWLY_INCORPORATED=$(jq -r '[.[] | select(.already_incorporated == false)] | length' "$DEPENDABOT_FILE" 2>/dev/null || echo "0")
 
           if [ "$NEWLY_INCORPORATED" -gt 0 ] 2>/dev/null; then
-            # Add conjunction if needed
-            if [ "$UPDATES_ADDED" = "true" ]; then
-              echo -n " and " >> "$COMMENT_FILE"
-            fi
-            
-            echo -n "Dependabot updates" >> "$COMMENT_FILE"
             DEPENDABOT_ADDED=true
             
             # Build list of PRs to a temporary file

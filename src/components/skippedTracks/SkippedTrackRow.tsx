@@ -65,9 +65,7 @@ export function SkippedTrackRow({
       <TableCell className="text-right">{track.skipCount}</TableCell>
       <TableCell className="text-right">{track.notSkippedCount}</TableCell>
       <TableCell className="text-right">{calculateSkipRatio(track)}</TableCell>
-      <TableCell className="text-right">
-        {formatDate(track.lastSkipped)}
-      </TableCell>
+      <TableCell className="text-right">{formatDate(track)}</TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end">
           <DropdownMenu>
