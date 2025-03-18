@@ -604,14 +604,23 @@ jobs:
 
           # Check if we incorporated Dependabot PRs in this run
           if [ -n "${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}" ]; then
-            # Put the JSON into a file to avoid shell quoting issues
-            echo '${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}' > /tmp/dependabot_incorporated.json
-            NEWLY_INCORPORATED=$(jq '[.[] | select(.already_incorporated == false)] | length' /tmp/dependabot_incorporated.json)
-            if [ "$NEWLY_INCORPORATED" -gt 0 ]; then
+            DEPENDABOT_FILE=$(mktemp)
+            echo '${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}' > "$DEPENDABOT_FILE"
+            
+            # Use jq to safely parse the JSON file
+            NEWLY_INCORPORATED=$(jq -r '[.[] | select(.already_incorporated == false)] | length' "$DEPENDABOT_FILE")
+            
+            # Check numeric value safely
+            if [ "$NEWLY_INCORPORATED" -gt 0 ] 2>/dev/null; then
               echo "[INFO] $NEWLY_INCORPORATED Dependabot PRs were incorporated in this run"
               DEPENDABOT_INCORPORATED=true
               NEW_COMMITS=$((NEW_COMMITS + NEWLY_INCORPORATED))
+            else
+              echo "[INFO] No new Dependabot PRs incorporated in this run"
             fi
+            
+            # Clean up the temp file
+            rm -f "$DEPENDABOT_FILE" 2>/dev/null || true
           fi
 
           # Only proceed if relevant changes exist
@@ -645,90 +654,96 @@ jobs:
               echo "<summary>Latest Package Updates</summary>"
               echo ""
               
+              # Start JSON block
+              echo "```json" >> "$COMMENT_FILE"
+              echo "{" >> "$COMMENT_FILE"
+              
+              # Simple and direct formatting of package updates
+              # Create a temp file with properly quoted content
               if [ -n "$ACTUAL_CHANGES" ]; then
-                # Write changes to a temp file to avoid issues with newlines
+                # Save ACTUAL_CHANGES to file, one entry per line
                 CHANGES_FILE=$(mktemp)
-                printf "%s\n" "$ACTUAL_CHANGES" > "$CHANGES_FILE"
+                echo "$ACTUAL_CHANGES" > "$CHANGES_FILE"
                 
-                echo "```json" >> "$COMMENT_FILE"
-                echo "{" >> "$COMMENT_FILE"
-                if grep -q $'\n' "$CHANGES_FILE"; then
-                  # Multi-line case
-                  while IFS= read -r line; do
-                    if [ -n "${line:-}" ]; then
-                      echo "  $line" >> "$COMMENT_FILE"
-                    fi
-                  done < "$CHANGES_FILE"
-                else
-                  # Single-line case
-                  if [ -s "$CHANGES_FILE" ]; then
-                    SINGLE_LINE=$(cat "$CHANGES_FILE")
-                    echo "  $SINGLE_LINE" >> "$COMMENT_FILE"
+                # Process each line safely
+                while IFS= read -r line || [[ -n "$line" ]]; do
+                  # Skip empty lines
+                  if [ -n "$line" ]; then
+                    echo "  $line" >> "$COMMENT_FILE"
                   fi
-                fi
+                done < "$CHANGES_FILE"
                 
-                echo "}" >> "$COMMENT_FILE"
-                echo "```" >> "$COMMENT_FILE"
-                
-                # Clean up temp file
                 rm -f "$CHANGES_FILE" 2>/dev/null || true
               else
-                # Fallback to UPDATE_INFO
-                echo "```json" >> "$COMMENT_FILE"
-                if [ -n "${UPDATE_INFO:-}" ]; then
-                  # Create a temp file for UPDATE_INFO to avoid pipe issues
-                  UPDATE_FILE=$(mktemp)
-                  printf "%s\n" "$UPDATE_INFO" > "$UPDATE_FILE"
-                  jq '.' "$UPDATE_FILE" >> "$COMMENT_FILE" 2>/dev/null || cat "$UPDATE_FILE" >> "$COMMENT_FILE"
-                  rm -f "$UPDATE_FILE" 2>/dev/null || true
+                # Use UPDATE_INFO as fallback
+                # Create a temp file for UPDATE_INFO
+                UPDATE_FILE=$(mktemp)
+                echo "$UPDATE_INFO" > "$UPDATE_FILE"
+                
+                # Try to parse with jq first for nice formatting
+                if jq -e '.' "$UPDATE_FILE" > /dev/null 2>&1; then
+                  # Extract key-value pairs from the JSON and format for display
+                  jq -r 'to_entries | .[] | "  \"\(.key)\": \"\(.value)\""' "$UPDATE_FILE" >> "$COMMENT_FILE"
                 else
-                  echo "{}" >> "$COMMENT_FILE"
+                  # Fallback plain text with minimal formatting if jq fails
+                  echo "  \"dependencies\": \"check PR description for details\"" >> "$COMMENT_FILE"
                 fi
-                echo "```" >> "$COMMENT_FILE"
+                
+                rm -f "$UPDATE_FILE" 2>/dev/null || true
               fi
+              
+              # End JSON block
+              echo "}" >> "$COMMENT_FILE"
+              echo "```" >> "$COMMENT_FILE"
               
               echo "</details>"
             } >> "$COMMENT_FILE"
           fi
 
           # Add Dependabot updates section
-          # Save JSON to a file first to avoid shell quoting issues
-          echo "$INCORPORATED_PRS" > /tmp/dependabot_incorporated.json
-          NEWLY_INCORPORATED=$(jq '[.[] | select(.already_incorporated == false)] | length' /tmp/dependabot_incorporated.json || echo "0")
+          # Create a temp file for INCORPORATED_PRS to safely process
+          DEPENDABOT_FILE=$(mktemp)
+          echo "$INCORPORATED_PRS" > "$DEPENDABOT_FILE"
 
-          if [ "$NEWLY_INCORPORATED" -gt 0 ]; then
+          # Safely check if there are new incorporations
+          NEWLY_INCORPORATED=$(jq -r '[.[] | select(.already_incorporated == false)] | length' "$DEPENDABOT_FILE" 2>/dev/null || echo "0")
+
+          if [ "$NEWLY_INCORPORATED" -gt 0 ] 2>/dev/null; then
             # Add conjunction if needed
-            if [ "$UPDATES_ADDED" == "true" ]; then
+            if [ "$UPDATES_ADDED" = "true" ]; then
               echo -n " and " >> "$COMMENT_FILE"
             fi
             
             echo -n "Dependabot updates" >> "$COMMENT_FILE"
             DEPENDABOT_ADDED=true
             
-            # Build list of PRs
-            jq -c '.[] | select(.already_incorporated == false)' /tmp/dependabot_incorporated.json | while read -r PR_ITEM; do
-              PR_NUM=$(echo "$PR_ITEM" | jq -r '.number')
-              PR_TITLE=$(echo "$PR_ITEM" | jq -r '.title')
-              echo "- PR #${PR_NUM}: ${PR_TITLE}" >> "$COMMENT_FILE.list"
-            done
+            # Build list of PRs to a temporary file
+            PR_LIST_FILE=$(mktemp)
             
-            # Add PR details if we have any
-            if [ -f "$COMMENT_FILE.list" ] && [ -s "$COMMENT_FILE.list" ]; then
+            # Use jq to safely extract PR information
+            jq -r '.[] | select(.already_incorporated == false) | "- PR #\(.number): \(.title)"' "$DEPENDABOT_FILE" > "$PR_LIST_FILE" 2>/dev/null
+            
+            # Add PR details if we have any content
+            if [ -s "$PR_LIST_FILE" ]; then
               {
                 echo ""
                 echo ""
                 echo "<details>"
                 echo "<summary>Newly Incorporated Dependabot PRs</summary>"
                 echo ""
-                cat "$COMMENT_FILE.list"
+                cat "$PR_LIST_FILE"
                 echo "</details>"
               } >> "$COMMENT_FILE"
             else
               DEPENDABOT_ADDED=false
             fi
             
-            rm -f "$COMMENT_FILE.list" 2>/dev/null || true
+            # Clean up temporary files
+            rm -f "$PR_LIST_FILE" 2>/dev/null || true
           fi
+
+          # Clean up main Dependabot file
+          rm -f "$DEPENDABOT_FILE" 2>/dev/null || true
 
           # Only post if we have content
           if [ "$UPDATES_ADDED" != "true" ] && [ "$DEPENDABOT_ADDED" != "true" ]; then
