@@ -21,5 +21,8 @@
     "moduleResolution": "node",
     "resolveJsonModule": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "eslintConfig": {
+    "extends": "./config/.eslint.config.mjs"
+  }
 }

@@ -10,7 +10,7 @@ on:
         type: boolean
         default: true
   schedule:
-    - cron: "0 0 * * 1"
+    - cron: "0 0 * * *"
 
 jobs:
   check-updates:
@@ -560,12 +560,19 @@ jobs:
           if [ "$TOTAL_COMMITS" -gt 0 ]; then
             echo "[INFO] Creating PR with $TOTAL_COMMITS commits ($DEPENDABOT_COMMITS Dependabot incorporations)"
             
+            # Create a temp file with the PR body to avoid shell expansion issues
+            PR_BODY_FILE=$(mktemp)
+            echo "${PR_BODY//%0A/$'\n'}" > "$PR_BODY_FILE"
+            
             # Create the PR
             gh pr create \
               --title "chore: update npm dependencies" \
-              --body "${PR_BODY//%0A/$'\n'}" \
+              --body-file "$PR_BODY_FILE" \
               --base master \
               --head $PR_BRANCH
+            
+            # Clean up
+            rm -f "$PR_BODY_FILE" 2>/dev/null || true
             
             echo "[SUCCESS] PR created successfully for branch $PR_BRANCH"
           else
@@ -584,24 +591,26 @@ jobs:
           PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
           NEW_COMMITS=0
 
-          # Fetch latest remote branch state
-          git fetch origin $PR_BRANCH
+          # Instead of looking for unpushed commits, check if we made relevant updates in this run
+          NPM_UPDATED=false
+          DEPENDABOT_INCORPORATED=false
 
-          # Check for unpushed commits
-          UNPUSHED_COUNT=$(git rev-list --count origin/$PR_BRANCH..HEAD)
-          echo "[INFO] Analyzing unpushed commits: $UNPUSHED_COUNT"
+          # Check if we updated npm packages in this run
+          if [ "${{ steps.check-updates.outputs.has_updates }}" = "true" ] && [ "${{ steps.update-packages.outputs.has_actual_changes }}" = "true" ]; then
+            echo "[INFO] NPM packages were updated in this run"
+            NPM_UPDATED=true
+            NEW_COMMITS=$((NEW_COMMITS + 1))
+          fi
 
-          # Check commit types to determine relevance
-          if [ "$UNPUSHED_COUNT" -gt 0 ]; then
-            # Check for npm dependency updates
-            if git log origin/$PR_BRANCH..HEAD --grep="update npm dependencies" --oneline | grep -q .; then
-              NEW_COMMITS=$((NEW_COMMITS + 1))
-            fi
-            
-            # Check for Dependabot incorporations
-            DEPENDABOT_COMMITS=$(git log origin/$PR_BRANCH..HEAD --grep="incorporate Dependabot PR" --oneline | wc -l)
-            if [ "$DEPENDABOT_COMMITS" -gt 0 ]; then
-              NEW_COMMITS=$((NEW_COMMITS + DEPENDABOT_COMMITS))
+          # Check if we incorporated Dependabot PRs in this run
+          if [ -n "${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}" ]; then
+            # Put the JSON into a file to avoid shell quoting issues
+            echo '${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}' > /tmp/dependabot_incorporated.json
+            NEWLY_INCORPORATED=$(jq '[.[] | select(.already_incorporated == false)] | length' /tmp/dependabot_incorporated.json)
+            if [ "$NEWLY_INCORPORATED" -gt 0 ]; then
+              echo "[INFO] $NEWLY_INCORPORATED Dependabot PRs were incorporated in this run"
+              DEPENDABOT_INCORPORATED=true
+              NEW_COMMITS=$((NEW_COMMITS + NEWLY_INCORPORATED))
             fi
           fi
 
@@ -611,42 +620,7 @@ jobs:
             exit 0
           fi
 
-          echo "[INFO] Found $NEW_COMMITS relevant dependency update commits"
-
-          # Check for specific update types
-          NPM_UPDATED=false
-
-          # Check for npm updates in this run
-          if [ "${{ steps.check-updates.outputs.has_updates }}" == "true" ]; then
-            # Check latest commit for package changes
-            LATEST_COMMIT=$(git log -1 --pretty=format:%H)
-            PACKAGE_FILES_CHANGED=$(git show --name-only $LATEST_COMMIT | grep -E 'package(-lock)?.json')
-            if [ -n "$PACKAGE_FILES_CHANGED" ]; then
-              COMMIT_MSG=$(git log -1 --pretty=format:%s)
-              if [[ "$COMMIT_MSG" == *"update npm dependencies"* ]]; then
-                NPM_UPDATED=true
-              fi
-            fi
-          fi
-
-          # Check all recent commits if needed
-          if [ "$NPM_UPDATED" != "true" ] && [ "$UNPUSHED_COUNT" -gt 0 ]; then
-            PACKAGE_FILES_COMMITS=$(git log origin/$PR_BRANCH..HEAD --name-only --pretty=format: | grep -E 'package(-lock)?.json' | wc -l)
-            if [ "$PACKAGE_FILES_COMMITS" -gt 0 ]; then
-              NPM_UPDATED=true
-            fi
-          fi
-
-          # Check for newly incorporated Dependabot PRs
-          NEWLY_INCORPORATED=$(echo "$INCORPORATED_PRS" | jq '[.[] | select(.already_incorporated == false)] | length')
-
-          echo "[INFO] Update types: NPM=$NPM_UPDATED, Dependabot=$NEWLY_INCORPORATED"
-
-          # Only proceed if there are updates to comment about
-          if [ "$NPM_UPDATED" != "true" ] && [ "$NEWLY_INCORPORATED" -eq 0 ]; then
-            echo "[INFO] No new updates to comment about"
-            exit 0
-          fi
+          echo "[INFO] Found $NEW_COMMITS relevant dependency updates to comment about"
 
           # Prepare comment
           COMMENT_FILE=$(mktemp)
@@ -659,7 +633,7 @@ jobs:
           DEPENDABOT_ADDED=false
 
           # Add npm updates section
-          if [ "$NPM_UPDATED" == "true" ]; then
+          if [ "$NPM_UPDATED" = "true" ]; then
             echo -n "npm package updates" >> "$COMMENT_FILE"
             UPDATES_ADDED=true
             
@@ -672,16 +646,45 @@ jobs:
               echo ""
               
               if [ -n "$ACTUAL_CHANGES" ]; then
-                echo "```json"
-                echo "{"
-                echo "$ACTUAL_CHANGES" | sed 's/^/  /'
-                echo "}"
-                echo "```"
+                # Write changes to a temp file to avoid issues with newlines
+                CHANGES_FILE=$(mktemp)
+                printf "%s\n" "$ACTUAL_CHANGES" > "$CHANGES_FILE"
+                
+                echo "```json" >> "$COMMENT_FILE"
+                echo "{" >> "$COMMENT_FILE"
+                if grep -q $'\n' "$CHANGES_FILE"; then
+                  # Multi-line case
+                  while IFS= read -r line; do
+                    if [ -n "${line:-}" ]; then
+                      echo "  $line" >> "$COMMENT_FILE"
+                    fi
+                  done < "$CHANGES_FILE"
+                else
+                  # Single-line case
+                  if [ -s "$CHANGES_FILE" ]; then
+                    SINGLE_LINE=$(cat "$CHANGES_FILE")
+                    echo "  $SINGLE_LINE" >> "$COMMENT_FILE"
+                  fi
+                fi
+                
+                echo "}" >> "$COMMENT_FILE"
+                echo "```" >> "$COMMENT_FILE"
+                
+                # Clean up temp file
+                rm -f "$CHANGES_FILE" 2>/dev/null || true
               else
-                FORMATTED_JSON=$(echo "$UPDATE_INFO" | jq -r 'if type == "object" then . else . end')
-                echo "```json"
-                echo "$FORMATTED_JSON"
-                echo "```"
+                # Fallback to UPDATE_INFO
+                echo "```json" >> "$COMMENT_FILE"
+                if [ -n "${UPDATE_INFO:-}" ]; then
+                  # Create a temp file for UPDATE_INFO to avoid pipe issues
+                  UPDATE_FILE=$(mktemp)
+                  printf "%s\n" "$UPDATE_INFO" > "$UPDATE_FILE"
+                  jq '.' "$UPDATE_FILE" >> "$COMMENT_FILE" 2>/dev/null || cat "$UPDATE_FILE" >> "$COMMENT_FILE"
+                  rm -f "$UPDATE_FILE" 2>/dev/null || true
+                else
+                  echo "{}" >> "$COMMENT_FILE"
+                fi
+                echo "```" >> "$COMMENT_FILE"
               fi
               
               echo "</details>"
@@ -689,6 +692,10 @@ jobs:
           fi
 
           # Add Dependabot updates section
+          # Save JSON to a file first to avoid shell quoting issues
+          echo "$INCORPORATED_PRS" > /tmp/dependabot_incorporated.json
+          NEWLY_INCORPORATED=$(jq '[.[] | select(.already_incorporated == false)] | length' /tmp/dependabot_incorporated.json || echo "0")
+
           if [ "$NEWLY_INCORPORATED" -gt 0 ]; then
             # Add conjunction if needed
             if [ "$UPDATES_ADDED" == "true" ]; then
@@ -699,7 +706,7 @@ jobs:
             DEPENDABOT_ADDED=true
             
             # Build list of PRs
-            echo "$INCORPORATED_PRS" | jq -c '.[] | select(.already_incorporated == false)' | while read -r PR_ITEM; do
+            jq -c '.[] | select(.already_incorporated == false)' /tmp/dependabot_incorporated.json | while read -r PR_ITEM; do
               PR_NUM=$(echo "$PR_ITEM" | jq -r '.number')
               PR_TITLE=$(echo "$PR_ITEM" | jq -r '.title')
               echo "- PR #${PR_NUM}: ${PR_TITLE}" >> "$COMMENT_FILE.list"

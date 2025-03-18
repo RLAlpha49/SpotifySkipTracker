@@ -10,7 +10,7 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete artifacts from non-latest workflow runs
+      - name: Delete artifacts from non-latest build workflow runs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ARTIFACT_DELETE_TOKEN: ${{ secrets.ARTIFACT_DELETE_TOKEN }}
@@ -18,7 +18,7 @@ jobs:
           #!/bin/bash
           set -euo pipefail
 
-          echo "Cleaning up artifacts not associated with the latest commit on branch '$GITHUB_REF_NAME'"
+          echo "Cleaning up build artifacts not associated with the latest commit on branch '$GITHUB_REF_NAME'"
 
           # The repository in form "owner/repo"
           owner_repo="${GITHUB_REPOSITORY}"
@@ -46,6 +46,19 @@ jobs:
           for run_id in $delete_run_ids; do
             echo "Processing workflow run ID: $run_id"
 
+            # Get the workflow name for this run
+            workflow_json=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/${owner_repo}/actions/runs/${run_id}")
+            workflow_name=$(echo "$workflow_json" | jq --raw-output '.name')
+            
+            # Skip if not the build workflow
+            if [[ "$workflow_name" != "Build Electron App" ]]; then
+              echo "Skipping workflow '$workflow_name' as it's not the build workflow"
+              continue
+            fi
+
+            echo "Found build workflow run: $run_id ($workflow_name)"
+
             # List artifacts in this workflow run
             artifacts_json=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
               "https://api.github.com/repos/${owner_repo}/actions/runs/${run_id}/artifacts")
@@ -57,7 +70,7 @@ jobs:
             fi
 
             for artifact_id in $artifact_ids; do
-              echo "Deleting artifact ID: $artifact_id from run $run_id"
+              echo "Deleting artifact ID: $artifact_id from build run $run_id"
               curl -s -X DELETE -H "Authorization: token ${ARTIFACT_DELETE_TOKEN}" \
                 "https://api.github.com/repos/${owner_repo}/actions/artifacts/${artifact_id}"
             done

@@ -18,13 +18,34 @@ let accessToken: string | null = null;
 let refreshToken: string | null = null;
 let tokenExpiryTime: number = 0;
 
+// Add a margin (in seconds) for token refresh to avoid needless refreshes
+// This should match the REFRESH_MARGIN in auth/storage/token-state.ts
+const TOKEN_REFRESH_MARGIN = 300;
+
 /**
  * Checks if the current access token is valid (not expired)
  *
  * @returns true if the token is valid and not expired
  */
 export function isTokenValid(): boolean {
-  return Boolean(accessToken && tokenExpiryTime > Date.now());
+  // Check if token exists and has not yet reached expiry time
+  // Add extra check to ensure the token isn't near expiration
+  const now = Date.now();
+  const isValid = Boolean(
+    accessToken &&
+      tokenExpiryTime > now &&
+      // Ensure token has at least 60 seconds before expiry to be considered valid
+      tokenExpiryTime - now > 60000,
+  );
+
+  if (!isValid && accessToken) {
+    saveLog(
+      `Token considered invalid: ${accessToken.substring(0, 5)}...`,
+      "DEBUG",
+    );
+  }
+
+  return isValid;
 }
 
 /**
@@ -152,7 +173,18 @@ export async function refreshAccessToken(): Promise<SpotifyTokenRefreshResponse>
 export async function ensureValidToken(): Promise<void> {
   ensureCredentialsSet();
 
-  if (!isTokenValid()) {
+  // Only refresh if token is invalid or about to expire (within refresh margin)
+  const now = Date.now();
+  const tokenTimeRemaining = tokenExpiryTime - now;
+  const isTokenAboutToExpire =
+    tokenTimeRemaining > 0 && tokenTimeRemaining < TOKEN_REFRESH_MARGIN * 1000;
+
+  if (
+    !accessToken ||
+    !tokenExpiryTime ||
+    tokenExpiryTime <= now ||
+    isTokenAboutToExpire
+  ) {
     if (refreshToken) {
       try {
         await retryApiCall(async () => {

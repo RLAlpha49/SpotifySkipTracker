@@ -52,7 +52,7 @@ export default defineConfig((env) => {
       cssCodeSplit: false,
       rollupOptions: {
         input: {
-          index: path.resolve(__dirname, "index.html"),
+          index: path.resolve(__dirname, "../index.html"),
         },
         output: {
           entryFileNames: "[name].js",
@@ -72,7 +72,7 @@ export default defineConfig((env) => {
     resolve: {
       preserveSymlinks: true,
       alias: {
-        "@": path.resolve(__dirname, "./src"),
+        "@": path.resolve(__dirname, "../src"),
       },
     },
     clearScreen: false,

@@ -5,12 +5,12 @@
  * including checking and manipulating saved tracks.
  */
 
-import axios from "axios";
 import { saveLog } from "../../helpers/storage/logs-store";
 import { API_BASE_URL } from "./constants";
 import { AxiosErrorResponse } from "@/types/spotify-api";
 import { ensureValidToken, getAccessToken } from "./token";
 import { retryApiCall } from "../api-retry";
+import spotifyAxios from "./interceptors";
 
 /**
  * Checks if a track is in the user's Spotify library
@@ -27,7 +27,7 @@ export async function isTrackInLibrary(
 
   try {
     const response = await retryApiCall(async () => {
-      return await axios.get(
+      return await spotifyAxios.get(
         `${API_BASE_URL}/me/tracks/contains?ids=${trackId}`,
         {
           headers: {
@@ -66,7 +66,7 @@ export async function likeTrack(
 
   try {
     await retryApiCall(async () => {
-      await axios.put(
+      await spotifyAxios.put(
         `${API_BASE_URL}/me/tracks?ids=${trackId}`,
         {},
         {
@@ -105,7 +105,7 @@ export async function unlikeTrack(
 
   try {
     await retryApiCall(async () => {
-      await axios.delete(`${API_BASE_URL}/me/tracks?ids=${trackId}`, {
+      await spotifyAxios.delete(`${API_BASE_URL}/me/tracks?ids=${trackId}`, {
         headers: {
           Authorization: `Bearer ${getAccessToken()}`,
         },

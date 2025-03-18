@@ -66,6 +66,35 @@ export async function refreshAccessToken(): Promise<boolean> {
 
     saveLog("Refreshing access token", "DEBUG");
 
+    // Ensure the token refresh setTokens function is initialized
+    if (!setTokensFunction) {
+      saveLog(
+        "Token refresh system not initialized, initializing now",
+        "WARNING",
+      );
+      // Add a fallback to the main token refresh function if not initialized
+      initTokenRefresh((tokens) => {
+        try {
+          import("./token-operations")
+            .then(({ setTokens: setTokensOp }) => {
+              if (setTokensOp) {
+                setTokensOp(tokens);
+              } else {
+                saveLog(
+                  "Failed to initialize fallback token refresh mechanism",
+                  "ERROR",
+                );
+              }
+            })
+            .catch(() => {
+              saveLog(`Error initializing fallback token refresh`, "ERROR");
+            });
+        } catch {
+          saveLog(`Error initializing fallback token refresh`, "ERROR");
+        }
+      });
+    }
+
     // Perform token refresh using the spotify-api module
     const response = await spotifyApi.refreshAccessToken();
 
@@ -87,7 +116,7 @@ export async function refreshAccessToken(): Promise<boolean> {
       return false;
     }
 
-    saveLog("Access token refreshed successfully", "INFO");
+    saveLog("Successfully refreshed access token", "DEBUG");
     return true;
   } catch (error) {
     saveLog(`Failed to refresh access token: ${error}`, "ERROR");
