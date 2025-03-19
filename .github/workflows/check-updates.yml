@@ -533,29 +533,35 @@ jobs:
           PR_BRANCH: ${{ steps.check-pr.outputs.pr_branch }}
           PR_BODY: ${{ steps.pr-body.outputs.body }}
         run: |
+          # Validate PR branch name
+          if [ -z "$PR_BRANCH" ]; then
+            echo "[ERROR] PR branch name is empty"
+            exit 1
+          fi
+
           echo "[INFO] Preparing to create PR for branch $PR_BRANCH"
 
           # Verify branch exists remotely
-          if ! git ls-remote --exit-code --heads origin $PR_BRANCH &>/dev/null; then
+          if ! git ls-remote --exit-code --heads origin "$PR_BRANCH" &>/dev/null; then
             echo "[ERROR] Branch $PR_BRANCH doesn't exist remotely - cannot create PR"
             exit 1
           fi
 
           # Fetch latest branch state
-          git fetch origin $PR_BRANCH
+          git fetch origin "$PR_BRANCH"
 
           # Verify changes exist compared to master
-          if git diff --quiet origin/master origin/$PR_BRANCH; then
+          if git diff --quiet origin/master "origin/$PR_BRANCH"; then
             # Double check commits
-            if [ "$(git log origin/master..origin/$PR_BRANCH --pretty=format:%H | wc -l)" -eq 0 ]; then
+            if [ "$(git log "origin/master..origin/$PR_BRANCH" --pretty=format:%H | wc -l)" -eq 0 ]; then
               echo "[INFO] No differences found between branches - skipping PR creation"
               exit 0
             fi
           fi
 
           # Count commits for reporting
-          TOTAL_COMMITS=$(git rev-list --count origin/master..origin/$PR_BRANCH)
-          DEPENDABOT_COMMITS=$(git log origin/master..origin/$PR_BRANCH --grep="incorporate Dependabot PR" --pretty=format:%H | wc -l)
+          TOTAL_COMMITS=$(git rev-list --count "origin/master..origin/$PR_BRANCH")
+          DEPENDABOT_COMMITS=$(git log "origin/master..origin/$PR_BRANCH" --grep="incorporate Dependabot PR" --pretty=format:%H | wc -l)
 
           if [ "$TOTAL_COMMITS" -gt 0 ]; then
             echo "[INFO] Creating PR with $TOTAL_COMMITS commits ($DEPENDABOT_COMMITS Dependabot incorporations)"
@@ -569,7 +575,7 @@ jobs:
               --title "chore: update npm dependencies" \
               --body-file "$PR_BODY_FILE" \
               --base master \
-              --head $PR_BRANCH
+              --head "$PR_BRANCH"
             
             # Clean up
             rm -f "$PR_BODY_FILE" 2>/dev/null || true
