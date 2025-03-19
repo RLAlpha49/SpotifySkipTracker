@@ -362,18 +362,27 @@ jobs:
 
           # Capture actual changes made
           if [ -f /tmp/package.json.before ] && [ -f package.json ]; then
-            PACKAGE_DIFF=$(diff -u /tmp/package.json.before package.json | grep -E '^\+.*".*":.*".*"' | grep -v "+++" | sed 's/^+//g' | sed 's/,//g' | sed 's/^ *//g')
+            # Create a temporary file for the package diff to avoid shell escaping issues
+            DIFF_FILE=$(mktemp)
+            diff -u /tmp/package.json.before package.json | grep -E '^\+.*".*":.*".*"' | grep -v "+++" | sed 's/^+//g' | sed 's/,//g' | sed 's/^ *//g' > "$DIFF_FILE"
             
-            if [ -n "$PACKAGE_DIFF" ]; then
+            if [ -s "$DIFF_FILE" ]; then
               echo "[INFO] Package updates detected"
               echo "actual_changes<<EOF" >> $GITHUB_OUTPUT
-              echo "$PACKAGE_DIFF" >> $GITHUB_OUTPUT
+              cat "$DIFF_FILE" >> $GITHUB_OUTPUT
               echo "EOF" >> $GITHUB_OUTPUT
               echo "has_actual_changes=true" >> $GITHUB_OUTPUT
+              
+              # Debug output
+              echo "[DEBUG] Detected package changes:"
+              cat "$DIFF_FILE"
             else
               echo "[INFO] No actual changes detected in package.json"
               echo "has_actual_changes=false" >> $GITHUB_OUTPUT
             fi
+            
+            # Clean up
+            rm -f "$DIFF_FILE" 2>/dev/null || true
           else
             echo "[WARNING] Could not compare package.json changes"
             echo "has_actual_changes=false" >> $GITHUB_OUTPUT
@@ -803,20 +812,33 @@ jobs:
               echo "```"
               echo "Updated packages:"
               echo ""
+            } >> "$COMMENT_FILE"
+            
+            # Handle actual changes by writing them to a temp file first
+            if [ -n "$ACTUAL_CHANGES" ]; then
+              # Write ACTUAL_CHANGES to a temporary file to avoid shell quoting issues
+              CHANGES_FILE=$(mktemp)
+              echo "$ACTUAL_CHANGES" > "$CHANGES_FILE"
               
-              # Skip JSON formatting entirely and just list packages directly
-              if [ -n "$ACTUAL_CHANGES" ]; then
-                # Write each package directly as a simple list
-                echo "$ACTUAL_CHANGES" | while IFS= read -r line; do
-                  if [ -n "$line" ]; then
-                    echo "- $line" >> "$COMMENT_FILE" 
-                  fi
-                done
-              else
-                # Fallback to formatted UPDATE_INFO if possible
+              # Read line by line from the file instead of the variable directly
+              while IFS= read -r line; do
+                if [ -n "$line" ]; then
+                  echo "- $line" >> "$COMMENT_FILE"
+                fi
+              done < "$CHANGES_FILE"
+              
+              # Clean up temporary file
+              rm -f "$CHANGES_FILE" 2>/dev/null || true
+            else
+              # Fallback to UPDATE_INFO
+              echo "$UPDATE_INFO" | jq -r 'to_entries | .[] | "- " + .key + ": " + .value' >> "$COMMENT_FILE" 2>/dev/null || {
+                # If jq fails, try simpler approach
                 echo "$UPDATE_INFO" | sed -e 's/{//' -e 's/}//' -e 's/"//g' -e 's/,//' -e 's/^ */- /' >> "$COMMENT_FILE"
-              fi
-              
+              }
+            fi
+            
+            {
+              echo ""
               echo "```"
               echo "</details>"
             } >> "$COMMENT_FILE"
@@ -866,6 +888,10 @@ jobs:
             echo "[WARNING] No update details available - skipping comment"
             exit 0
           fi
+
+          # Debug: Show comment contents before posting
+          echo "[DEBUG] Comment contents:"
+          cat "$COMMENT_FILE"
 
           echo "[INFO] Posting update comment to PR #$PR_NUMBER"
           gh pr comment "$PR_NUMBER" --body-file "$COMMENT_FILE"
