@@ -58,7 +58,7 @@ jobs:
 
       - name: Check for existing PR
         id: check-pr
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-dependabot.outputs.has_dependabot_prs == 'true' }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true) || github.event_name != 'workflow_dispatch' }}
         env:
           GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
@@ -83,6 +83,7 @@ jobs:
           echo "pr_branch=deps/update-packages" >> $GITHUB_OUTPUT
 
       - name: Checkout or create update branch
+        id: checkout
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
         run: |
           # Determine the correct PR branch name
@@ -112,19 +113,40 @@ jobs:
 
           git fetch origin --prune
 
-          if [ "$LOCAL_BRANCH_EXISTS" = "true" ]; then
-            echo "[INFO] Checking out existing local branch"
-            git checkout "$PR_BRANCH"
-          elif [ "$REMOTE_BRANCH_EXISTS" = "true" ]; then
-            echo "[INFO] Checking out existing remote branch"
-            git checkout -b "$PR_BRANCH" "origin/$PR_BRANCH"
-          else
-            echo "[INFO] Creating new branch"
-            git checkout -b "$PR_BRANCH"
-          fi
+          # Check if we have Dependabot PRs to incorporate
+          if [ "${{ steps.check-dependabot.outputs.has_dependabot_prs }}" == "true" ]; then
+            # If we have Dependabot PRs, use existing branch if available
+            if [ "$LOCAL_BRANCH_EXISTS" = "true" ]; then
+              echo "[INFO] Checking out existing local branch"
+              git checkout "$PR_BRANCH"
+            elif [ "$REMOTE_BRANCH_EXISTS" = "true" ]; then
+              echo "[INFO] Checking out existing remote branch"
+              git checkout -b "$PR_BRANCH" "origin/$PR_BRANCH"
+            else
+              echo "[INFO] Creating new branch"
+              git checkout -b "$PR_BRANCH"
+            fi
 
-          if [ "$REMOTE_BRANCH_EXISTS" = "true" ]; then
-            git pull origin "$PR_BRANCH" || true
+            if [ "$REMOTE_BRANCH_EXISTS" = "true" ]; then
+              git pull origin "$PR_BRANCH" || true
+            fi
+          else
+            # If no Dependabot PRs to incorporate, create fresh branch from master
+            echo "[INFO] No Dependabot PRs found, creating fresh branch from master"
+            
+            # Delete local branch if it exists
+            if [ "$LOCAL_BRANCH_EXISTS" = "true" ]; then
+              git checkout master
+              git branch -D "$PR_BRANCH"
+            fi
+            
+            # Create a fresh branch from master
+            git checkout -b "$PR_BRANCH" master
+            
+            # If remote branch exists, we'll force push later to reset it
+            if [ "$REMOTE_BRANCH_EXISTS" = "true" ]; then
+              echo "[INFO] Remote branch exists but will be reset to clean state"
+            fi
           fi
 
       - name: Incorporate Dependabot PRs
@@ -389,6 +411,7 @@ jobs:
 
           echo "[INFO] Using branch: $PR_BRANCH"
           BRANCH_EXISTS_REMOTELY=false
+          FORCE_PUSH=false
 
           # First ensure we're on the correct branch locally
           if ! git show-ref --verify --quiet refs/heads/$PR_BRANCH; then
@@ -402,33 +425,41 @@ jobs:
           # Check if branch exists remotely
           if git ls-remote --exit-code --heads origin "$PR_BRANCH" &>/dev/null; then
             BRANCH_EXISTS_REMOTELY=true
-            echo "[INFO] Branch exists remotely, handling divergent branches"
             
-            git fetch origin "$PR_BRANCH"
-            
-            # Save our current changes to a patch file
-            git diff > /tmp/our_changes.patch
-            
-            # Reset to the remote branch
-            echo "[INFO] Resetting to remote branch state"
-            git reset --hard "origin/$PR_BRANCH"
-            
-            # Apply our changes on top of the remote branch
-            if [ -s /tmp/our_changes.patch ]; then
-              echo "[INFO] Applying our changes on top of remote branch"
-              if git apply /tmp/our_changes.patch; then
-                echo "[SUCCESS] Applied local changes successfully"
-              else
-                echo "[WARNING] Could not apply local changes cleanly, continuing with remote state"
+            # Determine if this is a fresh branch or has Dependabot PRs
+            if [ "${{ steps.check-dependabot.outputs.has_dependabot_prs }}" != "true" ]; then
+              # If no Dependabot PRs, we want to force push
+              echo "[INFO] Fresh branch without Dependabot PRs - will force push"
+              FORCE_PUSH=true
+            else
+              echo "[INFO] Branch exists remotely, handling divergent branches"
+              
+              git fetch origin "$PR_BRANCH"
+              
+              # Save our current changes to a patch file
+              git diff > /tmp/our_changes.patch
+              
+              # Reset to the remote branch
+              echo "[INFO] Resetting to remote branch state"
+              git reset --hard "origin/$PR_BRANCH"
+              
+              # Apply our changes on top of the remote branch
+              if [ -s /tmp/our_changes.patch ]; then
+                echo "[INFO] Applying our changes on top of remote branch"
+                if git apply /tmp/our_changes.patch; then
+                  echo "[SUCCESS] Applied local changes successfully"
+                else
+                  echo "[WARNING] Could not apply local changes cleanly, continuing with remote state"
+                fi
               fi
             fi
           fi
 
           # Check for unpushed changes
-          if [ "$BRANCH_EXISTS_REMOTELY" = "true" ]; then
+          if [ "$BRANCH_EXISTS_REMOTELY" = "true" ] && [ "$FORCE_PUSH" = "false" ]; then
             UNPUSHED_COUNT=$(git rev-list --count "origin/$PR_BRANCH..HEAD" 2>/dev/null || echo "0")
           else
-            # If branch doesn't exist remotely, all commits are unpushed
+            # If branch doesn't exist remotely or we're force pushing, all commits are unpushed
             UNPUSHED_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo "0")
           fi
 
@@ -440,7 +471,10 @@ jobs:
             UNPUSHED_COUNT=$((UNPUSHED_COUNT + 1))
           fi
 
-          if [ "$UNPUSHED_COUNT" -gt 0 ]; then
+          if [ "$FORCE_PUSH" = "true" ]; then
+            echo "[INFO] Force pushing fresh branch to remote"
+            git push -u --force origin "$PR_BRANCH"
+          elif [ "$UNPUSHED_COUNT" -gt 0 ]; then
             echo "[INFO] Pushing $UNPUSHED_COUNT new commits to branch"
             # Force push with lease to ensure we don't overwrite changes we haven't seen
             git push -u --force-with-lease origin "$PR_BRANCH" || git push -u --force origin "$PR_BRANCH"
@@ -644,6 +678,14 @@ jobs:
             exit 1
           fi
 
+          # Double-check that a PR doesn't already exist for this branch
+          EXISTING_PR=$(gh pr list --json number,headRefName --jq ".[] | select(.headRefName == \"$PR_BRANCH\") | .number")
+          if [ -n "$EXISTING_PR" ]; then
+            echo "[INFO] A pull request for branch \"$PR_BRANCH\" already exists: #$EXISTING_PR"
+            echo "[INFO] Skipping PR creation"
+            exit 0
+          fi
+
           # Fetch latest branch state
           git fetch origin "$PR_BRANCH"
 
@@ -659,6 +701,17 @@ jobs:
           # Count commits for reporting
           TOTAL_COMMITS=$(git rev-list --count "origin/master..origin/$PR_BRANCH")
           DEPENDABOT_COMMITS=$(git log "origin/master..origin/$PR_BRANCH" --grep="incorporate Dependabot PR" --pretty=format:%H | wc -l)
+
+          # Check for inconsistency - Dependabot commits with no open Dependabot PRs
+          if [ "$DEPENDABOT_COMMITS" -gt 0 ] && [ "${{ steps.check-dependabot.outputs.has_dependabot_prs }}" != "true" ]; then
+            echo "[WARNING] Found $DEPENDABOT_COMMITS Dependabot commits but no open Dependabot PRs"
+            echo "[INFO] This may indicate old closed PRs are being incorporated incorrectly"
+            # Only package updates should be included in this PR
+            if [ "${{ steps.check-updates.outputs.has_updates }}" != "true" ]; then
+              echo "[INFO] No package updates and no open Dependabot PRs - skipping PR creation"
+              exit 0
+            fi
+          fi
 
           if [ "$TOTAL_COMMITS" -gt 0 ]; then
             echo "[INFO] Creating PR with $TOTAL_COMMITS commits ($DEPENDABOT_COMMITS Dependabot incorporations)"
