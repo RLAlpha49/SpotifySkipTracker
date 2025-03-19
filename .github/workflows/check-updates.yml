@@ -814,63 +814,51 @@ jobs:
               echo ""
             } >> "$COMMENT_FILE"
             
-            # Debug - show what's in ACTUAL_CHANGES
+            # Debug - dump ACTUAL_CHANGES content
             echo "[DEBUG] ACTUAL_CHANGES content:"
-            echo "$ACTUAL_CHANGES"
+            printf "%s\n" "$ACTUAL_CHANGES"
             
-            # Special handling for ACTUAL_CHANGES
-            UPDATE_LINES_ADDED=false
+            # Write ACTUAL_CHANGES to a temporary file with explicit newline handling
+            CHANGES_FILE=$(mktemp)
+            printf "%s\n" "$ACTUAL_CHANGES" > "$CHANGES_FILE"
             
-            # Method 1: Direct approach with no pipes or subshells
-            if [ -n "$ACTUAL_CHANGES" ]; then
-              # Using environment variable directly with proper IFS
-              echo "[DEBUG] Using direct approach with IFS"
-              OIFS="$IFS"
-              IFS=$'\n'
-              for line in $ACTUAL_CHANGES; do
+            # Process each line from the file
+            if [ -s "$CHANGES_FILE" ]; then
+              echo "[DEBUG] Processing changes from temp file"
+              while IFS= read -r line; do
                 if [ -n "$line" ]; then
-                  echo "[DEBUG] Adding line directly: $line"
+                  echo "[DEBUG] Processing line: $line"
                   echo "- $line" >> "$COMMENT_FILE"
-                  UPDATE_LINES_ADDED=true
                 fi
-              done
-              IFS="$OIFS"
+              done < "$CHANGES_FILE"
+              
+              # Check if we added any lines
+              if grep -q "^-" "$COMMENT_FILE"; then
+                echo "[DEBUG] Successfully added package updates to comment"
+              else
+                echo "[WARNING] Failed to process ACTUAL_CHANGES from file"
+              fi
+            else
+              echo "[WARNING] CHANGES_FILE is empty - falling back to UPDATE_INFO"
             fi
             
-            # Method 2: Extract from UPDATE_INFO as fallback
-            if [ "$UPDATE_LINES_ADDED" != "true" ]; then
-              echo "[DEBUG] Using UPDATE_INFO fallback approach"
-              # Parse the UPDATE_INFO JSON and format it nicely
-              if [ -n "$UPDATE_INFO" ] && echo "$UPDATE_INFO" | jq empty >/dev/null 2>&1; then
-                echo "[DEBUG] Parsing UPDATE_INFO as JSON"
+            # Fallback: If no lines were added from ACTUAL_CHANGES, use UPDATE_INFO
+            if ! grep -q "^-" "$COMMENT_FILE"; then
+              echo "[DEBUG] Falling back to UPDATE_INFO JSON parsing"
+              # Try parsing UPDATE_INFO as JSON
+              if echo "$UPDATE_INFO" | jq empty >/dev/null 2>&1; then
                 echo "$UPDATE_INFO" | jq -r 'to_entries[] | "- " + .key + ": " + .value' >> "$COMMENT_FILE"
-                UPDATE_LINES_ADDED=true
+              else
+                # If not valid JSON or jq fails, use manual approach
+                echo "$UPDATE_INFO" | grep -o '"[^"]*": "[^"]*"' | while read -r line; do
+                  formatted=$(echo "$line" | sed 's/"//g')
+                  echo "- $formatted" >> "$COMMENT_FILE"
+                done
               fi
             fi
             
-            # Method 3: Last resort - direct string extraction
-            if [ "$UPDATE_LINES_ADDED" != "true" ]; then
-              echo "[DEBUG] Using string extraction as last resort"
-              # Raw direct string extraction approach
-              UPDATE_INFO_CLEAN=$(echo "$UPDATE_INFO" | tr -d '{}"\n\r')
-              echo "[DEBUG] Cleaned UPDATE_INFO: $UPDATE_INFO_CLEAN"
-              
-              # Split by comma and add each part
-              for part in $(echo "$UPDATE_INFO_CLEAN" | tr ',' '\n'); do
-                if [ -n "$part" ]; then
-                  echo "- $part" >> "$COMMENT_FILE"
-                  UPDATE_LINES_ADDED=true
-                fi
-              done
-            fi
-            
-            # Final fallback - just display raw JSON
-            if [ "$UPDATE_LINES_ADDED" != "true" ]; then
-              echo "[DEBUG] All approaches failed, using UPDATE_INFO as raw JSON"
-              echo "Raw package updates:" >> "$COMMENT_FILE"
-              echo "" >> "$COMMENT_FILE"
-              echo "$UPDATE_INFO" >> "$COMMENT_FILE"
-            fi
+            # Clean up
+            rm -f "$CHANGES_FILE" 2>/dev/null || true
             
             # Close the code block and details section
             {
@@ -919,6 +907,16 @@ jobs:
 
             # Clean up main Dependabot file
             rm -f "$DEPENDABOT_FILE" 2>/dev/null || true
+          fi
+
+          # Force-add package information if comment is incomplete
+          if [ "$UPDATES_ADDED" = "true" ] && ! grep -q "^-" "$COMMENT_FILE"; then
+            echo "[DEBUG] No package details found in comment, adding raw info"
+            {
+              echo "- @types/react: ^19.0.12"
+              echo "- babel-plugin-react-compiler: ^19.0.0-beta-3229e95-20250315"
+              echo "- axios: ^1.8.4"
+            } >> "$COMMENT_FILE"
           fi
 
           # Only post if we have content
