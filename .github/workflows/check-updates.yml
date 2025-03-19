@@ -610,13 +610,15 @@ jobs:
         if: ${{ steps.check-pr.outputs.pr_exists != 'true' && (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
         env:
           GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
-          PR_BRANCH: ${{ steps.check-pr.outputs.pr_branch }}
+          PR_BRANCH: ${{ steps.push-changes.outputs.pr_branch }}
           PR_BODY: ${{ steps.pr-body.outputs.body }}
         run: |
           # Validate PR branch name
           if [ -z "$PR_BRANCH" ]; then
             echo "[ERROR] PR branch name is empty"
-            exit 1
+            # Fallback to hardcoded branch name if output is empty
+            PR_BRANCH="deps/update-packages"
+            echo "[INFO] Using fallback branch name: $PR_BRANCH"
           fi
 
           echo "[INFO] Preparing to create PR for branch $PR_BRANCH"
