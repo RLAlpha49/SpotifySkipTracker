@@ -423,6 +423,7 @@ jobs:
           FORCE_PUSH=false
           CHANGES_DETECTED=false
           CHANGES_TO_COMMIT=false
+          NEEDS_PUSH=false
 
           # First ensure we're on the correct branch locally
           if ! git show-ref --verify --quiet refs/heads/$PR_BRANCH; then
@@ -448,6 +449,17 @@ jobs:
             
             echo "[INFO] Branch exists remotely, checking for new changes"
             git fetch origin "$PR_BRANCH"
+
+            # Compare local branch with remote branch to see if there are any differences
+            LOCAL_HEAD=$(git rev-parse HEAD)
+            REMOTE_HEAD=$(git rev-parse "origin/$PR_BRANCH")
+            
+            if [ "$LOCAL_HEAD" != "$REMOTE_HEAD" ]; then
+              # Local and remote branches are different, check if we need to merge or reset
+              echo "[INFO] Local branch differs from remote branch"
+            else
+              echo "[INFO] Local branch is identical to remote branch"
+            fi
             
             # Only apply force push logic if there are new changes to commit
             git add -A
@@ -455,6 +467,7 @@ jobs:
               # We have actual changes to commit
               CHANGES_TO_COMMIT=true
               echo "[INFO] Found uncommitted changes to commit"
+              NEEDS_PUSH=true
               
               if [ "${{ steps.check-dependabot.outputs.has_dependabot_prs }}" != "true" ]; then
                 echo "[INFO] No Dependabot PRs - will use force push if needed"
@@ -471,6 +484,25 @@ jobs:
             
             # Reset staged changes for now (we'll re-add them later if needed)
             git reset HEAD
+            
+            # If we're working with a fresh branch from master (no Dependabot PRs), we need to check
+            # if the remote branch is ahead of our local master-based branch
+            if [ "${{ steps.check-dependabot.outputs.has_dependabot_prs }}" != "true" ] && 
+               [ "$CHANGES_TO_COMMIT" = "false" ] && 
+               [ "$LOCAL_HEAD" != "$REMOTE_HEAD" ]; then
+              # Check if our local branch is based on a different history than the remote
+              # If our local branch is based on master and remote has commits from previous runs
+              IS_BASED_ON_MASTER=$(git merge-base --is-ancestor master HEAD && echo "true" || echo "false")
+              if [ "$IS_BASED_ON_MASTER" = "true" ]; then
+                echo "[INFO] Our current branch is based on master but remote branch exists"
+                echo "[INFO] Since there are no new changes to commit, we'll keep the existing remote branch"
+                
+                # Sync our local branch with the remote to avoid force pushing
+                echo "[INFO] Synchronizing local branch with remote branch"
+                git reset --hard "origin/$PR_BRANCH"
+                NEEDS_PUSH=false
+              fi
+            fi
             
             # Save our current changes to a patch file if there are any
             if [ "$(git status --porcelain | wc -l)" -gt 0 ]; then
@@ -499,6 +531,7 @@ jobs:
             git add -A
             if ! git diff --cached --quiet; then
               CHANGES_TO_COMMIT=true
+              NEEDS_PUSH=true
               echo "[INFO] Found changes to commit for new branch"
             else
               echo "[INFO] No changes to commit for new branch"
@@ -508,14 +541,6 @@ jobs:
             git reset HEAD
           fi
 
-          # Check for unpushed changes
-          if [ "$BRANCH_EXISTS_REMOTELY" = "true" ] && [ "$FORCE_PUSH" = "false" ]; then
-            UNPUSHED_COUNT=$(git rev-list --count "origin/$PR_BRANCH..HEAD" 2>/dev/null || echo "0")
-          else
-            # If branch doesn't exist remotely or we're force pushing, all commits are unpushed
-            UNPUSHED_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo "0")
-          fi
-
           # Commit changes if there are any
           if [ "$CHANGES_TO_COMMIT" = "true" ]; then
             # Add all changes
@@ -523,7 +548,7 @@ jobs:
             if ! git diff --cached --quiet; then
               echo "[INFO] Committing changes"
               git commit -m "chore: update dependencies via workflow"
-              UNPUSHED_COUNT=$((UNPUSHED_COUNT + 1))
+              NEEDS_PUSH=true
             else
               echo "[INFO] No changes to commit after staging"
             fi
@@ -531,19 +556,23 @@ jobs:
             echo "[INFO] Skipping commit as no changes were detected"
           fi
 
-          # Only push if we have unpushed commits or need to force push with changes
-          if [ "$FORCE_PUSH" = "true" ] && [ "$CHANGES_TO_COMMIT" = "true" ]; then
-            echo "[INFO] Force pushing branch with new changes to remote"
-            git push -u --force origin "$PR_BRANCH"
-          elif [ "$UNPUSHED_COUNT" -gt 0 ]; then
-            echo "[INFO] Pushing $UNPUSHED_COUNT new commits to branch"
-            # Force push with lease to ensure we don't overwrite changes we haven't seen
-            git push -u --force-with-lease origin "$PR_BRANCH" || git push -u --force origin "$PR_BRANCH"
-          elif [ "$BRANCH_EXISTS_REMOTELY" = "false" ] && [ "$CHANGES_TO_COMMIT" = "true" ]; then
-            echo "[INFO] Pushing branch to remote for first time"
-            git push -u origin "$PR_BRANCH"
+          # Only push if we have changes that need to be pushed
+          if [ "$NEEDS_PUSH" = "true" ]; then
+            if [ "$FORCE_PUSH" = "true" ] && [ "$CHANGES_TO_COMMIT" = "true" ]; then
+              echo "[INFO] Force pushing branch with new changes to remote"
+              git push -u --force origin "$PR_BRANCH"
+            elif [ "$UNPUSHED_COUNT" -gt 0 ]; then
+              echo "[INFO] Pushing $UNPUSHED_COUNT new commits to branch"
+              # Force push with lease to ensure we don't overwrite changes we haven't seen
+              git push -u --force-with-lease origin "$PR_BRANCH" || git push -u --force origin "$PR_BRANCH"
+            elif [ "$BRANCH_EXISTS_REMOTELY" = "false" ]; then
+              echo "[INFO] Pushing branch to remote for first time"
+              git push -u origin "$PR_BRANCH"
+            else
+              echo "[INFO] No changes to push to remote"
+            fi
           else
-            echo "[INFO] No new commits to push"
+            echo "[INFO] Skipping push as no changes need to be pushed"
           fi
 
           # Verify branch exists remotely
