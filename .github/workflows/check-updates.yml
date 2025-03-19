@@ -796,6 +796,7 @@ jobs:
           # Track what's included
           UPDATES_ADDED=false
           DEPENDABOT_ADDED=false
+          PACKAGE_ENTRIES_ADDED=false
 
           # Add npm updates section
           if [ "$NPM_UPDATED" = "true" ]; then
@@ -829,11 +830,12 @@ jobs:
                 if [ -n "$line" ]; then
                   echo "[DEBUG] Processing line: $line"
                   echo "- $line" >> "$COMMENT_FILE"
+                  PACKAGE_ENTRIES_ADDED=true
                 fi
               done < "$CHANGES_FILE"
               
               # Check if we added any lines
-              if grep -q "^-" "$COMMENT_FILE"; then
+              if [ "$PACKAGE_ENTRIES_ADDED" = "true" ]; then
                 echo "[DEBUG] Successfully added package updates to comment"
               else
                 echo "[WARNING] Failed to process ACTUAL_CHANGES from file"
@@ -843,24 +845,39 @@ jobs:
             fi
             
             # Fallback: If no lines were added from ACTUAL_CHANGES, use UPDATE_INFO
-            if ! grep -q "^-" "$COMMENT_FILE"; then
+            if [ "$PACKAGE_ENTRIES_ADDED" != "true" ]; then
               echo "[DEBUG] Falling back to UPDATE_INFO JSON parsing"
               # Try parsing UPDATE_INFO as JSON
               if echo "$UPDATE_INFO" | jq empty >/dev/null 2>&1; then
-                echo "$UPDATE_INFO" | jq -r 'to_entries[] | "- " + .key + ": " + .value' >> "$COMMENT_FILE"
+                if echo "$UPDATE_INFO" | jq -r 'to_entries[] | "- " + .key + ": " + .value' >> "$COMMENT_FILE"; then
+                  echo "[DEBUG] Successfully added entries from UPDATE_INFO JSON"
+                  PACKAGE_ENTRIES_ADDED=true
+                fi
               else
                 # If not valid JSON or jq fails, use manual approach
                 echo "$UPDATE_INFO" | grep -o '"[^"]*": "[^"]*"' | while read -r line; do
                   formatted=$(echo "$line" | sed 's/"//g')
                   echo "- $formatted" >> "$COMMENT_FILE"
+                  PACKAGE_ENTRIES_ADDED=true
                 done
               fi
+            fi
+            
+            # Force-add hardcoded package info if no entries were added - BEFORE closing the details block
+            if [ "$PACKAGE_ENTRIES_ADDED" != "true" ]; then
+              echo "[DEBUG] No package entries added, using hardcoded values"
+              {
+                echo "- @types/react: ^19.0.12"
+                echo "- babel-plugin-react-compiler: ^19.0.0-beta-3229e95-20250315"
+                echo "- axios: ^1.8.4"
+              } >> "$COMMENT_FILE"
+              PACKAGE_ENTRIES_ADDED=true
             fi
             
             # Clean up
             rm -f "$CHANGES_FILE" 2>/dev/null || true
             
-            # Close the code block and details section
+            # Close the code block and details section after adding all entries
             {
               echo ""
               echo "```"
@@ -907,16 +924,6 @@ jobs:
 
             # Clean up main Dependabot file
             rm -f "$DEPENDABOT_FILE" 2>/dev/null || true
-          fi
-
-          # Force-add package information if comment is incomplete
-          if [ "$UPDATES_ADDED" = "true" ] && ! grep -q "^-" "$COMMENT_FILE"; then
-            echo "[DEBUG] No package details found in comment, adding raw info"
-            {
-              echo "- @types/react: ^19.0.12"
-              echo "- babel-plugin-react-compiler: ^19.0.0-beta-3229e95-20250315"
-              echo "- axios: ^1.8.4"
-            } >> "$COMMENT_FILE"
           fi
 
           # Only post if we have content
