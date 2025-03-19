@@ -75,18 +75,38 @@ jobs:
             echo "pr_branch=deps/update-packages" >> $GITHUB_OUTPUT
           fi
 
-      - name: Checkout or create update branch
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-dependabot.outputs.has_dependabot_prs == 'true' }}
+      - name: Set default PR branch
+        id: set-default-branch
+        if: ${{ steps.check-pr.outputs.pr_branch == '' || steps.check-pr.outputs.pr_branch == null || !contains(toJson(steps.check-pr.outputs), 'pr_branch') }}
         run: |
-          echo "[INFO] Setting up branch: ${{ steps.check-pr.outputs.pr_branch }}"
+          echo "[INFO] Setting default PR branch to deps/update-packages"
+          echo "pr_branch=deps/update-packages" >> $GITHUB_OUTPUT
+
+      - name: Checkout or create update branch
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
+        run: |
+          # Determine the correct PR branch name
+          PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
+          if [ -z "$PR_BRANCH" ]; then
+            # Fallback to default branch if not set
+            PR_BRANCH="${{ steps.set-default-branch.outputs.pr_branch }}"
+            if [ -z "$PR_BRANCH" ]; then
+              # Hardcoded fallback
+              PR_BRANCH="deps/update-packages"
+              echo "[WARNING] Using hardcoded PR branch name: $PR_BRANCH"
+            fi
+          fi
+          echo "pr_branch=$PR_BRANCH" >> $GITHUB_OUTPUT
+
+          echo "[INFO] Setting up branch: $PR_BRANCH"
           LOCAL_BRANCH_EXISTS=false
           REMOTE_BRANCH_EXISTS=false
 
-          if git show-ref --verify --quiet refs/heads/${{ steps.check-pr.outputs.pr_branch }}; then
+          if git show-ref --verify --quiet refs/heads/$PR_BRANCH; then
             LOCAL_BRANCH_EXISTS=true
           fi
 
-          if git ls-remote --exit-code --heads origin ${{ steps.check-pr.outputs.pr_branch }} &>/dev/null; then
+          if git ls-remote --exit-code --heads origin "$PR_BRANCH" &>/dev/null; then
             REMOTE_BRANCH_EXISTS=true
           fi
 
@@ -94,17 +114,17 @@ jobs:
 
           if [ "$LOCAL_BRANCH_EXISTS" = "true" ]; then
             echo "[INFO] Checking out existing local branch"
-            git checkout ${{ steps.check-pr.outputs.pr_branch }}
+            git checkout "$PR_BRANCH"
           elif [ "$REMOTE_BRANCH_EXISTS" = "true" ]; then
             echo "[INFO] Checking out existing remote branch"
-            git checkout -b ${{ steps.check-pr.outputs.pr_branch }} origin/${{ steps.check-pr.outputs.pr_branch }}
+            git checkout -b "$PR_BRANCH" "origin/$PR_BRANCH"
           else
             echo "[INFO] Creating new branch"
-            git checkout -b ${{ steps.check-pr.outputs.pr_branch }}
+            git checkout -b "$PR_BRANCH"
           fi
 
           if [ "$REMOTE_BRANCH_EXISTS" = "true" ]; then
-            git pull origin ${{ steps.check-pr.outputs.pr_branch }} || true
+            git pull origin "$PR_BRANCH" || true
           fi
 
       - name: Incorporate Dependabot PRs
@@ -335,31 +355,52 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: update npm dependencies"
 
       - name: Push changes to branch
+        id: push-changes
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
         run: |
-          PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
+          # Use branch name from previous steps, or fallback to default
+          PR_BRANCH="${{ steps.checkout.outputs.pr_branch }}"
+          if [ -z "$PR_BRANCH" ]; then
+            PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
+            if [ -z "$PR_BRANCH" ]; then
+              PR_BRANCH="${{ steps.set-default-branch.outputs.pr_branch }}"
+              if [ -z "$PR_BRANCH" ]; then
+                # Hardcoded fallback
+                PR_BRANCH="deps/update-packages"
+                echo "[WARNING] Using hardcoded PR branch name: $PR_BRANCH"
+              fi
+            fi
+          fi
+
+          echo "[INFO] Using branch: $PR_BRANCH"
           BRANCH_EXISTS_REMOTELY=false
 
-          if git ls-remote --exit-code --heads origin $PR_BRANCH &>/dev/null; then
+          if git ls-remote --exit-code --heads origin "$PR_BRANCH" &>/dev/null; then
             BRANCH_EXISTS_REMOTELY=true
           fi
 
           # Check for unpushed changes
-          UNPUSHED_COUNT=$(git rev-list --count origin/$PR_BRANCH..HEAD 2>/dev/null || echo "0")
+          if [ "$BRANCH_EXISTS_REMOTELY" = "true" ]; then
+            UNPUSHED_COUNT=$(git rev-list --count "origin/$PR_BRANCH..HEAD" 2>/dev/null || echo "0")
+          else
+            # If branch doesn't exist remotely, all commits are unpushed
+            UNPUSHED_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo "0")
+          fi
 
           if [ "$UNPUSHED_COUNT" -gt 0 ]; then
             echo "[INFO] Pushing $UNPUSHED_COUNT new commits to branch"
-            git push origin $PR_BRANCH
+            git push origin "$PR_BRANCH"
           elif [ "$BRANCH_EXISTS_REMOTELY" = "false" ]; then
             echo "[INFO] Pushing branch to remote for first time"
-            git push origin $PR_BRANCH
+            git push origin "$PR_BRANCH"
           else
             echo "[INFO] No new commits to push"
           fi
 
           # Verify branch exists remotely
-          if git ls-remote --exit-code --heads origin $PR_BRANCH &>/dev/null; then
+          if git ls-remote --exit-code --heads origin "$PR_BRANCH" &>/dev/null; then
             echo "[SUCCESS] Branch $PR_BRANCH exists remotely"
+            echo "pr_branch=$PR_BRANCH" >> $GITHUB_OUTPUT
           else
             echo "[ERROR] Failed to push branch $PR_BRANCH to remote"
             exit 1
