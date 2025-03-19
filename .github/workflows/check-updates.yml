@@ -113,40 +113,20 @@ jobs:
 
           git fetch origin --prune
 
-          # Check if we have Dependabot PRs to incorporate
-          if [ "${{ steps.check-dependabot.outputs.has_dependabot_prs }}" == "true" ]; then
-            # If we have Dependabot PRs, use existing branch if available
-            if [ "$LOCAL_BRANCH_EXISTS" = "true" ]; then
-              echo "[INFO] Checking out existing local branch"
-              git checkout "$PR_BRANCH"
-            elif [ "$REMOTE_BRANCH_EXISTS" = "true" ]; then
-              echo "[INFO] Checking out existing remote branch"
-              git checkout -b "$PR_BRANCH" "origin/$PR_BRANCH"
-            else
-              echo "[INFO] Creating new branch"
-              git checkout -b "$PR_BRANCH"
-            fi
-
+          # Checkout or create branch, always preserving history
+          if [ "$LOCAL_BRANCH_EXISTS" = "true" ]; then
+            echo "[INFO] Checking out existing local branch"
+            git checkout "$PR_BRANCH"
             if [ "$REMOTE_BRANCH_EXISTS" = "true" ]; then
+              echo "[INFO] Updating local branch with remote changes"
               git pull origin "$PR_BRANCH" || true
             fi
+          elif [ "$REMOTE_BRANCH_EXISTS" = "true" ]; then
+            echo "[INFO] Checking out existing remote branch"
+            git checkout -b "$PR_BRANCH" "origin/$PR_BRANCH"
           else
-            # If no Dependabot PRs to incorporate, create fresh branch from master
-            echo "[INFO] No Dependabot PRs found, creating fresh branch from master"
-            
-            # Delete local branch if it exists
-            if [ "$LOCAL_BRANCH_EXISTS" = "true" ]; then
-              git checkout master
-              git branch -D "$PR_BRANCH"
-            fi
-            
-            # Create a fresh branch from master
+            echo "[INFO] Creating new branch from master"
             git checkout -b "$PR_BRANCH" master
-            
-            # If remote branch exists, we'll force push later to reset it
-            if [ "$REMOTE_BRANCH_EXISTS" = "true" ]; then
-              echo "[INFO] Remote branch exists but will be reset to clean state"
-            fi
           fi
 
       - name: Incorporate Dependabot PRs
@@ -420,8 +400,6 @@ jobs:
 
           echo "[INFO] Using branch: $PR_BRANCH"
           BRANCH_EXISTS_REMOTELY=false
-          FORCE_PUSH=false
-          CHANGES_DETECTED=false
           CHANGES_TO_COMMIT=false
           NEEDS_PUSH=false
 
@@ -434,50 +412,32 @@ jobs:
             git checkout $PR_BRANCH
           fi
 
-          # Check if there are likely changes to commit in this run based on previous steps
-          if [ "${{ steps.update-packages.outputs.has_actual_changes }}" = "true" ] || 
-             [ "${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}" -gt 0 ]; then
-            echo "[INFO] Changes were reported by previous steps"
-            CHANGES_DETECTED=true
-          else
-            echo "[INFO] No changes were reported by previous steps"
-          fi
-
           # Check if branch exists remotely
           if git ls-remote --exit-code --heads origin "$PR_BRANCH" &>/dev/null; then
             BRANCH_EXISTS_REMOTELY=true
             
-            echo "[INFO] Branch exists remotely, checking for new changes"
+            echo "[INFO] Branch exists remotely, fetching latest changes"
             git fetch origin "$PR_BRANCH"
 
-            # Compare local branch with remote branch to see if there are any differences
-            LOCAL_HEAD=$(git rev-parse HEAD)
-            REMOTE_HEAD=$(git rev-parse "origin/$PR_BRANCH")
-            
-            if [ "$LOCAL_HEAD" != "$REMOTE_HEAD" ]; then
-              # Local and remote branches are different, check if we need to merge or reset
-              echo "[INFO] Local branch differs from remote branch"
-            else
-              echo "[INFO] Local branch is identical to remote branch"
+            # Always make sure we're up to date with remote changes first
+            if [ "$BRANCH_EXISTS_REMOTELY" = "true" ]; then
+              echo "[INFO] Pulling latest changes from remote to ensure we're up to date"
+              git pull origin "$PR_BRANCH" || true
             fi
             
-            # Only apply force push logic if there are new changes to commit
+            # Check for uncommitted changes
             git add -A
             if ! git diff --cached --quiet; then
               # We have actual changes to commit
               CHANGES_TO_COMMIT=true
               echo "[INFO] Found uncommitted changes to commit"
               NEEDS_PUSH=true
-              
-              if [ "${{ steps.check-dependabot.outputs.has_dependabot_prs }}" != "true" ]; then
-                echo "[INFO] No Dependabot PRs - will use force push if needed"
-                FORCE_PUSH=true
-              fi
             else
               echo "[INFO] No uncommitted changes found"
               
-              if [ "$CHANGES_DETECTED" = "true" ]; then
-                echo "[INFO] Note: Changes were detected by earlier steps but nothing to commit"
+              if [ "${{ steps.update-packages.outputs.has_actual_changes }}" = "true" ] || 
+                 [ "${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}" -gt 0 ]; then
+                echo "[INFO] Note: Changes were reported by earlier steps but nothing to commit"
                 echo "[INFO] These changes may have already been committed in a previous run"
               fi
             fi
@@ -485,45 +445,6 @@ jobs:
             # Reset staged changes for now (we'll re-add them later if needed)
             git reset HEAD
             
-            # If we're working with a fresh branch from master (no Dependabot PRs), we need to check
-            # if the remote branch is ahead of our local master-based branch
-            if [ "${{ steps.check-dependabot.outputs.has_dependabot_prs }}" != "true" ] && 
-               [ "$CHANGES_TO_COMMIT" = "false" ] && 
-               [ "$LOCAL_HEAD" != "$REMOTE_HEAD" ]; then
-              # Check if our local branch is based on a different history than the remote
-              # If our local branch is based on master and remote has commits from previous runs
-              IS_BASED_ON_MASTER=$(git merge-base --is-ancestor master HEAD && echo "true" || echo "false")
-              if [ "$IS_BASED_ON_MASTER" = "true" ]; then
-                echo "[INFO] Our current branch is based on master but remote branch exists"
-                echo "[INFO] Since there are no new changes to commit, we'll keep the existing remote branch"
-                
-                # Sync our local branch with the remote to avoid force pushing
-                echo "[INFO] Synchronizing local branch with remote branch"
-                git reset --hard "origin/$PR_BRANCH"
-                NEEDS_PUSH=false
-              fi
-            fi
-            
-            # Save our current changes to a patch file if there are any
-            if [ "$(git status --porcelain | wc -l)" -gt 0 ]; then
-              git diff > /tmp/our_changes.patch
-              
-              # Reset to the remote branch
-              echo "[INFO] Resetting to remote branch state"
-              git reset --hard "origin/$PR_BRANCH"
-              
-              # Apply our changes on top of the remote branch
-              if [ -s /tmp/our_changes.patch ]; then
-                echo "[INFO] Applying our changes on top of remote branch"
-                if git apply /tmp/our_changes.patch; then
-                  echo "[SUCCESS] Applied local changes successfully"
-                else
-                  echo "[WARNING] Could not apply local changes cleanly, continuing with remote state"
-                fi
-              fi
-            else
-              echo "[INFO] No unstaged changes to reconcile with remote"
-            fi
           else
             echo "[INFO] Branch does not exist remotely"
             
@@ -539,6 +460,16 @@ jobs:
             
             # Reset staged changes for now (we'll re-add them later if needed)
             git reset HEAD
+          fi
+
+          # Check for unpushed local commits
+          UNPUSHED_COUNT=0
+          if [ "$BRANCH_EXISTS_REMOTELY" = "true" ]; then
+            UNPUSHED_COUNT=$(git rev-list --count "origin/$PR_BRANCH..HEAD" 2>/dev/null || echo "0")
+            if [ "$UNPUSHED_COUNT" -gt 0 ]; then
+              echo "[INFO] Found $UNPUSHED_COUNT unpushed local commits"
+              NEEDS_PUSH=true
+            fi
           fi
 
           # Commit changes if there are any
@@ -558,19 +489,8 @@ jobs:
 
           # Only push if we have changes that need to be pushed
           if [ "$NEEDS_PUSH" = "true" ]; then
-            if [ "$FORCE_PUSH" = "true" ] && [ "$CHANGES_TO_COMMIT" = "true" ]; then
-              echo "[INFO] Force pushing branch with new changes to remote"
-              git push -u --force origin "$PR_BRANCH"
-            elif [ "$UNPUSHED_COUNT" -gt 0 ]; then
-              echo "[INFO] Pushing $UNPUSHED_COUNT new commits to branch"
-              # Force push with lease to ensure we don't overwrite changes we haven't seen
-              git push -u --force-with-lease origin "$PR_BRANCH" || git push -u --force origin "$PR_BRANCH"
-            elif [ "$BRANCH_EXISTS_REMOTELY" = "false" ]; then
-              echo "[INFO] Pushing branch to remote for first time"
-              git push -u origin "$PR_BRANCH"
-            else
-              echo "[INFO] No changes to push to remote"
-            fi
+            echo "[INFO] Pushing changes to remote"
+            git push -u origin "$PR_BRANCH"
           else
             echo "[INFO] Skipping push as no changes need to be pushed"
           fi
