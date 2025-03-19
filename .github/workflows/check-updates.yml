@@ -558,34 +558,55 @@ jobs:
           <details>
           <summary>Latest Package Updates</summary>
 
-          \`\`\`
-          Updated packages:
-
+          \`\`\`json
           EOF
 
-          # Extract package info from actual changes
-          if [ -n "$ACTUAL_CHANGES" ]; then
-            echo "[DEBUG] Adding package updates from ACTUAL_CHANGES"
+          # Flag to track if we successfully added package info
+          PACKAGE_INFO_ADDED=false
+
+          # Try to use UPDATE_INFO directly if it's valid JSON 
+          if [ -n "$UPDATE_INFO" ] && echo "$UPDATE_INFO" | jq empty >/dev/null 2>&1; then
+            echo "[DEBUG] Using UPDATE_INFO directly (valid JSON)"
+            echo "$UPDATE_INFO" >> "$COMMENT_FILE"
+            PACKAGE_INFO_ADDED=true
+          # Extract package info from actual changes and format as JSON
+          elif [ -n "$ACTUAL_CHANGES" ]; then
+            echo "[DEBUG] Building JSON from ACTUAL_CHANGES"
+            echo "{" >> "$COMMENT_FILE"
+            FIRST_ENTRY=true
+            
             echo "$ACTUAL_CHANGES" | while IFS= read -r line; do
               if [ -n "$line" ]; then
-                echo "- $line" >> "$COMMENT_FILE"
+                # Extract package name and version
+                if [[ "$line" =~ \"([^\"]+)\":[[:space:]]*\"([^\"]+)\" ]]; then
+                  PACKAGE="${BASH_REMATCH[1]}"
+                  VERSION="${BASH_REMATCH[2]}"
+                  
+                  # Add comma before all but the first entry
+                  if [ "$FIRST_ENTRY" = "true" ]; then
+                    FIRST_ENTRY=false
+                  else
+                    echo "," >> "$COMMENT_FILE"
+                  fi
+                  
+                  # Write as JSON key-value pair
+                  echo "  \"$PACKAGE\": \"$VERSION\"" >> "$COMMENT_FILE"
+                  PACKAGE_INFO_ADDED=true
+                fi
               fi
             done
-          else
-            # If no ACTUAL_CHANGES, try JSON parsing
-            echo "[DEBUG] No ACTUAL_CHANGES found, trying UPDATE_INFO"
-            if [ -n "$UPDATE_INFO" ] && echo "$UPDATE_INFO" | jq empty >/dev/null 2>&1; then
-              echo "$UPDATE_INFO" | jq -r 'to_entries[] | "- " + .key + ": " + .value' >> "$COMMENT_FILE"
-            fi
+            
+            echo "" >> "$COMMENT_FILE"
+            echo "}" >> "$COMMENT_FILE"
           fi
 
-          # If still no content, add hardcoded package updates
-          if ! grep -q "^-" "$COMMENT_FILE"; then
-            echo "[DEBUG] Adding hardcoded package updates as fallback"
+          # If no valid package info was added, add error message
+          if [ "$PACKAGE_INFO_ADDED" != "true" ]; then
+            echo "[DEBUG] Adding error message - no package info available"
             cat >> "$COMMENT_FILE" << EOF
-          - @types/react: ^19.0.12
-          - babel-plugin-react-compiler: ^19.0.0-beta-3229e95-20250315
-          - axios: ^1.8.4
+          {
+            "error": "There was an error extracting package updates from variables. Please check workflow logs for details."
+          }
           EOF
           fi
 
