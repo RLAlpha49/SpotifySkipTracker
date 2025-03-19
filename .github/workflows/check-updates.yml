@@ -515,7 +515,7 @@ jobs:
           PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
           NEW_COMMITS=0
 
-          # Instead of looking for unpushed commits, check if we made relevant updates in this run
+          # Check if we made relevant updates in this run
           NPM_UPDATED=false
           DEPENDABOT_INCORPORATED=false
 
@@ -546,7 +546,7 @@ jobs:
 
           echo "[INFO] Found $NEW_COMMITS relevant dependency updates to comment about"
 
-          # Create a simpler comment with direct content
+          # Create the PR comment
           COMMENT_FILE=$(mktemp)
 
           # Write the header
@@ -566,12 +566,10 @@ jobs:
 
           # Try to use UPDATE_INFO directly if it's valid JSON 
           if [ -n "$UPDATE_INFO" ] && echo "$UPDATE_INFO" | jq empty >/dev/null 2>&1; then
-            echo "[DEBUG] Using UPDATE_INFO directly (valid JSON)"
             echo "$UPDATE_INFO" >> "$COMMENT_FILE"
             PACKAGE_INFO_ADDED=true
-          # Extract package info from actual changes and format as JSON
+          # If UPDATE_INFO isn't valid, extract package info from ACTUAL_CHANGES and format as JSON
           elif [ -n "$ACTUAL_CHANGES" ]; then
-            echo "[DEBUG] Building JSON from ACTUAL_CHANGES"
             echo "{" >> "$COMMENT_FILE"
             FIRST_ENTRY=true
             
@@ -602,10 +600,9 @@ jobs:
 
           # If no valid package info was added, add error message
           if [ "$PACKAGE_INFO_ADDED" != "true" ]; then
-            echo "[DEBUG] Adding error message - no package info available"
             cat >> "$COMMENT_FILE" << EOF
           {
-            "error": "There was an error extracting package updates from variables. Please check workflow logs for details."
+            "error": "Unable to retrieve package update details. Package updates were made, but the specific version information couldn't be extracted. Please check the workflow logs for more details."
           }
           EOF
           fi
@@ -639,10 +636,6 @@ jobs:
             # Clean up
             rm -f "$DEPENDABOT_FILE" 2>/dev/null || true
           fi
-
-          # Debug output
-          echo "[DEBUG] Comment contents:"
-          cat "$COMMENT_FILE"
 
           # Post the comment
           echo "[INFO] Posting update comment to PR #$PR_NUMBER"
