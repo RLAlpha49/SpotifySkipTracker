@@ -40,7 +40,7 @@ jobs:
           # Find all open Dependabot PRs using multiple detection strategies
           # 1. By author name AND
           # 2. By PR title prefix "Bump"
-          DEPENDABOT_PRS=$(gh pr list --state open --json number,title,headRefName,author --jq '[.[] | select((.author.login == "dependabot[bot]" or .author.login == "dependabot") or (.title | startswith("Bump "))) | {number: .number, title: .title, branch: .headRefName}]')
+          DEPENDABOT_PRS=$(gh pr list --state open --json number,title,headRefName,author,state --jq '[.[] | select(((.author.login == "dependabot[bot]" or .author.login == "dependabot") or (.title | startswith("Bump "))) and .state == "OPEN") | {number: .number, title: .title, branch: .headRefName, state: .state}]')
 
           DEPENDABOT_COUNT=$(echo "$DEPENDABOT_PRS" | jq 'length')
           echo "[INFO] Found $DEPENDABOT_COUNT Dependabot PR(s)"
@@ -171,9 +171,24 @@ jobs:
             PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number')
             PR_BRANCH=$(echo "$PR_INFO" | jq -r '.branch')
             PR_TITLE=$(echo "$PR_INFO" | jq -r '.title')
+            PR_STATE=$(echo "$PR_INFO" | jq -r '.state')
             
             # Skip if already incorporated
             if [[ " ${ALREADY_INCORPORATED[@]} " =~ " ${PR_NUMBER} " ]]; then
+              echo "[INFO] PR #$PR_NUMBER already incorporated in this branch, skipping"
+              continue
+            fi
+            
+            # Verify PR is still open before incorporation
+            if [ "$PR_STATE" != "OPEN" ]; then
+              echo "[INFO] PR #$PR_NUMBER is not open (state: $PR_STATE), skipping"
+              continue
+            fi
+            
+            # Double-check PR state directly with GitHub API
+            PR_CURRENT_STATE=$(gh pr view "$PR_NUMBER" --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
+            if [ "$PR_CURRENT_STATE" != "OPEN" ]; then
+              echo "[INFO] PR #$PR_NUMBER is currently $PR_CURRENT_STATE, skipping"
               continue
             fi
             
