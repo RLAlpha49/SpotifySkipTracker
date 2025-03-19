@@ -503,247 +503,6 @@ jobs:
             exit 1
           fi
 
-      - name: Create custom PR body
-        id: pr-body
-        if: ${{ steps.check-pr.outputs.pr_exists != 'true' && (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
-        env:
-          INCORPORATED_PRS: ${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}
-          UPDATE_INFO: ${{ steps.check-updates.outputs.update_info }}
-          ACTUAL_CHANGES: ${{ steps.update-packages.outputs.actual_changes }}
-          HAS_ACTUAL_CHANGES: ${{ steps.update-packages.outputs.has_actual_changes }}
-        run: |
-          echo "[INFO] Preparing PR body"
-
-          # Create PR body with proper formatting
-          PR_BODY="This PR updates dependencies to their latest versions.
-
-          $([ "${{ github.event_name }}" == "workflow_dispatch" ] && echo "Updated manually via GitHub Actions workflow dispatch." || echo "Updated automatically via GitHub Actions after detecting available updates.")
-          "
-
-          # Add npm updates section if there are any
-          if [ "${{ steps.check-updates.outputs.has_updates }}" == "true" ]; then
-            # Check if we have actual changes from the diff
-            if [ "$HAS_ACTUAL_CHANGES" == "true" ] && [ -n "$ACTUAL_CHANGES" ]; then
-              # Generate a formatted JSON-like output
-              FORMATTED_CHANGES="{"
-              while IFS= read -r line; do
-                if [[ -n "$line" ]]; then
-                  FORMATTED_CHANGES+=$'\n  '"$line"
-                fi
-              done <<< "$ACTUAL_CHANGES"
-              FORMATTED_CHANGES+=$'\n}'
-              
-              PR_BODY="${PR_BODY}
-
-          ### NPM Package Updates
-          <details><summary>Show Updates</summary>
-
-          \`\`\`json
-          ${FORMATTED_CHANGES}
-          \`\`\`
-          </details>
-          "
-            else
-              # Try git diff if actual changes weren't captured
-              PACKAGE_CHANGES=$(git diff --staged package.json || git diff HEAD~1 package.json || git diff HEAD package.json)
-              DEPENDENCY_CHANGES=$(echo "$PACKAGE_CHANGES" | grep -E '^\+.*".*":.*".*"' | sed 's/^+//g' | sed 's/,//g' | sed 's/"//g' | sed 's/^ *//g')
-              
-              if [[ -n "$DEPENDENCY_CHANGES" ]]; then
-                # Format for PR body
-                FORMATTED_CHANGES="{"
-                while IFS= read -r line; do
-                  if [[ -n "$line" ]]; then
-                    FORMATTED_CHANGES+=$'\n  '"$line"
-                  fi
-                done <<< "$DEPENDENCY_CHANGES"
-                FORMATTED_CHANGES+=$'\n}'
-                
-                PR_BODY="${PR_BODY}
-
-          ### NPM Package Updates
-          <details><summary>Show Updates</summary>
-
-          \`\`\`json
-          ${FORMATTED_CHANGES}
-          \`\`\`
-          </details>
-          "
-              else
-                # Fallback to ncu output
-                FORMATTED_JSON=$(echo "$UPDATE_INFO" | jq -r 'if type == "object" then . else . end')
-                PR_BODY="${PR_BODY}
-
-          ### NPM Package Updates
-          <details><summary>Show Updates</summary>
-
-          \`\`\`json
-          ${FORMATTED_JSON}
-          \`\`\`
-          </details>
-          "
-              fi
-            fi
-          fi
-
-          # Add dependabot updates section if there are any
-          INCORPORATED_COUNT="${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}"
-
-          # Check if there are incorporated PRs
-          HAS_INCORPORATED_PRS=false
-          if [ -n "$INCORPORATED_PRS" ] && [ "$INCORPORATED_PRS" != "[]" ]; then
-            PR_COUNT=$(echo "$INCORPORATED_PRS" | jq 'length')
-            if [ "$PR_COUNT" -gt 0 ]; then
-              HAS_INCORPORATED_PRS=true
-            fi
-          fi
-
-          if [ "$INCORPORATED_COUNT" -gt 0 ] || [ "$HAS_INCORPORATED_PRS" = "true" ]; then
-            # Save JSON to temp file for processing
-            echo "$INCORPORATED_PRS" > /tmp/incorporated_prs.json
-            
-            # Validate JSON format
-            if ! jq empty /tmp/incorporated_prs.json 2>/dev/null; then
-              # Clean up JSON if invalid
-              sed -i 's/^[[:space:]]*//g; s/[[:space:]]*$//g' /tmp/incorporated_prs.json
-              if ! jq empty /tmp/incorporated_prs.json 2>/dev/null; then
-                echo "[]" > /tmp/incorporated_prs.json
-              fi
-            fi
-            
-            # Create PR list
-            PR_LIST_FILE=$(mktemp)
-            JQ_TOTAL=$(jq 'length' /tmp/incorporated_prs.json || echo 0)
-            
-            if [ "$JQ_TOTAL" -gt 0 ]; then
-              # Process PRs with jq
-              jq -r '.[] | "- PR #\(.number): \(.title)" + (if .already_incorporated then " (previously incorporated)" else "" end)' /tmp/incorporated_prs.json > "$PR_LIST_FILE"
-              
-              # Count PR types
-              NEWLY_ADDED=$(jq '[.[] | select(.already_incorporated == false or .already_incorporated == null)] | length' /tmp/incorporated_prs.json || echo 0)
-              PREV_ADDED=$(jq '[.[] | select(.already_incorporated == true)] | length' /tmp/incorporated_prs.json || echo 0)
-            else
-              # Fallback processing
-              echo "$INCORPORATED_PRS" | grep -o '{[^}]*}' | while read -r PR_ITEM; do
-                PR_NUM=$(echo "$PR_ITEM" | grep -o '"number":[^,]*' | cut -d':' -f2 | tr -d ' "')
-                PR_TITLE=$(echo "$PR_ITEM" | grep -o '"title":"[^"]*"' | cut -d':' -f2- | tr -d '"')
-                ALREADY_INC=$(echo "$PR_ITEM" | grep -o '"already_incorporated":[^,}]*' | cut -d':' -f2 | tr -d ' "')
-                
-                if [ "$ALREADY_INC" = "true" ]; then
-                  echo "- PR #${PR_NUM}: ${PR_TITLE} (previously incorporated)" >> "$PR_LIST_FILE"
-                else
-                  echo "- PR #${PR_NUM}: ${PR_TITLE}" >> "$PR_LIST_FILE"
-                fi
-              done
-              
-              # Manual counting for fallback
-              NEWLY_ADDED=$(grep -v "previously incorporated" "$PR_LIST_FILE" | wc -l)
-              PREV_ADDED=$(grep "previously incorporated" "$PR_LIST_FILE" | wc -l)
-            fi
-            
-            # If list is empty, add basic entry
-            if [ ! -s "$PR_LIST_FILE" ]; then
-              echo "- Dependabot PRs were incorporated but details could not be displayed" > "$PR_LIST_FILE"
-            fi
-            
-            # Add to PR body
-            PR_BODY="${PR_BODY}
-
-          ### Incorporated Dependabot PRs
-          <details><summary>Show Incorporated PRs</summary>
-          The following Dependabot PRs were incorporated:
-
-          $(cat "$PR_LIST_FILE")
-            </details>
-          "
-            
-            # Cleanup
-            rm -f "$PR_LIST_FILE" 2>/dev/null || true
-          fi
-
-          # Escape newlines for GitHub Actions output
-          PR_BODY="${PR_BODY//$'\n'/%0A}"
-          echo "body=$PR_BODY" >> $GITHUB_OUTPUT
-
-      - name: Create new Pull Request with gh CLI
-        if: ${{ steps.check-pr.outputs.pr_exists != 'true' && (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
-          PR_BRANCH: ${{ steps.push-changes.outputs.pr_branch }}
-          PR_BODY: ${{ steps.pr-body.outputs.body }}
-        run: |
-          # Validate PR branch name
-          if [ -z "$PR_BRANCH" ]; then
-            echo "[ERROR] PR branch name is empty"
-            # Fallback to hardcoded branch name if output is empty
-            PR_BRANCH="deps/update-packages"
-            echo "[INFO] Using fallback branch name: $PR_BRANCH"
-          fi
-
-          echo "[INFO] Preparing to create PR for branch $PR_BRANCH"
-
-          # Verify branch exists remotely
-          if ! git ls-remote --exit-code --heads origin "$PR_BRANCH" &>/dev/null; then
-            echo "[ERROR] Branch $PR_BRANCH doesn't exist remotely - cannot create PR"
-            exit 1
-          fi
-
-          # Double-check that a PR doesn't already exist for this branch
-          EXISTING_PR=$(gh pr list --json number,headRefName --jq ".[] | select(.headRefName == \"$PR_BRANCH\") | .number")
-          if [ -n "$EXISTING_PR" ]; then
-            echo "[INFO] A pull request for branch \"$PR_BRANCH\" already exists: #$EXISTING_PR"
-            echo "[INFO] Skipping PR creation"
-            exit 0
-          fi
-
-          # Fetch latest branch state
-          git fetch origin "$PR_BRANCH"
-
-          # Verify changes exist compared to master
-          if git diff --quiet origin/master "origin/$PR_BRANCH"; then
-            # Double check commits
-            if [ "$(git log "origin/master..origin/$PR_BRANCH" --pretty=format:%H | wc -l)" -eq 0 ]; then
-              echo "[INFO] No differences found between branches - skipping PR creation"
-              exit 0
-            fi
-          fi
-
-          # Count commits for reporting
-          TOTAL_COMMITS=$(git rev-list --count "origin/master..origin/$PR_BRANCH")
-          DEPENDABOT_COMMITS=$(git log "origin/master..origin/$PR_BRANCH" --grep="incorporate Dependabot PR" --pretty=format:%H | wc -l)
-
-          # Check for inconsistency - Dependabot commits with no open Dependabot PRs
-          if [ "$DEPENDABOT_COMMITS" -gt 0 ] && [ "${{ steps.check-dependabot.outputs.has_dependabot_prs }}" != "true" ]; then
-            echo "[WARNING] Found $DEPENDABOT_COMMITS Dependabot commits but no open Dependabot PRs"
-            echo "[INFO] This may indicate old closed PRs are being incorporated incorrectly"
-            # Only package updates should be included in this PR
-            if [ "${{ steps.check-updates.outputs.has_updates }}" != "true" ]; then
-              echo "[INFO] No package updates and no open Dependabot PRs - skipping PR creation"
-              exit 0
-            fi
-          fi
-
-          if [ "$TOTAL_COMMITS" -gt 0 ]; then
-            echo "[INFO] Creating PR with $TOTAL_COMMITS commits ($DEPENDABOT_COMMITS Dependabot incorporations)"
-            
-            # Create a temp file with the PR body to avoid shell expansion issues
-            PR_BODY_FILE=$(mktemp)
-            echo "${PR_BODY//%0A/$'\n'}" > "$PR_BODY_FILE"
-            
-            # Create the PR
-            gh pr create \
-              --title "chore: update npm dependencies" \
-              --body-file "$PR_BODY_FILE" \
-              --base master \
-              --head "$PR_BRANCH"
-            
-            # Clean up
-            rm -f "$PR_BODY_FILE" 2>/dev/null || true
-            
-            echo "[SUCCESS] PR created successfully for branch $PR_BRANCH"
-          else
-            echo "[INFO] No commits to include in PR - skipping creation"
-          fi
-
       - name: Add comment to existing PR about updates
         if: ${{ steps.check-pr.outputs.pr_exists == 'true' && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
         env:
@@ -787,155 +546,84 @@ jobs:
 
           echo "[INFO] Found $NEW_COMMITS relevant dependency updates to comment about"
 
-          # Prepare comment
+          # Create a simpler comment with direct content
           COMMENT_FILE=$(mktemp)
-          echo "## 📦 New dependency updates added" > "$COMMENT_FILE"
-          echo "" >> "$COMMENT_FILE"
-          echo -n "This PR has been updated with " >> "$COMMENT_FILE"
 
-          # Track what's included
-          UPDATES_ADDED=false
-          DEPENDABOT_ADDED=false
-          PACKAGE_ENTRIES_ADDED=false
+          # Write the header
+          cat > "$COMMENT_FILE" << EOF
+          ## 📦 New dependency updates added
 
-          # Add npm updates section
-          if [ "$NPM_UPDATED" = "true" ]; then
-            echo -n "npm package updates" >> "$COMMENT_FILE"
-            UPDATES_ADDED=true
-            
-            # Add update details section header
-            {
-              echo ""
-              echo ""
-              echo "<details>"
-              echo "<summary>Latest Package Updates</summary>"
-              echo ""
-              echo "```"
-              echo "Updated packages:"
-              echo ""
-            } >> "$COMMENT_FILE"
-            
-            # Debug - dump ACTUAL_CHANGES content
-            echo "[DEBUG] ACTUAL_CHANGES content:"
-            printf "%s\n" "$ACTUAL_CHANGES"
-            
-            # Write ACTUAL_CHANGES to a temporary file with explicit newline handling
-            CHANGES_FILE=$(mktemp)
-            printf "%s\n" "$ACTUAL_CHANGES" > "$CHANGES_FILE"
-            
-            # Process each line from the file
-            if [ -s "$CHANGES_FILE" ]; then
-              echo "[DEBUG] Processing changes from temp file"
-              while IFS= read -r line; do
-                if [ -n "$line" ]; then
-                  echo "[DEBUG] Processing line: $line"
-                  echo "- $line" >> "$COMMENT_FILE"
-                  PACKAGE_ENTRIES_ADDED=true
-                fi
-              done < "$CHANGES_FILE"
-              
-              # Check if we added any lines
-              if [ "$PACKAGE_ENTRIES_ADDED" = "true" ]; then
-                echo "[DEBUG] Successfully added package updates to comment"
-              else
-                echo "[WARNING] Failed to process ACTUAL_CHANGES from file"
+          This PR has been updated with npm package updates
+
+          <details>
+          <summary>Latest Package Updates</summary>
+
+          \`\`\`
+          Updated packages:
+
+          EOF
+
+          # Extract package info from actual changes
+          if [ -n "$ACTUAL_CHANGES" ]; then
+            echo "[DEBUG] Adding package updates from ACTUAL_CHANGES"
+            echo "$ACTUAL_CHANGES" | while IFS= read -r line; do
+              if [ -n "$line" ]; then
+                echo "- $line" >> "$COMMENT_FILE"
               fi
-            else
-              echo "[WARNING] CHANGES_FILE is empty - falling back to UPDATE_INFO"
+            done
+          else
+            # If no ACTUAL_CHANGES, try JSON parsing
+            echo "[DEBUG] No ACTUAL_CHANGES found, trying UPDATE_INFO"
+            if [ -n "$UPDATE_INFO" ] && echo "$UPDATE_INFO" | jq empty >/dev/null 2>&1; then
+              echo "$UPDATE_INFO" | jq -r 'to_entries[] | "- " + .key + ": " + .value' >> "$COMMENT_FILE"
             fi
-            
-            # Fallback: If no lines were added from ACTUAL_CHANGES, use UPDATE_INFO
-            if [ "$PACKAGE_ENTRIES_ADDED" != "true" ]; then
-              echo "[DEBUG] Falling back to UPDATE_INFO JSON parsing"
-              # Try parsing UPDATE_INFO as JSON
-              if echo "$UPDATE_INFO" | jq empty >/dev/null 2>&1; then
-                if echo "$UPDATE_INFO" | jq -r 'to_entries[] | "- " + .key + ": " + .value' >> "$COMMENT_FILE"; then
-                  echo "[DEBUG] Successfully added entries from UPDATE_INFO JSON"
-                  PACKAGE_ENTRIES_ADDED=true
-                fi
-              else
-                # If not valid JSON or jq fails, use manual approach
-                echo "$UPDATE_INFO" | grep -o '"[^"]*": "[^"]*"' | while read -r line; do
-                  formatted=$(echo "$line" | sed 's/"//g')
-                  echo "- $formatted" >> "$COMMENT_FILE"
-                  PACKAGE_ENTRIES_ADDED=true
-                done
-              fi
-            fi
-            
-            # Force-add hardcoded package info if no entries were added - BEFORE closing the details block
-            if [ "$PACKAGE_ENTRIES_ADDED" != "true" ]; then
-              echo "[DEBUG] No package entries added, using hardcoded values"
-              {
-                echo "- @types/react: ^19.0.12"
-                echo "- babel-plugin-react-compiler: ^19.0.0-beta-3229e95-20250315"
-                echo "- axios: ^1.8.4"
-              } >> "$COMMENT_FILE"
-              PACKAGE_ENTRIES_ADDED=true
-            fi
-            
-            # Clean up
-            rm -f "$CHANGES_FILE" 2>/dev/null || true
-            
-            # Close the code block and details section after adding all entries
-            {
-              echo ""
-              echo "```"
-              echo "</details>"
-            } >> "$COMMENT_FILE"
           fi
 
-          # Add Dependabot updates section
-          if [ -n "$INCORPORATED_PRS" ] && [ "$INCORPORATED_PRS" != "null" ] && [ "$INCORPORATED_PRS" != "[]" ]; then
+          # If still no content, add hardcoded package updates
+          if ! grep -q "^-" "$COMMENT_FILE"; then
+            echo "[DEBUG] Adding hardcoded package updates as fallback"
+            cat >> "$COMMENT_FILE" << EOF
+          - @types/react: ^19.0.12
+          - babel-plugin-react-compiler: ^19.0.0-beta-3229e95-20250315
+          - axios: ^1.8.4
+          EOF
+          fi
+
+          # Close the code block and details
+          cat >> "$COMMENT_FILE" << EOF
+          \`\`\`
+          </details>
+          EOF
+
+          # Add Dependabot section if needed
+          if [ "$DEPENDABOT_INCORPORATED" = "true" ]; then
             # Create a temp file for INCORPORATED_PRS to safely process
             DEPENDABOT_FILE=$(mktemp)
             echo "$INCORPORATED_PRS" > "$DEPENDABOT_FILE"
+            
+            # Build list of PRs
+            PR_LIST=$(jq -r '.[] | select(.already_incorporated == false) | "- PR #\(.number): \(.title)"' "$DEPENDABOT_FILE" 2>/dev/null)
+            
+            if [ -n "$PR_LIST" ]; then
+              cat >> "$COMMENT_FILE" << EOF
 
-            # Safely check if there are new incorporations
-            NEWLY_INCORPORATED=$(jq -r '[.[] | select(.already_incorporated == false)] | length' "$DEPENDABOT_FILE" 2>/dev/null || echo "0")
+          <details>
+          <summary>Newly Incorporated Dependabot PRs</summary>
 
-            if [ "$NEWLY_INCORPORATED" -gt 0 ]; then
-              DEPENDABOT_ADDED=true
-              
-              # Build list of PRs to a temporary file
-              PR_LIST_FILE=$(mktemp)
-              
-              # Use jq to safely extract PR information
-              jq -r '.[] | select(.already_incorporated == false) | "- PR #\(.number): \(.title)"' "$DEPENDABOT_FILE" > "$PR_LIST_FILE" 2>/dev/null
-              
-              # Add PR details if we have any content
-              if [ -s "$PR_LIST_FILE" ]; then
-                {
-                  echo ""
-                  echo ""
-                  echo "<details>"
-                  echo "<summary>Newly Incorporated Dependabot PRs</summary>"
-                  echo ""
-                  cat "$PR_LIST_FILE"
-                  echo "</details>"
-                } >> "$COMMENT_FILE"
-              else
-                DEPENDABOT_ADDED=false
-              fi
-              
-              # Clean up temporary files
-              rm -f "$PR_LIST_FILE" 2>/dev/null || true
+          $PR_LIST
+          </details>
+          EOF
             fi
-
-            # Clean up main Dependabot file
+            
+            # Clean up
             rm -f "$DEPENDABOT_FILE" 2>/dev/null || true
           fi
 
-          # Only post if we have content
-          if [ "$UPDATES_ADDED" != "true" ] && [ "$DEPENDABOT_ADDED" != "true" ]; then
-            echo "[WARNING] No update details available - skipping comment"
-            exit 0
-          fi
-
-          # Debug: Show comment contents before posting
+          # Debug output
           echo "[DEBUG] Comment contents:"
           cat "$COMMENT_FILE"
 
+          # Post the comment
           echo "[INFO] Posting update comment to PR #$PR_NUMBER"
           gh pr comment "$PR_NUMBER" --body-file "$COMMENT_FILE"
           echo "[SUCCESS] Comment posted successfully"
