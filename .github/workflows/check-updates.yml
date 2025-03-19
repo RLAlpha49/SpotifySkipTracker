@@ -802,7 +802,7 @@ jobs:
             echo -n "npm package updates" >> "$COMMENT_FILE"
             UPDATES_ADDED=true
             
-            # Add update details
+            # Add update details section header
             {
               echo ""
               echo ""
@@ -814,29 +814,65 @@ jobs:
               echo ""
             } >> "$COMMENT_FILE"
             
-            # Handle actual changes by writing them to a temp file first
+            # Debug - show what's in ACTUAL_CHANGES
+            echo "[DEBUG] ACTUAL_CHANGES content:"
+            echo "$ACTUAL_CHANGES"
+            
+            # Special handling for ACTUAL_CHANGES
+            UPDATE_LINES_ADDED=false
+            
+            # Method 1: Direct approach with no pipes or subshells
             if [ -n "$ACTUAL_CHANGES" ]; then
-              # Write ACTUAL_CHANGES to a temporary file to avoid shell quoting issues
-              CHANGES_FILE=$(mktemp)
-              echo "$ACTUAL_CHANGES" > "$CHANGES_FILE"
-              
-              # Read line by line from the file instead of the variable directly
-              while IFS= read -r line; do
+              # Using environment variable directly with proper IFS
+              echo "[DEBUG] Using direct approach with IFS"
+              OIFS="$IFS"
+              IFS=$'\n'
+              for line in $ACTUAL_CHANGES; do
                 if [ -n "$line" ]; then
+                  echo "[DEBUG] Adding line directly: $line"
                   echo "- $line" >> "$COMMENT_FILE"
+                  UPDATE_LINES_ADDED=true
                 fi
-              done < "$CHANGES_FILE"
-              
-              # Clean up temporary file
-              rm -f "$CHANGES_FILE" 2>/dev/null || true
-            else
-              # Fallback to UPDATE_INFO
-              echo "$UPDATE_INFO" | jq -r 'to_entries | .[] | "- " + .key + ": " + .value' >> "$COMMENT_FILE" 2>/dev/null || {
-                # If jq fails, try simpler approach
-                echo "$UPDATE_INFO" | sed -e 's/{//' -e 's/}//' -e 's/"//g' -e 's/,//' -e 's/^ */- /' >> "$COMMENT_FILE"
-              }
+              done
+              IFS="$OIFS"
             fi
             
+            # Method 2: Extract from UPDATE_INFO as fallback
+            if [ "$UPDATE_LINES_ADDED" != "true" ]; then
+              echo "[DEBUG] Using UPDATE_INFO fallback approach"
+              # Parse the UPDATE_INFO JSON and format it nicely
+              if [ -n "$UPDATE_INFO" ] && echo "$UPDATE_INFO" | jq empty >/dev/null 2>&1; then
+                echo "[DEBUG] Parsing UPDATE_INFO as JSON"
+                echo "$UPDATE_INFO" | jq -r 'to_entries[] | "- " + .key + ": " + .value' >> "$COMMENT_FILE"
+                UPDATE_LINES_ADDED=true
+              fi
+            fi
+            
+            # Method 3: Last resort - direct string extraction
+            if [ "$UPDATE_LINES_ADDED" != "true" ]; then
+              echo "[DEBUG] Using string extraction as last resort"
+              # Raw direct string extraction approach
+              UPDATE_INFO_CLEAN=$(echo "$UPDATE_INFO" | tr -d '{}"\n\r')
+              echo "[DEBUG] Cleaned UPDATE_INFO: $UPDATE_INFO_CLEAN"
+              
+              # Split by comma and add each part
+              for part in $(echo "$UPDATE_INFO_CLEAN" | tr ',' '\n'); do
+                if [ -n "$part" ]; then
+                  echo "- $part" >> "$COMMENT_FILE"
+                  UPDATE_LINES_ADDED=true
+                fi
+              done
+            fi
+            
+            # Final fallback - just display raw JSON
+            if [ "$UPDATE_LINES_ADDED" != "true" ]; then
+              echo "[DEBUG] All approaches failed, using UPDATE_INFO as raw JSON"
+              echo "Raw package updates:" >> "$COMMENT_FILE"
+              echo "" >> "$COMMENT_FILE"
+              echo "$UPDATE_INFO" >> "$COMMENT_FILE"
+            fi
+            
+            # Close the code block and details section
             {
               echo ""
               echo "```"
@@ -845,43 +881,45 @@ jobs:
           fi
 
           # Add Dependabot updates section
-          # Create a temp file for INCORPORATED_PRS to safely process
-          DEPENDABOT_FILE=$(mktemp)
-          echo "$INCORPORATED_PRS" > "$DEPENDABOT_FILE"
+          if [ -n "$INCORPORATED_PRS" ] && [ "$INCORPORATED_PRS" != "null" ] && [ "$INCORPORATED_PRS" != "[]" ]; then
+            # Create a temp file for INCORPORATED_PRS to safely process
+            DEPENDABOT_FILE=$(mktemp)
+            echo "$INCORPORATED_PRS" > "$DEPENDABOT_FILE"
 
-          # Safely check if there are new incorporations
-          NEWLY_INCORPORATED=$(jq -r '[.[] | select(.already_incorporated == false)] | length' "$DEPENDABOT_FILE" 2>/dev/null || echo "0")
+            # Safely check if there are new incorporations
+            NEWLY_INCORPORATED=$(jq -r '[.[] | select(.already_incorporated == false)] | length' "$DEPENDABOT_FILE" 2>/dev/null || echo "0")
 
-          if [ "$NEWLY_INCORPORATED" -gt 0 ] 2>/dev/null; then
-            DEPENDABOT_ADDED=true
-            
-            # Build list of PRs to a temporary file
-            PR_LIST_FILE=$(mktemp)
-            
-            # Use jq to safely extract PR information
-            jq -r '.[] | select(.already_incorporated == false) | "- PR #\(.number): \(.title)"' "$DEPENDABOT_FILE" > "$PR_LIST_FILE" 2>/dev/null
-            
-            # Add PR details if we have any content
-            if [ -s "$PR_LIST_FILE" ]; then
-              {
-                echo ""
-                echo ""
-                echo "<details>"
-                echo "<summary>Newly Incorporated Dependabot PRs</summary>"
-                echo ""
-                cat "$PR_LIST_FILE"
-                echo "</details>"
-              } >> "$COMMENT_FILE"
-            else
-              DEPENDABOT_ADDED=false
+            if [ "$NEWLY_INCORPORATED" -gt 0 ]; then
+              DEPENDABOT_ADDED=true
+              
+              # Build list of PRs to a temporary file
+              PR_LIST_FILE=$(mktemp)
+              
+              # Use jq to safely extract PR information
+              jq -r '.[] | select(.already_incorporated == false) | "- PR #\(.number): \(.title)"' "$DEPENDABOT_FILE" > "$PR_LIST_FILE" 2>/dev/null
+              
+              # Add PR details if we have any content
+              if [ -s "$PR_LIST_FILE" ]; then
+                {
+                  echo ""
+                  echo ""
+                  echo "<details>"
+                  echo "<summary>Newly Incorporated Dependabot PRs</summary>"
+                  echo ""
+                  cat "$PR_LIST_FILE"
+                  echo "</details>"
+                } >> "$COMMENT_FILE"
+              else
+                DEPENDABOT_ADDED=false
+              fi
+              
+              # Clean up temporary files
+              rm -f "$PR_LIST_FILE" 2>/dev/null || true
             fi
-            
-            # Clean up temporary files
-            rm -f "$PR_LIST_FILE" 2>/dev/null || true
-          fi
 
-          # Clean up main Dependabot file
-          rm -f "$DEPENDABOT_FILE" 2>/dev/null || true
+            # Clean up main Dependabot file
+            rm -f "$DEPENDABOT_FILE" 2>/dev/null || true
+          fi
 
           # Only post if we have content
           if [ "$UPDATES_ADDED" != "true" ] && [ "$DEPENDABOT_ADDED" != "true" ]; then
