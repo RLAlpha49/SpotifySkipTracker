@@ -407,7 +407,7 @@ jobs:
           # Use branch name from previous steps, or fallback to default
           PR_BRANCH="${{ steps.checkout.outputs.pr_branch }}"
           if [ -z "$PR_BRANCH" ]; then
-            PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
+          PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
             if [ -z "$PR_BRANCH" ]; then
               PR_BRANCH="${{ steps.set-default-branch.outputs.pr_branch }}"
               if [ -z "$PR_BRANCH" ]; then
@@ -543,7 +543,7 @@ jobs:
           else
             if [ "$CHANGES_TO_COMMIT" = "true" ] || [ "$UNPUSHED_COUNT" -gt 0 ]; then
               echo "[ERROR] Failed to push branch $PR_BRANCH to remote"
-              exit 1
+            exit 1
             else
               echo "[WARNING] Branch doesn't exist remotely but there were no changes to push"
               echo "pr_branch=$PR_BRANCH" >> $GITHUB_OUTPUT
@@ -699,6 +699,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
           PR_BRANCH: ${{ steps.push-changes.outputs.pr_branch }}
           INCORPORATED_PRS: ${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}
+          UPDATE_INFO: ${{ steps.check-updates.outputs.update_info }}
+          ACTUAL_CHANGES: ${{ steps.update-packages.outputs.actual_changes }}
         run: |
           echo "[INFO] Creating new PR from branch $PR_BRANCH"
 
@@ -716,14 +718,21 @@ jobs:
           \`\`\`json
           EOF
 
-          # Add the update info to the PR body
-          if [ -n "${{ steps.check-updates.outputs.update_info }}" ] && echo "${{ steps.check-updates.outputs.update_info }}" | jq empty >/dev/null 2>&1; then
-            echo "${{ steps.check-updates.outputs.update_info }}" >> "$PR_BODY_FILE"
-          elif [ -n "${{ steps.update-packages.outputs.actual_changes }}" ]; then
-            echo "{" >> "$PR_BODY_FILE"
-            FIRST_ENTRY=true
+          # Flag to track if we successfully added package info
+          PACKAGE_INFO_ADDED=false
+
+          # Try to use UPDATE_INFO directly if it's valid JSON
+          if [ -n "$UPDATE_INFO" ] && echo "$UPDATE_INFO" | jq empty >/dev/null 2>&1; then
+            echo "$UPDATE_INFO" >> "$PR_BODY_FILE"
+            PACKAGE_INFO_ADDED=true
+          # If UPDATE_INFO isn't valid, extract package info from ACTUAL_CHANGES and format as JSON
+          elif [ -n "$ACTUAL_CHANGES" ]; then
+            # Create a temporary file to build the JSON object
+            TEMP_JSON=$(mktemp)
+            echo "{" > "$TEMP_JSON"
             
-            echo "${{ steps.update-packages.outputs.actual_changes }}" | while IFS= read -r line; do
+            FIRST_ENTRY=true
+            while IFS= read -r line; do
               if [ -n "$line" ]; then
                 # Extract package name and version
                 if [[ "$line" =~ \"([^\"]+)\":[[:space:]]*\"([^\"]+)\" ]]; then
@@ -734,19 +743,41 @@ jobs:
                   if [ "$FIRST_ENTRY" = "true" ]; then
                     FIRST_ENTRY=false
                   else
-                    echo "," >> "$PR_BODY_FILE"
+                    echo "," >> "$TEMP_JSON"
                   fi
                   
                   # Write as JSON key-value pair
-                  echo "  \"$PACKAGE\": \"$VERSION\"" >> "$PR_BODY_FILE"
+                  echo "  \"$PACKAGE\": \"$VERSION\"" >> "$TEMP_JSON"
+                  PACKAGE_INFO_ADDED=true
                 fi
               fi
-            done
+            done <<< "$ACTUAL_CHANGES"
             
-            echo "" >> "$PR_BODY_FILE"
-            echo "}" >> "$PR_BODY_FILE"
+            echo "}" >> "$TEMP_JSON"
+            
+            # Copy the built JSON to the PR body file
+            cat "$TEMP_JSON" >> "$PR_BODY_FILE"
+            
+            # Clean up
+            rm -f "$TEMP_JSON" 2>/dev/null || true
           else
+            # Log what's happening for debugging
+            echo "[INFO] No valid package info found. UPDATE_INFO empty: $([[ -z "$UPDATE_INFO" ]] && echo 'yes' || echo 'no')"
+            echo "[INFO] ACTUAL_CHANGES empty: $([[ -z "$ACTUAL_CHANGES" ]] && echo 'yes' || echo 'no')"
+            # Fallback to empty object
             echo "{}" >> "$PR_BODY_FILE"
+          fi
+
+          # If no valid package info was added, add error message
+          if [ "$PACKAGE_INFO_ADDED" != "true" ]; then
+            # Remove the empty JSON object we added as fallback
+            sed -i '$ d' "$PR_BODY_FILE"
+            # Add a more informative message
+            cat >> "$PR_BODY_FILE" << EOF
+          {
+            "note": "Package updates were detected, but the specific version information couldn't be extracted for display here. Please check the workflow logs for more details."
+          }
+          EOF
           fi
 
           # Close the code block
