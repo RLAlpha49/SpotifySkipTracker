@@ -6,90 +6,102 @@
 
 </div>
 
-A desktop application that tracks your Spotify listening habits and identifies songs you frequently skip. Make data-driven decisions about which tracks to keep in your library.
+## What is Spotify Skip Tracker?
 
-## Features
+Spotify Skip Tracker is a desktop application that analyzes your Spotify listening habits, with a focus on identifying songs you frequently skip. It helps you maintain a cleaner music library by providing insights into which tracks you consistently skip over.
 
-- **Spotify Integration**: Securely connects to your Spotify account using OAuth
-- **Real-time Monitoring**: Tracks your listening behavior as you use Spotify
-- **Skip Detection**: Identifies when you skip tracks and records statistics
-- **Configurable Thresholds**: Set custom thresholds for what counts as a skip
-- **Library Management**: Optionally remove frequently skipped tracks from your library
-- **Statistics Dashboard**: View your listening patterns over time
-- **Cross-platform**: Works on Windows, macOS, and Linux
+## Key Features
 
-## Installation
+- **Real-time Skip Tracking**: Monitors your Spotify playback in real-time and logs when you skip tracks
+- **Skip Pattern Analysis**: Identifies songs you frequently skip based on customizable thresholds
+- **Library Management**: Offers tools to remove frequently skipped tracks from your library
+- **Auto-Unlike Option**: Automatically removes tracks that exceed your skip threshold
+- **Statistics Dashboard**: Visualizes your listening and skipping patterns
+- **Now Playing Card**: Displays your current playback with progress bar and controls
+- **Activity Logs**: Detailed logging of all application activities
+
+![Dashboard Screenshot](https://github.com/user-attachments/assets/d9ad8827-4e35-4a08-a6d3-9e04c8b750b6)
+
+## How It Works
+
+1. Connect your Spotify account securely via OAuth
+2. The app monitors your listening habits in the background
+3. When you skip a track, the app records this action
+4. Over time, patterns emerge showing which tracks you consistently skip
+5. You can review these tracks and decide which to keep or remove
+
+![Skipped Tracks Screenshot](https://github.com/user-attachments/assets/8e8b522e-d1f0-4c4a-ad93-9abc89665c09)
+
+## Getting Started
+
+### Installation
+
+1. Download the latest release for your operating system from the [Releases page](https://github.com/RLAlpha49/spotify-skip-tracker/releases)
+2. Install the application by running the installer
+3. Launch Spotify Skip Tracker
+
+### Setup
+
+1. Create a Spotify Developer Application:
+   - Visit the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/)
+   - Create a new application
+   - Set the redirect URI to `http://localhost:8888/callback`
+   - Note your Client ID and Client Secret
+
+2. Enter your Spotify API credentials in the app settings
+3. Authorize the application with your Spotify account
+4. Configure your preferences in the Settings page:
+   - Skip detection threshold
+   - Analysis timeframe
+   - Auto-unlike options
+   - Log management
+
+![Settings Screenshot](https://github.com/user-attachments/assets/241ec532-b2b3-4a55-b19d-2f365d0581e5)
+
+## Usage Tips
+
+- **Skip Threshold**: Adjust the number of skips that trigger identification (default: 3)
+- **Timeframe**: Set the analysis period in days (default: 30 days)
+- **Auto-Unlike**: Enable to automatically remove tracks exceeding your skip threshold
+- **Skip Progress**: Configure what percentage of a track must be played before skipping counts
+
+## For Developers
+
+If you want to contribute to the project or run it in development mode:
 
 ### Prerequisites
 
 - Node.js (v22 or later)
 - npm or yarn
-- A Spotify account
-- Spotify Developer credentials (see below)
+- Spotify Developer credentials
 
-### Setup
+### Development Setup
 
 1. Clone the repository:
-   ```
+
+   ```bash
    git clone https://github.com/RLAlpha49/spotify-skip-tracker.git
    cd spotify-skip-tracker
    ```
 
 2. Install dependencies:
-   ```
+
+   ```bash
    npm install
    ```
-   
-3. Create a Spotify Developer Application:
-   - Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/)
-   - Create a new application
-   - Set the redirect URI to `http://localhost:8888/callback`
-   - Note your Client ID and Client Secret
 
-4. Build the application:
+3. Start in development mode:
+
+   ```bash
+   npm run start
    ```
-   npm run make
-   ```
-
-5. Find the built application in the `out` directory
-
-## Development
-
-### Start in Development Mode
-
-```
-npm run start
-```
-
-This will run the application in development mode with hot reloading.
 
 ### Building for Production
 
-```
+```bash
 npm run make
 ```
 
-This will build the application for your current platform.
-
-## Usage
-
-1. Launch the application
-2. Enter your Spotify Developer credentials (Client ID and Client Secret)
-3. Authorize the application with your Spotify account
-4. Configure your skip threshold settings
-5. Start monitoring your Spotify playback
-6. View statistics and make decisions about your library
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/RLAlpha49/SpotifySkipTracker/blob/master/LICENSE) file for details.
