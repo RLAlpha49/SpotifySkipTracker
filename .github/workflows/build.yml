@@ -27,8 +27,8 @@ jobs:
         with:
           name: windows-build
           path: |
-            out/make/squirrel.windows/x64/Nakama-1.0.0 Setup.exe
-            out/make/squirrel.windows/x64/NakamaSetup.msi
+            out/make/squirrel.windows/x64/Spotify-Skip-Tracker-Setup.exe
+            out/make/squirrel.windows/x64/Spotify-Skip-Tracker-Setup.msi
 
   build-macos:
     name: Build macOS Artifacts
@@ -50,8 +50,7 @@ jobs:
         with:
           name: macos-build
           path: |
-            out/make/Nakama-1.0.0-arm64.dmg
-            out/make/zip/darwin/arm64/Nakama-darwin-arm64-1.0.0.zip
+            out/make/
 
   build-linux:
     name: Build Linux Artifacts
@@ -73,5 +72,4 @@ jobs:
         with:
           name: linux-build
           path: |
-            out/make/deb/x64/nakama_1.0.0_amd64.deb
-            out/make/rpm/x64/nakama-1.0.0-1.x86_64.rpm
+            out/make/
