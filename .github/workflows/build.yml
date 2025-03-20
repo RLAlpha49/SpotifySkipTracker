@@ -50,7 +50,8 @@ jobs:
         with:
           name: macos-build
           path: |
-            out/make/
+            out/make/Spotify-Skip-Tracker.dmg
+            out/make/zip/darwin/arm64/Spotify Skip Tracker-darwin-arm64-1.0.0.zip
 
   build-linux:
     name: Build Linux Artifacts
