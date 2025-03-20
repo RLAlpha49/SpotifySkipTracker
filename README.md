@@ -36,9 +36,40 @@ Spotify Skip Tracker is a desktop application that analyzes your Spotify listeni
 
 ### Installation
 
-1. Download the latest release for your operating system from the [Releases page](https://github.com/RLAlpha49/spotify-skip-tracker/releases)
-2. Install the application by running the installer
-3. Launch Spotify Skip Tracker
+Download the latest release for your operating system from the [Releases page](https://github.com/RLAlpha49/spotify-skip-tracker/releases).
+
+#### Windows
+
+- Download `Spotify-Skip-Tracker-Setup.exe` or `Spotify-Skip-Tracker-Setup.msi`
+- Run the installer and follow the prompts
+- Once installed, launch Spotify Skip Tracker from the Start Menu or desktop shortcut
+
+#### macOS
+
+- Download `Spotify-Skip-Tracker.dmg` (recommended)
+  - Open the DMG file
+  - Drag the application to your Applications folder
+  - Right-click the app and select "Open" (required the first time to bypass Gatekeeper security)
+- Or download `Spotify Skip Tracker-darwin-arm64.zip` (alternative)
+  - Extract the ZIP file
+  - Move the extracted application to your Applications folder
+  - Right-click the app and select "Open" (required the first time to bypass Gatekeeper security)
+
+#### Linux
+
+- Download `spotify-skip-tracker_1.0.0_amd64.deb` for Debian-based distributions (Ubuntu, Mint, etc.)
+- Install using your package manager:
+
+  ```bash
+  sudo dpkg -i spotify-skip-tracker_1.0.0_amd64.deb
+  sudo apt-get install -f  # Install dependencies if needed
+  ```
+
+- Launch from your applications menu or run `spotify-skip-tracker` in the terminal
+
+### Platform Notes
+
+> ⚠️ **Important**: This application was primarily developed and tested on Windows. The Linux and macOS versions may have platform-specific issues that haven't been identified yet. If you encounter any bugs or unexpected behavior on any platform (especially macOS or Linux), please [open an issue](https://github.com/RLAlpha49/spotify-skip-tracker/issues) with details about your operating system and the problem you're experiencing.
 
 ### Setup
 
