@@ -407,7 +407,7 @@ jobs:
           # Use branch name from previous steps, or fallback to default
           PR_BRANCH="${{ steps.checkout.outputs.pr_branch }}"
           if [ -z "$PR_BRANCH" ]; then
-          PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
+            PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
             if [ -z "$PR_BRANCH" ]; then
               PR_BRANCH="${{ steps.set-default-branch.outputs.pr_branch }}"
               if [ -z "$PR_BRANCH" ]; then
@@ -436,6 +436,16 @@ jobs:
           if git ls-remote --exit-code --heads origin "$PR_BRANCH" &>/dev/null; then
             BRANCH_EXISTS_REMOTELY=true
             echo "[INFO] Branch exists remotely"
+            
+            # Pull latest changes from remote
+            echo "[INFO] Pulling latest changes from remote"
+            git pull origin "$PR_BRANCH" || {
+              echo "[WARNING] Failed to pull from remote, will try to merge with rebase"
+              git pull --rebase origin "$PR_BRANCH" || {
+                echo "[ERROR] Failed to pull from remote with both regular and rebase strategies"
+                exit 1
+              }
+            }
           else
             echo "[INFO] Branch does not exist remotely"
             # If branch doesn't exist remotely, we need to push it
@@ -498,40 +508,8 @@ jobs:
 
           # Only push if we have changes that need to be pushed
           if [ "$NEEDS_PUSH" = "true" ]; then
-            if [ "$BRANCH_EXISTS_REMOTELY" = "true" ] && [ "$UNPUSHED_COUNT" -gt 0 ]; then
-              # This is a special case handling - We have local commits that need pushing
-              # but these might have been created in the checkout step from other sources
-              echo "[INFO] Branch exists remotely and we have local commits to push"
-              git push origin "$PR_BRANCH"
-              
-              # Check if push failed
-              if [ $? -ne 0 ]; then
-                echo "[WARNING] Push failed - remote has changes we don't have locally"
-                echo "[INFO] This step should not normally be reached with our improved checkout process"
-                echo "[INFO] Will now use the safer pull-and-push approach"
-                
-                # Save our local commits to patches
-                echo "[INFO] Creating patch of local changes"
-                git format-patch -o /tmp/patches origin/$PR_BRANCH
-                
-                # Reset to remote state
-                echo "[INFO] Resetting to remote state"
-                git reset --hard origin/$PR_BRANCH
-                
-                # Apply our local changes
-                if [ -n "$(ls -A /tmp/patches 2>/dev/null)" ]; then
-                  echo "[INFO] Applying local changes on top of remote"
-                  git am /tmp/patches/*
-                fi
-                
-                # Push again
-                echo "[INFO] Pushing updated branch"
-                git push origin "$PR_BRANCH"
-              fi
-            else
-              echo "[INFO] Pushing changes to remote"
-              git push -u origin "$PR_BRANCH"
-            fi
+            echo "[INFO] Pushing changes to remote"
+            git push -u origin "$PR_BRANCH"
           else
             echo "[INFO] Skipping push as no changes need to be pushed"
           fi
@@ -543,7 +521,7 @@ jobs:
           else
             if [ "$CHANGES_TO_COMMIT" = "true" ] || [ "$UNPUSHED_COUNT" -gt 0 ]; then
               echo "[ERROR] Failed to push branch $PR_BRANCH to remote"
-            exit 1
+              exit 1
             else
               echo "[WARNING] Branch doesn't exist remotely but there were no changes to push"
               echo "pr_branch=$PR_BRANCH" >> $GITHUB_OUTPUT
