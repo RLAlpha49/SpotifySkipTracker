@@ -543,9 +543,19 @@ jobs:
         run: |
           PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
 
-          # Check if any new commits were added in this workflow run
-          BEFORE_RUN_COMMIT=$(git rev-parse --short HEAD@{1} 2>/dev/null || echo "none")
-          CURRENT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "none")
+          # Store original branch to return to it later
+          ORIGINAL_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+          # First check if the PR branch changed in this run by comparing with remote
+          git fetch origin "$PR_BRANCH"
+          LOCAL_HEAD=$(git rev-parse HEAD)
+          REMOTE_HEAD=$(git rev-parse "origin/$PR_BRANCH")
+
+          BRANCH_CHANGED=false
+          if [ "$LOCAL_HEAD" != "$REMOTE_HEAD" ]; then
+            BRANCH_CHANGED=true
+            echo "[INFO] Local branch differs from remote - changes detected"
+          fi
 
           # Count dependabot PRs newly incorporated in this run
           NEWLY_INCORPORATED=0
@@ -555,23 +565,24 @@ jobs:
             echo "[INFO] $NEWLY_INCORPORATED Dependabot PRs were newly incorporated"
           fi
 
-          # Check if any package updates were committed
+          # Specifically check for updates to the PR branch, not just any branch
           PACKAGES_UPDATED=false
-          if [ "${{ steps.update-packages.outputs.has_actual_changes }}" = "true" ]; then
-            # Check if we have commits with "update npm dependencies" message
-            if git log --pretty=format:"%h %s" -n 10 | grep -q "update npm dependencies"; then
-              PACKAGES_UPDATED=true
-              echo "[INFO] Package updates were committed in this run"
-            fi
+          NEW_PR_COMMITS=0
+
+          # Check for new commits to the PR branch specifically
+          if git log "origin/$PR_BRANCH..$PR_BRANCH" --pretty=format:"%h %s" | grep -q "update npm dependencies"; then
+            PACKAGES_UPDATED=true
+            NEW_PR_COMMITS=$(git log "origin/$PR_BRANCH..$PR_BRANCH" --pretty=format:"%h" | wc -l)
+            echo "[INFO] Found $NEW_PR_COMMITS new commits with package updates on branch $PR_BRANCH"
           fi
 
-          # Only proceed if we made actual commits
-          if [[ "$BEFORE_RUN_COMMIT" == "$CURRENT_COMMIT" && "$NEWLY_INCORPORATED" -eq 0 && "$PACKAGES_UPDATED" == "false" ]]; then
-            echo "[INFO] No new commits were made in this run - skipping comment"
+          # Only proceed if we made actual commits to the PR branch or Dependabot PRs were incorporated
+          if [[ "$BRANCH_CHANGED" == "false" && "$NEWLY_INCORPORATED" -eq 0 && "$PACKAGES_UPDATED" == "false" ]]; then
+            echo "[INFO] No changes were made to PR branch $PR_BRANCH in this run - skipping comment"
             exit 0
           fi
 
-          echo "[INFO] New commits were made in this run - adding PR comment"
+          echo "[INFO] Changes were made to PR branch $PR_BRANCH - adding PR comment"
 
           # Create the PR comment
           COMMENT_FILE=$(mktemp)
@@ -671,6 +682,11 @@ jobs:
 
           # Clean up
           rm -f "$COMMENT_FILE" 2>/dev/null || true
+
+          # Return to original branch if needed
+          if [ "$ORIGINAL_BRANCH" != "$(git rev-parse --abbrev-ref HEAD)" ]; then
+            git checkout "$ORIGINAL_BRANCH"
+          fi
 
       - name: Create or update PR
         id: create-pr
