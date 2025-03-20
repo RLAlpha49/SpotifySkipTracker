@@ -438,6 +438,10 @@ jobs:
             echo "[INFO] Branch exists remotely"
           else
             echo "[INFO] Branch does not exist remotely"
+            # If branch doesn't exist remotely, we need to push it
+            # regardless of other conditions
+            NEEDS_PUSH=true
+            echo "[INFO] Setting NEEDS_PUSH=true because branch needs to be created remotely"
           fi
             
           # Check for uncommitted changes
@@ -466,6 +470,13 @@ jobs:
             UNPUSHED_COUNT=$(git rev-list --count "origin/$PR_BRANCH..HEAD" 2>/dev/null || echo "0")
             if [ "$UNPUSHED_COUNT" -gt 0 ]; then
               echo "[INFO] Found $UNPUSHED_COUNT unpushed local commits"
+              NEEDS_PUSH=true
+            fi
+          else
+            # For new branches, check if we have any commits at all
+            COMMIT_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo "0")
+            if [ "$COMMIT_COUNT" -gt 0 ]; then
+              echo "[INFO] Branch has $COMMIT_COUNT commits that need to be pushed to the new remote branch"
               NEEDS_PUSH=true
             fi
           fi
