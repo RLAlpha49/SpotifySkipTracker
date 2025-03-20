@@ -50,8 +50,7 @@ jobs:
         with:
           name: macos-build
           path: |
-            out/make/Spotify-Skip-Tracker.dmg
-            out/make/zip/darwin/arm64/Spotify Skip Tracker-darwin-arm64.zip
+            out/make/
 
   build-linux:
     name: Build Linux Artifacts
@@ -73,4 +72,4 @@ jobs:
         with:
           name: linux-build
           path: |
-            out/make/deb/x64/spotify-skip-tracker_amd64.deb
+            out/make/deb/x64/spotify-skip-tracker_1.0.0_amd64.deb
