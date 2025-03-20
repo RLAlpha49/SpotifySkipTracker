@@ -423,33 +423,37 @@ jobs:
           CHANGES_TO_COMMIT=false
           NEEDS_PUSH=false
 
-          # First ensure we're on the correct branch locally
-          if ! git show-ref --verify --quiet refs/heads/$PR_BRANCH; then
-            echo "[INFO] Creating local branch $PR_BRANCH"
-            git checkout -b $PR_BRANCH
-          else
-            echo "[INFO] Checking out existing local branch $PR_BRANCH"
-            git checkout $PR_BRANCH
-          fi
+          # Fetch latest information about remote branches
+          git fetch origin
 
           # Check if branch exists remotely
           if git ls-remote --exit-code --heads origin "$PR_BRANCH" &>/dev/null; then
             BRANCH_EXISTS_REMOTELY=true
             echo "[INFO] Branch exists remotely"
             
-            # Pull latest changes from remote
-            echo "[INFO] Pulling latest changes from remote"
-            git pull origin "$PR_BRANCH" || {
-              echo "[WARNING] Failed to pull from remote, will try to merge with rebase"
-              git pull --rebase origin "$PR_BRANCH" || {
-                echo "[ERROR] Failed to pull from remote with both regular and rebase strategies"
-                exit 1
-              }
-            }
+            # Check if we have a local branch with the same name
+            if git show-ref --verify --quiet refs/heads/$PR_BRANCH; then
+              # Delete the local branch to avoid conflicts with remote
+              echo "[INFO] Deleting local branch to avoid conflicts with remote"
+              git checkout master
+              git branch -D "$PR_BRANCH"
+            fi
+            
+            # Checkout from remote to ensure we're tracking properly
+            echo "[INFO] Checking out branch from remote"
+            git checkout -b "$PR_BRANCH" "origin/$PR_BRANCH"
           else
             echo "[INFO] Branch does not exist remotely"
-            # If branch doesn't exist remotely, we need to push it
-            # regardless of other conditions
+            # If branch doesn't exist remotely, we need to create it from master
+            
+            # Checkout master first to ensure we start clean
+            git checkout master
+            
+            # Then create our branch from master
+            echo "[INFO] Creating new branch from master"
+            git checkout -b "$PR_BRANCH"
+            
+            # Mark that we need to push regardless of other conditions
             NEEDS_PUSH=true
             echo "[INFO] Setting NEEDS_PUSH=true because branch needs to be created remotely"
           fi
