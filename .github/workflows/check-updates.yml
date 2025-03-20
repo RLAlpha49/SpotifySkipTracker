@@ -691,3 +691,117 @@ jobs:
 
           # Clean up
           rm -f "$COMMENT_FILE" 2>/dev/null || true
+
+      - name: Create or update PR
+        id: create-pr
+        if: ${{ steps.push-changes.outputs.pr_branch != '' && steps.check-pr.outputs.pr_exists != 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
+          PR_BRANCH: ${{ steps.push-changes.outputs.pr_branch }}
+          INCORPORATED_PRS: ${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}
+        run: |
+          echo "[INFO] Creating new PR from branch $PR_BRANCH"
+
+          # Build PR body with package updates information
+          PR_BODY_FILE=$(mktemp)
+
+          cat > "$PR_BODY_FILE" << EOF
+          ## 📦 Dependency Updates
+
+          This PR updates npm packages to their latest versions.
+
+          <details>
+          <summary>Latest Package Updates</summary>
+
+          \`\`\`json
+          EOF
+
+          # Add the update info to the PR body
+          if [ -n "${{ steps.check-updates.outputs.update_info }}" ] && echo "${{ steps.check-updates.outputs.update_info }}" | jq empty >/dev/null 2>&1; then
+            echo "${{ steps.check-updates.outputs.update_info }}" >> "$PR_BODY_FILE"
+          elif [ -n "${{ steps.update-packages.outputs.actual_changes }}" ]; then
+            echo "{" >> "$PR_BODY_FILE"
+            FIRST_ENTRY=true
+            
+            echo "${{ steps.update-packages.outputs.actual_changes }}" | while IFS= read -r line; do
+              if [ -n "$line" ]; then
+                # Extract package name and version
+                if [[ "$line" =~ \"([^\"]+)\":[[:space:]]*\"([^\"]+)\" ]]; then
+                  PACKAGE="${BASH_REMATCH[1]}"
+                  VERSION="${BASH_REMATCH[2]}"
+                  
+                  # Add comma before all but the first entry
+                  if [ "$FIRST_ENTRY" = "true" ]; then
+                    FIRST_ENTRY=false
+                  else
+                    echo "," >> "$PR_BODY_FILE"
+                  fi
+                  
+                  # Write as JSON key-value pair
+                  echo "  \"$PACKAGE\": \"$VERSION\"" >> "$PR_BODY_FILE"
+                fi
+              fi
+            done
+            
+            echo "" >> "$PR_BODY_FILE"
+            echo "}" >> "$PR_BODY_FILE"
+          else
+            echo "{}" >> "$PR_BODY_FILE"
+          fi
+
+          # Close the code block
+          cat >> "$PR_BODY_FILE" << EOF
+          \`\`\`
+          </details>
+          EOF
+
+          # Check for incorporated Dependabot PRs
+          if [ -n "$INCORPORATED_PRS" ]; then
+            # Create a temp file for INCORPORATED_PRS to safely process
+            DEPENDABOT_FILE=$(mktemp)
+            echo "$INCORPORATED_PRS" > "$DEPENDABOT_FILE"
+            
+            # Build list of PRs, including both newly and previously incorporated
+            PR_LIST=$(jq -r '.[] | "- PR #\(.number): \(.title) \(.already_incorporated ? "(previously incorporated)" : "")"' "$DEPENDABOT_FILE" 2>/dev/null)
+            
+            if [ -n "$PR_LIST" ]; then
+              cat >> "$PR_BODY_FILE" << EOF
+
+          <details>
+          <summary>Incorporated Dependabot PRs</summary>
+
+          $PR_LIST
+          </details>
+          EOF
+            fi
+            
+            # Clean up
+            rm -f "$DEPENDABOT_FILE" 2>/dev/null || true
+          fi
+
+          cat >> "$PR_BODY_FILE" << EOF
+
+          This PR was automatically created by the dependency update workflow.
+          EOF
+
+          # Create the PR using the GitHub CLI
+          PR_URL=$(gh pr create \
+            --title "chore: update npm dependencies" \
+            --body-file "$PR_BODY_FILE" \
+            --base master \
+            --head "$PR_BRANCH")
+            
+          if [ $? -eq 0 ]; then
+            echo "[SUCCESS] Pull request created: $PR_URL"
+            echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+            
+            # Extract PR number from URL
+            PR_NUMBER=$(echo "$PR_URL" | awk -F'/' '{print $NF}')
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          else
+            echo "[ERROR] Failed to create pull request"
+            exit 1
+          fi
+
+          # Clean up
+          rm -f "$PR_BODY_FILE" 2>/dev/null || true
