@@ -542,38 +542,36 @@ jobs:
           ACTUAL_CHANGES: ${{ steps.update-packages.outputs.actual_changes }}
         run: |
           PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
-          NEW_COMMITS=0
 
-          # Check if we made relevant updates in this run
-          NPM_UPDATED=false
-          DEPENDABOT_INCORPORATED=false
+          # Check if any new commits were added in this workflow run
+          BEFORE_RUN_COMMIT=$(git rev-parse --short HEAD@{1} 2>/dev/null || echo "none")
+          CURRENT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "none")
 
-          # Check if we updated npm packages in this run
-          if [ "${{ steps.check-updates.outputs.has_updates }}" = "true" ] && [ "${{ steps.update-packages.outputs.has_actual_changes }}" = "true" ]; then
-            echo "[INFO] NPM packages were updated in this run"
-            NPM_UPDATED=true
-            NEW_COMMITS=$((NEW_COMMITS + 1))
-          fi
-
-          # Check if we incorporated Dependabot PRs in this run
+          # Count dependabot PRs newly incorporated in this run
+          NEWLY_INCORPORATED=0
           if [ -n "${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}" ]; then
-            # Put the JSON into a file to avoid shell quoting issues
             echo '${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}' > /tmp/dependabot_incorporated.json
             NEWLY_INCORPORATED=$(jq '[.[] | select(.already_incorporated == false)] | length' /tmp/dependabot_incorporated.json)
-            if [ "$NEWLY_INCORPORATED" -gt 0 ]; then
-              echo "[INFO] $NEWLY_INCORPORATED Dependabot PRs were incorporated in this run"
-              DEPENDABOT_INCORPORATED=true
-              NEW_COMMITS=$((NEW_COMMITS + NEWLY_INCORPORATED))
+            echo "[INFO] $NEWLY_INCORPORATED Dependabot PRs were newly incorporated"
+          fi
+
+          # Check if any package updates were committed
+          PACKAGES_UPDATED=false
+          if [ "${{ steps.update-packages.outputs.has_actual_changes }}" = "true" ]; then
+            # Check if we have commits with "update npm dependencies" message
+            if git log --pretty=format:"%h %s" -n 10 | grep -q "update npm dependencies"; then
+              PACKAGES_UPDATED=true
+              echo "[INFO] Package updates were committed in this run"
             fi
           fi
 
-          # Only proceed if relevant changes exist
-          if [ "$NEW_COMMITS" -eq 0 ]; then
-            echo "[INFO] No relevant dependency updates in this run - skipping comment"
+          # Only proceed if we made actual commits
+          if [[ "$BEFORE_RUN_COMMIT" == "$CURRENT_COMMIT" && "$NEWLY_INCORPORATED" -eq 0 && "$PACKAGES_UPDATED" == "false" ]]; then
+            echo "[INFO] No new commits were made in this run - skipping comment"
             exit 0
           fi
 
-          echo "[INFO] Found $NEW_COMMITS relevant dependency updates to comment about"
+          echo "[INFO] New commits were made in this run - adding PR comment"
 
           # Create the PR comment
           COMMENT_FILE=$(mktemp)
@@ -643,7 +641,7 @@ jobs:
           EOF
 
           # Add Dependabot section if needed
-          if [ "$DEPENDABOT_INCORPORATED" = "true" ]; then
+          if [ "$NEWLY_INCORPORATED" -gt 0 ]; then
             # Create a temp file for INCORPORATED_PRS to safely process
             DEPENDABOT_FILE=$(mktemp)
             echo "$INCORPORATED_PRS" > "$DEPENDABOT_FILE"
