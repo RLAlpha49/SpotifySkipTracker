@@ -12,7 +12,15 @@ export * from "./utils";
 export * from "./settings-store";
 
 // Re-export logging functions
-export * from "./logs-store";
+export {
+  // re-export all the storage functions
+  saveLog,
+  getLogs,
+  clearLogs,
+  getAvailableLogFiles,
+  getLogsFromFile,
+  // ... other exports ...
+} from "./logs-store";
 
 // Re-export tracks storage functions
 export * from "./tracks-store";

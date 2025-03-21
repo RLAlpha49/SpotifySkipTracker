@@ -90,6 +90,10 @@ export interface SpotifyAPI {
   clearLogs: () => Promise<boolean>;
   openLogsDirectory: () => Promise<boolean>;
   openSkipsDirectory: () => Promise<boolean>;
+  getAvailableLogFiles: () => Promise<
+    { name: string; mtime: number; displayName: string }[]
+  >;
+  getLogsFromFile: (fileName: string, count?: number) => Promise<string[]>;
 
   // Application lifecycle
   restartApp: () => Promise<boolean>;
@@ -196,6 +200,10 @@ export default function exposeContexts(): void {
     clearLogs: () => ipcRenderer.invoke("spotify:clearLogs"),
     openLogsDirectory: () => ipcRenderer.invoke("spotify:openLogsDirectory"),
     openSkipsDirectory: () => ipcRenderer.invoke("spotify:openSkipsDirectory"),
+    getAvailableLogFiles: () =>
+      ipcRenderer.invoke("spotify:getAvailableLogFiles"),
+    getLogsFromFile: (fileName: string, count?: number) =>
+      ipcRenderer.invoke("spotify:getLogsFromFile", fileName, count),
 
     // Application lifecycle
     restartApp: () => ipcRenderer.invoke("spotify:restartApp"),

@@ -199,6 +199,7 @@ export default function HomePage() {
 
   /**
    * Sets up periodic log refresh mechanism
+   * This will only refresh latest.log, not other log files
    */
   const startLogsRefresh = () => {
     if (logsRefreshIntervalRef.current) {
@@ -211,6 +212,7 @@ export default function HomePage() {
 
     logsRefreshIntervalRef.current = setInterval(async () => {
       try {
+        // Get logs from latest.log
         const updatedLogs = await window.spotify.getLogs();
         setLogs(updatedLogs);
       } catch (error) {
@@ -275,6 +277,7 @@ export default function HomePage() {
 
   /**
    * Saves log message and updates logs state
+   * Always saves to latest.log regardless of which log file is being viewed
    *
    * @param message - Message content to log
    * @param level - Severity level for the log
@@ -283,7 +286,7 @@ export default function HomePage() {
   const addLog = async (message: string, level: LogLevel = "INFO") => {
     try {
       await window.spotify.saveLog(message, level);
-      const updatedLogs = await window.spotify.getLogs();
+      const updatedLogs = await window.spotify.getLogs(100);
       setLogs(updatedLogs);
     } catch (error) {
       console.error("Error saving log:", error);
@@ -334,17 +337,21 @@ export default function HomePage() {
   const handleToggleLogAutoRefresh = async () => {
     try {
       const newAutoRefresh = !settings.logAutoRefresh;
+
+      // Update local state
       setSettings((prev) => ({
         ...prev,
         logAutoRefresh: newAutoRefresh,
       }));
 
+      // Save to storage
       const currentSettings = await window.spotify.getSettings();
       await window.spotify.saveSettings({
         ...currentSettings,
         logAutoRefresh: newAutoRefresh,
       });
 
+      // Start or stop the refresh interval
       if (newAutoRefresh) {
         startLogsRefresh();
         addLog("Log auto-refresh enabled", "DEBUG");
@@ -540,9 +547,9 @@ export default function HomePage() {
   /**
    * Clears application logs
    *
-   * @returns Promise<void>
+   * @returns Promise<boolean> indicating success or failure
    */
-  const handleClearLogs = async () => {
+  const handleClearLogs = async (): Promise<boolean> => {
     try {
       const result = await window.spotify.clearLogs();
       if (result) {
@@ -550,23 +557,26 @@ export default function HomePage() {
       } else {
         addLog("Failed to clear logs", "ERROR");
       }
+      return result;
     } catch (error) {
       console.error("Error clearing logs:", error);
       addLog(`Error clearing logs: ${error}`, "ERROR");
+      return false;
     }
   };
 
   /**
    * Opens log directory in file explorer
    *
-   * @returns Promise<void>
+   * @returns Promise<boolean> indicating success or failure
    */
-  const handleOpenLogsDirectory = async () => {
+  const handleOpenLogsDirectory = async (): Promise<boolean> => {
     try {
-      await window.spotify.openLogsDirectory();
+      return await window.spotify.openLogsDirectory();
     } catch (error) {
       console.error("Error opening logs directory:", error);
       addLog(`Error opening logs directory: ${error}`, "ERROR");
+      return false;
     }
   };
 

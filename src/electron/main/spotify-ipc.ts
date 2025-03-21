@@ -22,6 +22,8 @@ import {
   filterSkippedTracksByTimeframe,
   getStatistics,
   clearStatistics,
+  getAvailableLogFiles,
+  getLogsFromFile,
 } from "../../helpers/storage/store";
 
 // Spotify service imports
@@ -466,6 +468,14 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
 
   ipcMain.handle("spotify:getLogs", async (_, count) => {
     return getLogs(count);
+  });
+
+  ipcMain.handle("spotify:getAvailableLogFiles", async () => {
+    return getAvailableLogFiles();
+  });
+
+  ipcMain.handle("spotify:getLogsFromFile", async (_, fileName, count) => {
+    return getLogsFromFile(fileName, count);
   });
 
   ipcMain.handle("spotify:clearLogs", async () => {
