@@ -31,6 +31,8 @@ export interface DailyMetrics extends TimeBasedMetrics {
   date: string;
   /** Peak listening hour (0-23) */
   peakHour: number;
+  /** Sequential skips count (number of times user skipped multiple tracks in a row) */
+  sequentialSkips: number;
 }
 
 /**
@@ -41,6 +43,8 @@ export interface WeeklyMetrics extends TimeBasedMetrics {
   date: string;
   /** Most active day of week (0-6, where 0 is Sunday) */
   mostActiveDay: number;
+  /** Average listening session duration in milliseconds */
+  avgSessionDurationMs: number;
 }
 
 /**
@@ -51,22 +55,8 @@ export interface MonthlyMetrics extends TimeBasedMetrics {
   date: string;
   /** Weekly trend data */
   weeklyTrend: number[];
-}
-
-/**
- * Genre-related metrics
- */
-export interface GenreMetrics {
-  /** Genre name */
-  name: string;
-  /** Total listening time in milliseconds */
-  listeningTimeMs: number;
-  /** Number of tracks played from this genre */
-  tracksPlayed: number;
-  /** Skip rate for this genre (0-1) */
-  skipRate: number;
-  /** Average listening time before skipping (milliseconds) */
-  avgListeningBeforeSkipMs: number;
+  /** Month-over-month change in skip rate (percentage) */
+  skipRateChange: number;
 }
 
 /**
@@ -89,6 +79,66 @@ export interface ArtistMetrics {
   mostPlayedTrackId: string;
   /** Most skipped track ID */
   mostSkippedTrackId: string;
+  /** Times listened to in the last 30 days */
+  recentListenCount: number;
+  /** Whether this is a newly discovered artist (first listened in the last 30 days) */
+  isNewDiscovery: boolean;
+}
+
+/**
+ * Device-specific metrics
+ */
+export interface DeviceMetrics {
+  /** Device type (e.g., Computer, Smartphone, Speaker) */
+  deviceType: string;
+  /** Device name */
+  deviceName: string;
+  /** Total listening time on this device */
+  listeningTimeMs: number;
+  /** Number of tracks played on this device */
+  tracksPlayed: number;
+  /** Skip rate on this device (0-1) */
+  skipRate: number;
+  /** Most common time of day used (hour 0-23) */
+  peakUsageHour: number;
+}
+
+/**
+ * Track-specific metrics beyond just skips
+ */
+export interface TrackMetrics {
+  /** Track ID */
+  id: string;
+  /** Track name */
+  name: string;
+  /** Artist name */
+  artistName: string;
+  /** Total times played */
+  playCount: number;
+  /** Total times skipped */
+  skipCount: number;
+  /** Average percent of track listened before skipping (0-100) */
+  avgCompletionPercent: number;
+  /** Last played timestamp */
+  lastPlayed: string;
+  /** If track has been repeated within the same session */
+  hasBeenRepeated: boolean;
+}
+
+/**
+ * Sequential skip pattern tracking
+ */
+export interface SkipPatternMetrics {
+  /** Date of pattern (YYYY-MM-DD) */
+  date: string;
+  /** Maximum consecutive skips in one session */
+  maxConsecutiveSkips: number;
+  /** Total number of skip sequences (2+ skips in a row) */
+  skipSequenceCount: number;
+  /** Average skips per sequence */
+  avgSkipsPerSequence: number;
+  /** Time periods with highest skip rates (hour 0-23) */
+  highSkipRateHours: number[];
 }
 
 /**
@@ -111,6 +161,10 @@ export interface ListeningSession {
   deviceName: string;
   /** Device type used */
   deviceType: string;
+  /** Number of tracks repeated within this session */
+  repeatedTracks: number;
+  /** Longest streak of non-skipped tracks */
+  longestNonSkipStreak: number;
 }
 
 /**
@@ -125,8 +179,6 @@ export interface StatisticsData {
   weeklyMetrics: Record<string, WeeklyMetrics>;
   /** Map of monthly metrics by month string */
   monthlyMetrics: Record<string, MonthlyMetrics>;
-  /** Genre metrics by genre name */
-  genreMetrics: Record<string, GenreMetrics>;
   /** Artist metrics by artist ID */
   artistMetrics: Record<string, ArtistMetrics>;
   /** Recent listening sessions */
@@ -141,12 +193,28 @@ export interface StatisticsData {
   discoveryRate: number;
   /** Total listening time in milliseconds */
   totalListeningTimeMs: number;
-  /** Top genres by listening time */
-  topGenres: string[];
   /** Top artists by listening time */
   topArtistIds: string[];
   /** Peak listening times distribution (24-hour format, 0-23) */
   hourlyDistribution: number[];
   /** Most active days (0-6, where 0 is Sunday) */
   dailyDistribution: number[];
+  /** Device-specific metrics */
+  deviceMetrics: Record<string, DeviceMetrics>;
+  /** Track-specific detailed metrics */
+  trackMetrics: Record<string, TrackMetrics>;
+  /** Skip pattern analysis */
+  skipPatterns: Record<string, SkipPatternMetrics>;
+  /** Recently discovered artists (in last 30 days) */
+  recentDiscoveries: string[];
+  /** Average session duration in milliseconds */
+  avgSessionDurationMs: number;
+  /** Time spent listening by hour of day (24 hours) */
+  hourlyListeningTime: number[];
+  /** Repeat listening rate - percentage of repeated tracks in sessions */
+  repeatListeningRate: number;
+  /** Recent trends (last 14 days) of skip rates */
+  recentSkipRateTrend: number[];
+  /** Recent trends (last 14 days) of listening time */
+  recentListeningTimeTrend: number[];
 }

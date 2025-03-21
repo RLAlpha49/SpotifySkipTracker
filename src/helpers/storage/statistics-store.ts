@@ -24,7 +24,6 @@ const defaultStatisticsData: StatisticsData = {
   dailyMetrics: {},
   weeklyMetrics: {},
   monthlyMetrics: {},
-  genreMetrics: {},
   artistMetrics: {},
   sessions: [],
   totalUniqueTracks: 0,
@@ -32,10 +31,18 @@ const defaultStatisticsData: StatisticsData = {
   overallSkipRate: 0,
   discoveryRate: 0,
   totalListeningTimeMs: 0,
-  topGenres: [],
   topArtistIds: [],
   hourlyDistribution: Array(24).fill(0),
   dailyDistribution: Array(7).fill(0),
+  deviceMetrics: {},
+  trackMetrics: {},
+  skipPatterns: {},
+  recentDiscoveries: [],
+  avgSessionDurationMs: 0,
+  hourlyListeningTime: Array(24).fill(0),
+  repeatListeningRate: 0,
+  recentSkipRateTrend: Array(14).fill(0),
+  recentListeningTimeTrend: Array(14).fill(0),
 };
 
 /**
@@ -53,7 +60,11 @@ export const getStatistics = async (): Promise<StatisticsData> => {
     }
 
     const statistics: StatisticsData = readJsonSync(statisticsFilePath);
-    return statistics;
+
+    // Process any potential issues with the loaded data
+    const fixedStatistics = processLoadedStatistics(statistics);
+
+    return fixedStatistics;
   } catch (error) {
     console.error("Error reading statistics:", error);
     throw error;
@@ -75,13 +86,236 @@ export const saveStatistics = async (
     // Update the lastUpdated timestamp
     statistics.lastUpdated = new Date().toISOString();
 
-    writeJsonSync(statisticsFilePath, statistics, { spaces: 2 });
+    // Before saving, convert all Set objects to arrays for proper serialization
+    const preparedStatistics = prepareStatisticsForSave(statistics);
+
+    writeJsonSync(statisticsFilePath, preparedStatistics, { spaces: 2 });
     return true;
   } catch (error) {
     console.error("Error saving statistics:", error);
     return false;
   }
 };
+
+/**
+ * Prepares statistics data for saving by converting Sets to arrays
+ * @param statistics The statistics data to prepare
+ * @returns A serializable version of the statistics
+ */
+function prepareStatisticsForSave(statistics: StatisticsData): StatisticsData {
+  const result = { ...statistics };
+
+  // Process daily metrics
+  for (const dateKey in result.dailyMetrics) {
+    const metric = result.dailyMetrics[dateKey];
+    if (metric.uniqueArtists instanceof Set) {
+      result.dailyMetrics[dateKey] = {
+        ...metric,
+        uniqueArtists: Array.from(metric.uniqueArtists),
+      };
+    }
+    if (metric.uniqueTracks instanceof Set) {
+      result.dailyMetrics[dateKey] = {
+        ...result.dailyMetrics[dateKey],
+        uniqueTracks: Array.from(metric.uniqueTracks),
+      };
+    }
+  }
+
+  // Process weekly metrics
+  for (const weekKey in result.weeklyMetrics) {
+    const metric = result.weeklyMetrics[weekKey];
+    if (metric.uniqueArtists instanceof Set) {
+      result.weeklyMetrics[weekKey] = {
+        ...metric,
+        uniqueArtists: Array.from(metric.uniqueArtists),
+      };
+    }
+    if (metric.uniqueTracks instanceof Set) {
+      result.weeklyMetrics[weekKey] = {
+        ...result.weeklyMetrics[weekKey],
+        uniqueTracks: Array.from(metric.uniqueTracks),
+      };
+    }
+  }
+
+  // Process monthly metrics
+  for (const monthKey in result.monthlyMetrics) {
+    const metric = result.monthlyMetrics[monthKey];
+    if (metric.uniqueArtists instanceof Set) {
+      result.monthlyMetrics[monthKey] = {
+        ...metric,
+        uniqueArtists: Array.from(metric.uniqueArtists),
+      };
+    }
+    if (metric.uniqueTracks instanceof Set) {
+      result.monthlyMetrics[monthKey] = {
+        ...result.monthlyMetrics[monthKey],
+        uniqueTracks: Array.from(metric.uniqueTracks),
+      };
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Process loaded statistics to ensure data integrity
+ * Converts arrays to Sets where needed and ensures all required fields exist
+ */
+function processLoadedStatistics(statistics: StatisticsData): StatisticsData {
+  // Ensure all required properties exist
+  const result = {
+    ...defaultStatisticsData,
+    ...statistics,
+  };
+
+  // Process daily metrics - convert arrays to Sets and handle empty objects
+  for (const dateKey in result.dailyMetrics) {
+    const metric = result.dailyMetrics[dateKey];
+
+    // Fix uniqueArtists
+    if (Array.isArray(metric.uniqueArtists)) {
+      result.dailyMetrics[dateKey].uniqueArtists = new Set(
+        metric.uniqueArtists,
+      );
+    } else if (
+      !metric.uniqueArtists ||
+      (typeof metric.uniqueArtists === "object" &&
+        Object.keys(metric.uniqueArtists).length === 0)
+    ) {
+      // Handle empty object or missing field
+      result.dailyMetrics[dateKey].uniqueArtists = new Set<string>();
+    }
+
+    // Fix uniqueTracks
+    if (Array.isArray(metric.uniqueTracks)) {
+      result.dailyMetrics[dateKey].uniqueTracks = new Set(metric.uniqueTracks);
+    } else if (
+      !metric.uniqueTracks ||
+      (typeof metric.uniqueTracks === "object" &&
+        Object.keys(metric.uniqueTracks).length === 0)
+    ) {
+      // Handle empty object or missing field
+      result.dailyMetrics[dateKey].uniqueTracks = new Set<string>();
+    }
+  }
+
+  // Process weekly metrics
+  for (const weekKey in result.weeklyMetrics) {
+    const metric = result.weeklyMetrics[weekKey];
+
+    // Fix uniqueArtists
+    if (Array.isArray(metric.uniqueArtists)) {
+      result.weeklyMetrics[weekKey].uniqueArtists = new Set(
+        metric.uniqueArtists,
+      );
+    } else if (
+      !metric.uniqueArtists ||
+      (typeof metric.uniqueArtists === "object" &&
+        Object.keys(metric.uniqueArtists).length === 0)
+    ) {
+      result.weeklyMetrics[weekKey].uniqueArtists = new Set<string>();
+    }
+
+    // Fix uniqueTracks
+    if (Array.isArray(metric.uniqueTracks)) {
+      result.weeklyMetrics[weekKey].uniqueTracks = new Set(metric.uniqueTracks);
+    } else if (
+      !metric.uniqueTracks ||
+      (typeof metric.uniqueTracks === "object" &&
+        Object.keys(metric.uniqueTracks).length === 0)
+    ) {
+      result.weeklyMetrics[weekKey].uniqueTracks = new Set<string>();
+    }
+  }
+
+  // Process monthly metrics
+  for (const monthKey in result.monthlyMetrics) {
+    const metric = result.monthlyMetrics[monthKey];
+
+    // Fix uniqueArtists
+    if (Array.isArray(metric.uniqueArtists)) {
+      result.monthlyMetrics[monthKey].uniqueArtists = new Set(
+        metric.uniqueArtists,
+      );
+    } else if (
+      !metric.uniqueArtists ||
+      (typeof metric.uniqueArtists === "object" &&
+        Object.keys(metric.uniqueArtists).length === 0)
+    ) {
+      result.monthlyMetrics[monthKey].uniqueArtists = new Set<string>();
+    }
+
+    // Fix uniqueTracks
+    if (Array.isArray(metric.uniqueTracks)) {
+      result.monthlyMetrics[monthKey].uniqueTracks = new Set(
+        metric.uniqueTracks,
+      );
+    } else if (
+      !metric.uniqueTracks ||
+      (typeof metric.uniqueTracks === "object" &&
+        Object.keys(metric.uniqueTracks).length === 0)
+    ) {
+      result.monthlyMetrics[monthKey].uniqueTracks = new Set<string>();
+    }
+  }
+
+  // Recalculate totals to ensure accuracy
+  // This will be done when the statistics are updated, but we do it here as well for loaded data
+  result.totalUniqueTracks = calculateUniqueTrackCount(result);
+  result.totalUniqueArtists = calculateUniqueArtistCount(result);
+
+  return result;
+}
+
+/**
+ * Calculate the total unique track count from all metrics
+ */
+function calculateUniqueTrackCount(statistics: StatisticsData): number {
+  const allTracks = new Set<string>();
+
+  // Collect from daily metrics
+  for (const dateKey in statistics.dailyMetrics) {
+    const metric = statistics.dailyMetrics[dateKey];
+    if (metric.uniqueTracks instanceof Set) {
+      Array.from(metric.uniqueTracks).forEach((id) => allTracks.add(id));
+    } else if (Array.isArray(metric.uniqueTracks)) {
+      metric.uniqueTracks.forEach((id) => allTracks.add(id));
+    }
+  }
+
+  // Collect from track metrics directly (more reliable)
+  for (const trackId in statistics.trackMetrics) {
+    allTracks.add(trackId);
+  }
+
+  return allTracks.size;
+}
+
+/**
+ * Calculate the total unique artist count from all metrics
+ */
+function calculateUniqueArtistCount(statistics: StatisticsData): number {
+  const allArtists = new Set<string>();
+
+  // Collect from daily metrics
+  for (const dateKey in statistics.dailyMetrics) {
+    const metric = statistics.dailyMetrics[dateKey];
+    if (metric.uniqueArtists instanceof Set) {
+      Array.from(metric.uniqueArtists).forEach((id) => allArtists.add(id));
+    } else if (Array.isArray(metric.uniqueArtists)) {
+      metric.uniqueArtists.forEach((id) => allArtists.add(id));
+    }
+  }
+
+  // Collect from artist metrics directly (more reliable)
+  for (const artistId in statistics.artistMetrics) {
+    allArtists.add(artistId);
+  }
+
+  return allArtists.size;
+}
 
 /**
  * Update statistics with data from a newly played or skipped track
@@ -129,6 +363,26 @@ export async function updateTrackStatistics(
     if (!statistics.monthlyMetrics) statistics.monthlyMetrics = {};
     if (!statistics.artistMetrics) statistics.artistMetrics = {};
     if (!statistics.sessions) statistics.sessions = [];
+    if (!statistics.deviceMetrics) statistics.deviceMetrics = {};
+    if (!statistics.trackMetrics) statistics.trackMetrics = {};
+    if (!statistics.skipPatterns) statistics.skipPatterns = {};
+    if (!statistics.recentDiscoveries) statistics.recentDiscoveries = [];
+    if (!statistics.hourlyListeningTime)
+      statistics.hourlyListeningTime = Array(24).fill(0);
+    if (!statistics.recentSkipRateTrend)
+      statistics.recentSkipRateTrend = Array(14).fill(0);
+    if (!statistics.recentListeningTimeTrend)
+      statistics.recentListeningTimeTrend = Array(14).fill(0);
+    if (statistics.hourlyDistribution === undefined)
+      statistics.hourlyDistribution = Array(24).fill(0);
+    if (statistics.dailyDistribution === undefined)
+      statistics.dailyDistribution = Array(7).fill(0);
+    if (statistics.topArtistIds === undefined) statistics.topArtistIds = [];
+    if (statistics.discoveryRate === undefined) statistics.discoveryRate = 0;
+    if (statistics.repeatListeningRate === undefined)
+      statistics.repeatListeningRate = 0;
+    if (statistics.avgSessionDurationMs === undefined)
+      statistics.avgSessionDurationMs = 0;
 
     // Update daily metrics - ensure the object exists before accessing it
     const dailyMetric = statistics.dailyMetrics[dateStr] || {
@@ -139,6 +393,7 @@ export async function updateTrackStatistics(
       uniqueArtists: new Set<string>(),
       uniqueTracks: new Set<string>(),
       peakHour: 0,
+      sequentialSkips: 0,
     };
 
     dailyMetric.listeningTimeMs += playedTimeMs;
@@ -150,6 +405,12 @@ export async function updateTrackStatistics(
       dailyMetric.uniqueArtists = new Set<string>();
     } else if (Array.isArray(dailyMetric.uniqueArtists)) {
       dailyMetric.uniqueArtists = new Set<string>(dailyMetric.uniqueArtists);
+    } else if (
+      typeof dailyMetric.uniqueArtists === "object" &&
+      !(dailyMetric.uniqueArtists instanceof Set)
+    ) {
+      // Handle case where it's an object but not a Set
+      dailyMetric.uniqueArtists = new Set<string>();
     }
 
     // Ensure uniqueTracks is a Set
@@ -157,6 +418,12 @@ export async function updateTrackStatistics(
       dailyMetric.uniqueTracks = new Set<string>();
     } else if (Array.isArray(dailyMetric.uniqueTracks)) {
       dailyMetric.uniqueTracks = new Set<string>(dailyMetric.uniqueTracks);
+    } else if (
+      typeof dailyMetric.uniqueTracks === "object" &&
+      !(dailyMetric.uniqueTracks instanceof Set)
+    ) {
+      // Handle case where it's an object but not a Set
+      dailyMetric.uniqueTracks = new Set<string>();
     }
 
     // Now safely add to Sets
@@ -168,6 +435,12 @@ export async function updateTrackStatistics(
     const hourlyDist = [...statistics.hourlyDistribution];
     hourlyDist[hourOfDay] += 1;
     statistics.hourlyDistribution = hourlyDist;
+
+    // Update hourly listening time
+    if (!statistics.hourlyListeningTime) {
+      statistics.hourlyListeningTime = Array(24).fill(0);
+    }
+    statistics.hourlyListeningTime[hourOfDay] += playedTimeMs;
 
     if (hourlyDist[hourOfDay] > hourlyDist[dailyMetric.peakHour]) {
       dailyMetric.peakHour = hourOfDay;
@@ -190,6 +463,7 @@ export async function updateTrackStatistics(
       uniqueArtists: new Set<string>(),
       uniqueTracks: new Set<string>(),
       mostActiveDay: 0,
+      avgSessionDurationMs: 0,
     };
 
     weeklyMetric.listeningTimeMs += playedTimeMs;
@@ -201,6 +475,12 @@ export async function updateTrackStatistics(
       weeklyMetric.uniqueArtists = new Set<string>();
     } else if (Array.isArray(weeklyMetric.uniqueArtists)) {
       weeklyMetric.uniqueArtists = new Set<string>(weeklyMetric.uniqueArtists);
+    } else if (
+      typeof weeklyMetric.uniqueArtists === "object" &&
+      !(weeklyMetric.uniqueArtists instanceof Set)
+    ) {
+      // Handle case where it's an object but not a Set
+      weeklyMetric.uniqueArtists = new Set<string>();
     }
 
     // Ensure uniqueTracks is a Set
@@ -208,6 +488,12 @@ export async function updateTrackStatistics(
       weeklyMetric.uniqueTracks = new Set<string>();
     } else if (Array.isArray(weeklyMetric.uniqueTracks)) {
       weeklyMetric.uniqueTracks = new Set<string>(weeklyMetric.uniqueTracks);
+    } else if (
+      typeof weeklyMetric.uniqueTracks === "object" &&
+      !(weeklyMetric.uniqueTracks instanceof Set)
+    ) {
+      // Handle case where it's an object but not a Set
+      weeklyMetric.uniqueTracks = new Set<string>();
     }
 
     // Now safely add to Sets
@@ -241,6 +527,7 @@ export async function updateTrackStatistics(
       uniqueArtists: new Set<string>(),
       uniqueTracks: new Set<string>(),
       weeklyTrend: [],
+      skipRateChange: 0,
     };
 
     monthlyMetric.listeningTimeMs += playedTimeMs;
@@ -254,6 +541,12 @@ export async function updateTrackStatistics(
       monthlyMetric.uniqueArtists = new Set<string>(
         monthlyMetric.uniqueArtists,
       );
+    } else if (
+      typeof monthlyMetric.uniqueArtists === "object" &&
+      !(monthlyMetric.uniqueArtists instanceof Set)
+    ) {
+      // Handle case where it's an object but not a Set
+      monthlyMetric.uniqueArtists = new Set<string>();
     }
 
     // Ensure uniqueTracks is a Set
@@ -261,6 +554,12 @@ export async function updateTrackStatistics(
       monthlyMetric.uniqueTracks = new Set<string>();
     } else if (Array.isArray(monthlyMetric.uniqueTracks)) {
       monthlyMetric.uniqueTracks = new Set<string>(monthlyMetric.uniqueTracks);
+    } else if (
+      typeof monthlyMetric.uniqueTracks === "object" &&
+      !(monthlyMetric.uniqueTracks instanceof Set)
+    ) {
+      // Handle case where it's an object but not a Set
+      monthlyMetric.uniqueTracks = new Set<string>();
     }
 
     // Now safely add to Sets
@@ -281,6 +580,26 @@ export async function updateTrackStatistics(
     monthlyMetric.weeklyTrend = weeks.map(
       (w) => statistics.weeklyMetrics[w].tracksPlayed,
     );
+
+    // Calculate month-over-month skip rate change
+    const prevMonth = new Date(date.getFullYear(), date.getMonth() - 1, 1)
+      .toISOString()
+      .substring(0, 7);
+
+    if (statistics.monthlyMetrics[prevMonth]) {
+      const prevMonthData = statistics.monthlyMetrics[prevMonth];
+      const prevSkipRate =
+        prevMonthData.tracksSkipped / prevMonthData.tracksPlayed;
+      const currentSkipRate =
+        monthlyMetric.tracksSkipped / monthlyMetric.tracksPlayed;
+
+      // Calculate percentage change
+      monthlyMetric.skipRateChange =
+        currentSkipRate !== 0 && prevSkipRate !== 0
+          ? ((currentSkipRate - prevSkipRate) / prevSkipRate) * 100
+          : 0;
+    }
+
     statistics.monthlyMetrics[month] = monthlyMetric;
 
     // Update artist metrics
@@ -293,6 +612,8 @@ export async function updateTrackStatistics(
       avgListeningBeforeSkipMs: 0,
       mostPlayedTrackId: "",
       mostSkippedTrackId: "",
+      recentListenCount: 0,
+      isNewDiscovery: false,
     };
 
     artistMetric.listeningTimeMs += playedTimeMs;
@@ -364,30 +685,56 @@ export async function updateTrackStatistics(
       }
     }
 
+    // Calculate recent listen count and new discovery status
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
+
+    // Check when this artist was first listened to
+    const firstListen =
+      Object.entries(statistics.dailyMetrics)
+        .filter(([, metric]) => {
+          const artistsArray = Array.isArray(metric.uniqueArtists)
+            ? metric.uniqueArtists
+            : Array.from(metric.uniqueArtists as Set<string>);
+          return artistsArray.includes(artistId);
+        })
+        .map(([dateKey]) => dateKey)
+        .sort()[0] || dateStr;
+
+    // Update new discovery status
+    artistMetric.isNewDiscovery = firstListen >= thirtyDaysAgoStr;
+
+    // If this is a new discovery, add to recent discoveries list
+    if (
+      artistMetric.isNewDiscovery &&
+      !statistics.recentDiscoveries?.includes(artistId)
+    ) {
+      statistics.recentDiscoveries?.push(artistId);
+      // Keep the list trimmed to most recent 50 discoveries
+      if (
+        statistics.recentDiscoveries &&
+        statistics.recentDiscoveries.length > 50
+      ) {
+        statistics.recentDiscoveries = statistics.recentDiscoveries.slice(-50);
+      }
+    }
+
+    // Count plays in the last 30 days
+    artistMetric.recentListenCount = Object.entries(statistics.dailyMetrics)
+      .filter(([dateKey]) => dateKey >= thirtyDaysAgoStr)
+      .reduce((count, [, metric]) => {
+        const artistsArray = Array.isArray(metric.uniqueArtists)
+          ? metric.uniqueArtists
+          : Array.from(metric.uniqueArtists as Set<string>);
+        return count + (artistsArray.includes(artistId) ? 1 : 0);
+      }, 1); // Include current play
+
     statistics.artistMetrics[artistId] = artistMetric;
 
-    // Update global statistics
-    statistics.totalUniqueTracks = Object.values(
-      statistics.dailyMetrics,
-    ).reduce((set, day) => {
-      if (day.uniqueTracks instanceof Set) {
-        Array.from(day.uniqueTracks).forEach((id) => set.add(id));
-      } else if (Array.isArray(day.uniqueTracks)) {
-        day.uniqueTracks.forEach((id) => set.add(id));
-      }
-      return set;
-    }, new Set<string>()).size;
-
-    statistics.totalUniqueArtists = Object.values(
-      statistics.dailyMetrics,
-    ).reduce((set, day) => {
-      if (day.uniqueArtists instanceof Set) {
-        Array.from(day.uniqueArtists).forEach((id) => set.add(id));
-      } else if (Array.isArray(day.uniqueArtists)) {
-        day.uniqueArtists.forEach((id) => set.add(id));
-      }
-      return set;
-    }, new Set<string>()).size;
+    // Update global statistics - recalculate instead of using the existing logic
+    statistics.totalUniqueTracks = calculateUniqueTrackCount(statistics);
+    statistics.totalUniqueArtists = calculateUniqueArtistCount(statistics);
 
     statistics.totalListeningTimeMs += playedTimeMs;
 
@@ -404,6 +751,31 @@ export async function updateTrackStatistics(
 
     statistics.overallSkipRate =
       totalTracks > 0 ? totalSkipped / totalTracks : 0;
+
+    // Update recent skip rate trend (last 14 days)
+    const last14Days = Object.keys(statistics.dailyMetrics).sort().slice(-14);
+
+    statistics.recentSkipRateTrend = last14Days.map((dateKey) => {
+      const metric = statistics.dailyMetrics[dateKey];
+      return metric.tracksPlayed > 0
+        ? metric.tracksSkipped / metric.tracksPlayed
+        : 0;
+    });
+
+    // Pad with zeros if we don't have 14 days of data yet
+    while (statistics.recentSkipRateTrend.length < 14) {
+      statistics.recentSkipRateTrend.unshift(0);
+    }
+
+    // Update recent listening time trend (last 14 days)
+    statistics.recentListeningTimeTrend = last14Days.map((dateKey) => {
+      return statistics.dailyMetrics[dateKey].listeningTimeMs;
+    });
+
+    // Pad with zeros if we don't have 14 days of data yet
+    while (statistics.recentListeningTimeTrend.length < 14) {
+      statistics.recentListeningTimeTrend.unshift(0);
+    }
 
     // Update top artists and calculate discovery rate
     const artistPlaytime: Record<string, number> = {};
@@ -441,10 +813,6 @@ export async function updateTrackStatistics(
       .map(([id]) => id);
 
     // Calculate discovery rate (new artists in last 30 days / total artists)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
-
     const newArtistsCount = Object.values(firstAppearances).filter(
       (date) => date >= thirtyDaysAgoStr,
     ).length;
@@ -453,6 +821,158 @@ export async function updateTrackStatistics(
       statistics.totalUniqueArtists > 0
         ? newArtistsCount / statistics.totalUniqueArtists
         : 0;
+
+    // Update device metrics
+    const deviceId = `${deviceType || "Unknown"}-${deviceName || "Unknown"}`;
+    const deviceMetric = statistics.deviceMetrics[deviceId] || {
+      deviceType: deviceType || "Unknown",
+      deviceName: deviceName || "Unknown",
+      listeningTimeMs: 0,
+      tracksPlayed: 0,
+      skipRate: 0,
+      peakUsageHour: 0,
+    };
+
+    deviceMetric.listeningTimeMs += playedTimeMs;
+    deviceMetric.tracksPlayed += 1;
+
+    // Update device skip rate
+    deviceMetric.skipRate =
+      (deviceMetric.skipRate * (deviceMetric.tracksPlayed - 1) +
+        (wasSkipped ? 1 : 0)) /
+      deviceMetric.tracksPlayed;
+
+    // Update peak usage hour
+    const deviceHourCount: Record<number, number> = {};
+
+    // Increment current hour
+    deviceHourCount[hourOfDay] = (deviceHourCount[hourOfDay] || 0) + 1;
+
+    // Find peak usage hour
+    let peakHour = deviceMetric.peakUsageHour;
+    let maxUsage = deviceHourCount[peakHour] || 0;
+
+    for (const [hour, count] of Object.entries(deviceHourCount)) {
+      if (count > maxUsage) {
+        maxUsage = count;
+        peakHour = parseInt(hour);
+      }
+    }
+
+    deviceMetric.peakUsageHour = peakHour;
+    statistics.deviceMetrics[deviceId] = deviceMetric;
+
+    // Update track metrics
+    const trackMetric = statistics.trackMetrics[trackId] || {
+      id: trackId,
+      name: trackName,
+      artistName: artistName,
+      playCount: 0,
+      skipCount: 0,
+      avgCompletionPercent: 0,
+      lastPlayed: new Date().toISOString(),
+      hasBeenRepeated: false,
+    };
+
+    trackMetric.playCount += 1;
+    if (wasSkipped) trackMetric.skipCount += 1;
+
+    // Update average completion percentage
+    const completionPercent = (playedTimeMs / durationMs) * 100;
+    trackMetric.avgCompletionPercent =
+      (trackMetric.avgCompletionPercent * (trackMetric.playCount - 1) +
+        completionPercent) /
+      trackMetric.playCount;
+
+    trackMetric.lastPlayed = new Date(timestamp).toISOString();
+
+    // Check if track has been repeated in the current session
+    if (statistics.sessions && statistics.sessions.length > 0) {
+      const currentSession =
+        statistics.sessions[statistics.sessions.length - 1];
+      // If the track appears more than once in the current session
+      if (currentSession.trackIds) {
+        trackMetric.hasBeenRepeated =
+          currentSession.trackIds.filter((id) => id === trackId).length > 1;
+      }
+    }
+
+    statistics.trackMetrics[trackId] = trackMetric;
+
+    // Update skip patterns
+    const skipPatternKey = dateStr;
+    const skipPattern = statistics.skipPatterns[skipPatternKey] || {
+      date: dateStr,
+      maxConsecutiveSkips: 0,
+      skipSequenceCount: 0,
+      avgSkipsPerSequence: 0,
+      highSkipRateHours: [],
+    };
+
+    // Track consecutive skips
+    if (wasSkipped && statistics.sessions && statistics.sessions.length > 0) {
+      const currentSession =
+        statistics.sessions[statistics.sessions.length - 1];
+
+      // Count consecutive skips in current session
+      let consecutiveSkips = 1; // Start with 1 for the current skip
+
+      if (currentSession.trackIds && currentSession.trackIds.length > 1) {
+        let i = currentSession.trackIds.length - 2; // Start from the previous track
+
+        while (i >= 0 && i >= currentSession.trackIds.length - 10) {
+          // Look at most 10 tracks back
+          const trackAtIndex = currentSession.trackIds[i];
+          const trackMetrics = statistics.trackMetrics[trackAtIndex];
+          if (
+            trackMetrics &&
+            trackMetrics.skipCount === trackMetrics.playCount
+          ) {
+            consecutiveSkips++;
+          } else {
+            break;
+          }
+          i--;
+        }
+      }
+
+      // If we have a sequence of 2+ skips
+      if (consecutiveSkips > 1) {
+        skipPattern.skipSequenceCount += 1;
+        skipPattern.avgSkipsPerSequence =
+          (skipPattern.avgSkipsPerSequence *
+            (skipPattern.skipSequenceCount - 1) +
+            consecutiveSkips) /
+          skipPattern.skipSequenceCount;
+
+        if (consecutiveSkips > skipPattern.maxConsecutiveSkips) {
+          skipPattern.maxConsecutiveSkips = consecutiveSkips;
+        }
+      }
+
+      // Increment sequential skips in daily metrics
+      if (dailyMetric.sequentialSkips === undefined)
+        dailyMetric.sequentialSkips = 0;
+      if (consecutiveSkips > 1) dailyMetric.sequentialSkips += 1;
+
+      // Update high skip rate hours
+      if (!skipPattern.highSkipRateHours) skipPattern.highSkipRateHours = [];
+      if (!skipPattern.highSkipRateHours.includes(hourOfDay)) {
+        skipPattern.highSkipRateHours.push(hourOfDay);
+        skipPattern.highSkipRateHours.sort((a, b) => a - b);
+
+        // Keep only the top 5 hours with highest skip rates
+        if (skipPattern.highSkipRateHours.length > 5) {
+          skipPattern.highSkipRateHours = skipPattern.highSkipRateHours.slice(
+            0,
+            5,
+          );
+        }
+      }
+    }
+
+    statistics.skipPatterns[skipPatternKey] = skipPattern;
+    statistics.dailyMetrics[dateStr] = dailyMetric;
 
     // Update sessions or create new session
     // Determine if this belongs to an existing session or starts a new one
@@ -465,6 +985,8 @@ export async function updateTrackStatistics(
       const recentSessions = [...statistics.sessions].reverse();
 
       for (const session of recentSessions) {
+        if (!session.endTime) continue; // Skip sessions without end time
+
         const sessionEndTime = new Date(session.endTime).getTime();
 
         // If within 30 minutes (1800000ms), add to existing session
@@ -472,10 +994,54 @@ export async function updateTrackStatistics(
           session.endTime = new Date(currentTime).toISOString();
           session.durationMs =
             currentTime - new Date(session.startTime).getTime();
+
+          if (!session.trackIds) session.trackIds = [];
           session.trackIds.push(trackId);
+
+          if (!session.skippedTracks) session.skippedTracks = 0;
           if (wasSkipped) session.skippedTracks += 1;
+
           session.deviceName = deviceName || session.deviceName;
           session.deviceType = deviceType || session.deviceType;
+
+          // Check for track repetition within session
+          if (session.repeatedTracks === undefined) session.repeatedTracks = 0;
+          const trackOccurrences = session.trackIds.filter(
+            (id) => id === trackId,
+          ).length;
+          if (trackOccurrences > 1) {
+            session.repeatedTracks += 1;
+          }
+
+          // Calculate non-skip streaks
+          if (session.longestNonSkipStreak === undefined)
+            session.longestNonSkipStreak = 0;
+
+          // Count current non-skip streak if not skipped
+          if (!wasSkipped && session.trackIds) {
+            let currentStreak = 1;
+            let i = session.trackIds.length - 2; // Start from previous track
+
+            while (i >= 0) {
+              const prevTrackId = session.trackIds[i];
+              const prevTrackMetric = statistics.trackMetrics[prevTrackId];
+              if (
+                prevTrackMetric &&
+                prevTrackMetric.skipCount < prevTrackMetric.playCount
+              ) {
+                currentStreak++;
+              } else {
+                break;
+              }
+              i--;
+            }
+
+            // Update longest streak if current one is longer
+            if (currentStreak > session.longestNonSkipStreak) {
+              session.longestNonSkipStreak = currentStreak;
+            }
+          }
+
           sessionFound = true;
           break;
         }
@@ -493,8 +1059,11 @@ export async function updateTrackStatistics(
         skippedTracks: wasSkipped ? 1 : 0,
         deviceName: deviceName || "Unknown",
         deviceType: deviceType || "Unknown",
+        repeatedTracks: 0,
+        longestNonSkipStreak: wasSkipped ? 0 : 1,
       };
 
+      if (!statistics.sessions) statistics.sessions = [];
       statistics.sessions.push(newSession);
 
       // Keep only the 100 most recent sessions
@@ -502,6 +1071,61 @@ export async function updateTrackStatistics(
         statistics.sessions = statistics.sessions.slice(-100);
       }
     }
+
+    // Calculate average session duration
+    if (statistics.sessions && statistics.sessions.length > 0) {
+      const totalDuration = statistics.sessions.reduce(
+        (sum, session) => sum + (session.durationMs || 0),
+        0,
+      );
+      statistics.avgSessionDurationMs =
+        totalDuration / statistics.sessions.length;
+
+      // Update weekly metric's avg session duration
+      if (weeklyMetric && weeklyMetric.avgSessionDurationMs !== undefined) {
+        const sessionsThisWeek = statistics.sessions.filter((session) => {
+          if (!session.startTime) return false;
+          const sessionDate = new Date(session.startTime);
+          const sessionWeekNum = getISOWeek(sessionDate);
+          const sessionWeekStr = `${sessionDate.getFullYear()}-W${sessionWeekNum.toString().padStart(2, "0")}`;
+          return sessionWeekStr === weekStr;
+        });
+
+        if (sessionsThisWeek.length > 0) {
+          const weekTotalDuration = sessionsThisWeek.reduce(
+            (sum, session) => sum + (session.durationMs || 0),
+            0,
+          );
+          weeklyMetric.avgSessionDurationMs =
+            weekTotalDuration / sessionsThisWeek.length;
+        }
+      }
+    }
+
+    // Calculate repeat listening rate
+    if (statistics.sessions && statistics.sessions.length > 0) {
+      const totalRepeatTracks = statistics.sessions.reduce(
+        (sum, session) => sum + (session.repeatedTracks || 0),
+        0,
+      );
+      const totalTracksInSessions = statistics.sessions.reduce(
+        (sum, session) =>
+          sum + (session.trackIds ? session.trackIds.length : 0),
+        0,
+      );
+
+      statistics.repeatListeningRate =
+        totalTracksInSessions > 0
+          ? totalRepeatTracks / totalTracksInSessions
+          : 0;
+    }
+
+    // Make sure to update all the metrics by assigning them back to the statistics object
+    if (weeklyMetric) statistics.weeklyMetrics[weekStr] = weeklyMetric;
+    if (monthlyMetric) statistics.monthlyMetrics[month] = monthlyMetric;
+    if (artistMetric) statistics.artistMetrics[artistId] = artistMetric;
+    statistics.dailyMetrics[dateStr] = dailyMetric;
+    statistics.skipPatterns[skipPatternKey] = skipPattern;
 
     // Save updated statistics
     try {

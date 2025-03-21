@@ -123,6 +123,11 @@ export default defineConfig((env) => {
               return "app-feature-skipped-tracks";
             }
 
+            // Statistics feature
+            if (id.includes("/components/statistics/")) {
+              return "app-feature-statistics";
+            }
+
             // Core API services
             if (id.includes("/services/")) {
               return "app-services";

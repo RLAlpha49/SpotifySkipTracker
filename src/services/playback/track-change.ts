@@ -75,23 +75,30 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
         // Get track artist ID (we'll retrieve only the first one for simplicity)
         const trackInfo = await spotifyApi.getTrack(previousTrackId);
         const artistId = trackInfo?.artists?.[0]?.id || "unknown";
+        const artistName =
+          trackInfo?.artists?.[0]?.name ||
+          state.currentArtistName ||
+          "Unknown Artist";
+        const trackName =
+          trackInfo?.name || state.currentTrackName || "Unknown Track";
+        const trackDuration = trackInfo?.duration_ms || duration || 0;
 
         // Update stats with skipped track information
         await store.updateTrackStatistics(
           previousTrackId,
-          state.currentTrackName || "",
+          trackName,
           artistId,
-          state.currentArtistName || "",
-          duration,
+          artistName,
+          trackDuration,
           true, // was skipped
           lastProgress,
-          state.currentDeviceName,
-          state.currentDeviceType,
+          state.currentDeviceName || null,
+          state.currentDeviceType || null,
           Date.now(),
         );
 
         store.saveLog(
-          `Enhanced statistics recorded for skipped track "${state.currentTrackName}"`,
+          `Enhanced statistics recorded for skipped track "${trackName}"`,
           "DEBUG",
         );
       } catch (error) {
@@ -142,23 +149,37 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
         // Get track artist ID
         const trackInfo = await spotifyApi.getTrack(previousTrackId);
         const artistId = trackInfo?.artists?.[0]?.id || "unknown";
+        const artistName =
+          trackInfo?.artists?.[0]?.name ||
+          state.currentArtistName ||
+          "Unknown Artist";
+        const trackName =
+          trackInfo?.name || state.currentTrackName || "Unknown Track";
+        const trackDuration = trackInfo?.duration_ms || duration || 0;
+
+        // Calculate actual played duration - for completed tracks, use the full duration or last progress
+        // whichever is greater (in case the progress reporting caught it a bit before the end)
+        const actualPlayedDuration = Math.max(
+          lastProgress,
+          trackDuration * 0.98,
+        );
 
         // Update statistics with completed track information
         await store.updateTrackStatistics(
           previousTrackId,
-          state.currentTrackName || "",
+          trackName,
           artistId,
-          state.currentArtistName || "",
-          duration,
+          artistName,
+          trackDuration,
           false, // not skipped
-          duration, // Played full duration
-          state.currentDeviceName,
-          state.currentDeviceType,
+          actualPlayedDuration, // Use calculated actual played duration
+          state.currentDeviceName || null,
+          state.currentDeviceType || null,
           Date.now(),
         );
 
         store.saveLog(
-          `Enhanced statistics recorded for completed track "${state.currentTrackName}"`,
+          `Enhanced statistics recorded for completed track "${trackName}"`,
           "DEBUG",
         );
       } catch (error) {
