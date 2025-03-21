@@ -353,52 +353,22 @@ jobs:
         id: update-packages
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true) || (github.event_name != 'workflow_dispatch' && steps.check-updates.outputs.has_updates == 'true') }}
         run: |
-          # Capture package.json before updates
+          # Just prepare the update info without actually modifying files yet
+          # Capture ncu output for updates info only
           cp package.json /tmp/package.json.before
 
-          # Update packages
-          echo "[INFO] Updating packages to latest versions"
-          ncu -u
+          # Capture update info in structured format without modifying files
+          UPDATE_INFO=$(ncu --jsonUpgraded)
+          echo "actual_changes<<EOF" >> $GITHUB_OUTPUT
 
-          # Capture actual changes made
-          if [ -f /tmp/package.json.before ] && [ -f package.json ]; then
-            # Create a temporary file for the package diff to avoid shell escaping issues
-            DIFF_FILE=$(mktemp)
-            diff -u /tmp/package.json.before package.json | grep -E '^\+.*".*":.*".*"' | grep -v "+++" | sed 's/^+//g' | sed 's/,//g' | sed 's/^ *//g' > "$DIFF_FILE"
-            
-            if [ -s "$DIFF_FILE" ]; then
-              echo "[INFO] Package updates detected"
-              echo "actual_changes<<EOF" >> $GITHUB_OUTPUT
-              cat "$DIFF_FILE" >> $GITHUB_OUTPUT
-              echo "EOF" >> $GITHUB_OUTPUT
-              echo "has_actual_changes=true" >> $GITHUB_OUTPUT
-              
-              # Log detected changes
-              echo "[INFO] Detected package changes:"
-              cat "$DIFF_FILE"
-            else
-              echo "[INFO] No actual changes detected in package.json"
-              echo "has_actual_changes=false" >> $GITHUB_OUTPUT
-            fi
-            
-            # Clean up
-            rm -f "$DIFF_FILE" 2>/dev/null || true
-          else
-            echo "[WARNING] Could not compare package.json changes"
-            echo "has_actual_changes=false" >> $GITHUB_OUTPUT
-          fi
+          # Extract the changes in a format we can use later
+          for pkg in $(echo "$UPDATE_INFO" | jq -r 'keys[]'); do
+            version=$(echo "$UPDATE_INFO" | jq -r --arg pkg "$pkg" '.[$pkg]')
+            echo "\"$pkg\": \"$version\"" >> $GITHUB_OUTPUT
+          done
 
-          # Install updated packages
-          echo "[INFO] Installing updated packages"
-          npm install
-
-      - name: Commit package updates
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true || github.event_name != 'workflow_dispatch') && steps.check-updates.outputs.has_updates == 'true' }}
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add package.json package-lock.json
-          git diff --staged --quiet || git commit -m "chore: update npm dependencies"
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "has_actual_changes=true" >> $GITHUB_OUTPUT
 
       - name: Push changes to branch
         id: push-changes
@@ -425,6 +395,10 @@ jobs:
 
           # Fetch latest information about remote branches
           git fetch origin
+
+          # Configure git identity
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
           # Check if branch exists remotely
           if git ls-remote --exit-code --heads origin "$PR_BRANCH" &>/dev/null; then
@@ -457,57 +431,64 @@ jobs:
             NEEDS_PUSH=true
             echo "[INFO] Setting NEEDS_PUSH=true because branch needs to be created remotely"
           fi
+
+          # Now that we're on the correct branch, perform the updates
+          if [ "${{ steps.check-updates.outputs.has_updates }}" = "true" ]; then
+            # Update packages
+            echo "[INFO] Updating packages to latest versions on branch $PR_BRANCH"
+            ncu -u
             
-          # Check for uncommitted changes
+            # Install updated packages
+            echo "[INFO] Installing updated packages"
+            npm install
+
+            # Check for changes and commit them
+            git add package.json package-lock.json
+            if ! git diff --staged --quiet; then
+              echo "[INFO] Committing package updates"
+              git commit -m "chore: update npm dependencies"
+              CHANGES_TO_COMMIT=true
+              NEEDS_PUSH=true
+            fi
+          fi
+            
+          # Check for uncommitted changes from other steps
           git add -A
           if ! git diff --cached --quiet; then
             # We have actual changes to commit
             CHANGES_TO_COMMIT=true
-            echo "[INFO] Found uncommitted changes to commit"
+            echo "[INFO] Found additional uncommitted changes to commit"
             NEEDS_PUSH=true
-          else
-            echo "[INFO] No uncommitted changes found"
             
-            if [ "${{ steps.update-packages.outputs.has_actual_changes }}" = "true" ] || 
-                [ "${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}" -gt 0 ]; then
-              echo "[INFO] Note: Changes were reported by earlier steps but nothing to commit"
-              echo "[INFO] These changes may have already been committed in a previous run"
+            # Commit these changes
+            git commit -m "chore: update dependencies via workflow"
+          else
+            if [ "$CHANGES_TO_COMMIT" != "true" ]; then
+              echo "[INFO] No uncommitted changes found"
+              
+              if [ "${{ steps.update-packages.outputs.has_actual_changes }}" = "true" ] || 
+                  [ "${{ steps.check-dependabot-incorporate.outputs.incorporated_count }}" -gt 0 ]; then
+                echo "[INFO] Note: Changes were reported by earlier steps but nothing to commit"
+                echo "[INFO] These changes may have already been committed in a previous run"
+              fi
             fi
           fi
-            
-          # Reset staged changes for now (we'll re-add them later if needed)
-          git reset HEAD
 
           # Check for unpushed local commits
           UNPUSHED_COUNT=0
           if [ "$BRANCH_EXISTS_REMOTELY" = "true" ]; then
             UNPUSHED_COUNT=$(git rev-list --count "origin/$PR_BRANCH..HEAD" 2>/dev/null || echo "0")
             if [ "$UNPUSHED_COUNT" -gt 0 ]; then
-              echo "[INFO] Found $UNPUSHED_COUNT unpushed local commits"
+              echo "[INFO] Found $UNPUSHED_COUNT unpushed local commit(s)"
               NEEDS_PUSH=true
             fi
           else
             # For new branches, check if we have any commits at all
             COMMIT_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo "0")
             if [ "$COMMIT_COUNT" -gt 0 ]; then
-              echo "[INFO] Branch has $COMMIT_COUNT commits that need to be pushed to the new remote branch"
+              echo "[INFO] Branch has $COMMIT_COUNT commit(s) that need to be pushed to the new remote branch"
               NEEDS_PUSH=true
             fi
-          fi
-
-          # Commit changes if there are any
-          if [ "$CHANGES_TO_COMMIT" = "true" ]; then
-            # Add all changes
-            git add -A
-            if ! git diff --cached --quiet; then
-              echo "[INFO] Committing changes"
-              git commit -m "chore: update dependencies via workflow"
-              NEEDS_PUSH=true
-            else
-              echo "[INFO] No changes to commit after staging"
-            fi
-          else
-            echo "[INFO] Skipping commit as no changes were detected"
           fi
 
           # Only push if we have changes that need to be pushed
