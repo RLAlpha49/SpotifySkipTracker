@@ -407,7 +407,7 @@ jobs:
           # Use branch name from previous steps, or fallback to default
           PR_BRANCH="${{ steps.checkout.outputs.pr_branch }}"
           if [ -z "$PR_BRANCH" ]; then
-            PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
+          PR_BRANCH="${{ steps.check-pr.outputs.pr_branch }}"
             if [ -z "$PR_BRANCH" ]; then
               PR_BRANCH="${{ steps.set-default-branch.outputs.pr_branch }}"
               if [ -z "$PR_BRANCH" ]; then
@@ -525,7 +525,7 @@ jobs:
           else
             if [ "$CHANGES_TO_COMMIT" = "true" ] || [ "$UNPUSHED_COUNT" -gt 0 ]; then
               echo "[ERROR] Failed to push branch $PR_BRANCH to remote"
-              exit 1
+            exit 1
             else
               echo "[WARNING] Branch doesn't exist remotely but there were no changes to push"
               echo "pr_branch=$PR_BRANCH" >> $GITHUB_OUTPUT

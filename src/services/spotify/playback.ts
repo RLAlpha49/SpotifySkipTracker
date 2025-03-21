@@ -9,6 +9,7 @@ import { API_BASE_URL } from "./constants";
 import {
   SpotifyPlaybackState,
   SpotifyRecentlyPlayedResponse,
+  SpotifyTrack,
   AxiosErrorResponse,
 } from "@/types/spotify-api";
 import { ensureValidToken, getAccessToken } from "./token";
@@ -59,6 +60,39 @@ export async function getCurrentPlayback(
 
     saveLog(`Failed to get playback state: ${err.message}`, "ERROR");
     throw new Error(`Failed to get playback state: ${err.message}`);
+  }
+}
+
+/**
+ * Gets a specific track by its Spotify ID
+ *
+ * @param trackId The Spotify track ID to retrieve
+ * @returns Promise resolving to the track data or null if not found
+ * @throws Error if the request fails
+ */
+export async function getTrack(trackId: string): Promise<SpotifyTrack | null> {
+  await ensureValidToken();
+
+  try {
+    const response = await retryApiCall(async () => {
+      return await spotifyAxios.get(`${API_BASE_URL}/tracks/${trackId}`, {
+        headers: {
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+      });
+    });
+
+    return response.data as SpotifyTrack;
+  } catch (error: unknown) {
+    const err = error as Error & AxiosErrorResponse;
+
+    // Don't log 404 errors as they just mean the track wasn't found
+    if (err.response && err.response.status === 404) {
+      return null;
+    }
+
+    saveLog(`Failed to get track ${trackId}: ${err.message}`, "ERROR");
+    throw new Error(`Failed to get track ${trackId}: ${err.message}`);
   }
 }
 

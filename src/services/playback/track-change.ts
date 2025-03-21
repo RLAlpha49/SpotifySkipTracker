@@ -70,6 +70,37 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
         progressPercent * 100,
       );
 
+      // Record enhanced statistics for skipped track
+      try {
+        // Get track artist ID (we'll retrieve only the first one for simplicity)
+        const trackInfo = await spotifyApi.getTrack(previousTrackId);
+        const artistId = trackInfo?.artists?.[0]?.id || "unknown";
+
+        // Update stats with skipped track information
+        await store.updateTrackStatistics(
+          previousTrackId,
+          state.currentTrackName || "",
+          artistId,
+          state.currentArtistName || "",
+          duration,
+          true, // was skipped
+          lastProgress,
+          state.currentDeviceName,
+          state.currentDeviceType,
+          Date.now(),
+        );
+
+        store.saveLog(
+          `Enhanced statistics recorded for skipped track "${state.currentTrackName}"`,
+          "DEBUG",
+        );
+      } catch (error) {
+        store.saveLog(
+          `Failed to record enhanced skip statistics: ${error}`,
+          "ERROR",
+        );
+      }
+
       // If auto-unlike is enabled and we've reached the skip threshold, unlike the track
       const skippedTracks = await store.getSkippedTracks();
       const trackData = skippedTracks.find(
@@ -105,6 +136,56 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
         `Track "${state.currentTrackName}" completed (${(progressPercent * 100).toFixed(1)}%)`,
         "DEBUG",
       );
+
+      // Record enhanced statistics for completed track
+      try {
+        // Get track artist ID
+        const trackInfo = await spotifyApi.getTrack(previousTrackId);
+        const artistId = trackInfo?.artists?.[0]?.id || "unknown";
+
+        // Update statistics with completed track information
+        await store.updateTrackStatistics(
+          previousTrackId,
+          state.currentTrackName || "",
+          artistId,
+          state.currentArtistName || "",
+          duration,
+          false, // not skipped
+          duration, // Played full duration
+          state.currentDeviceName,
+          state.currentDeviceType,
+          Date.now(),
+        );
+
+        store.saveLog(
+          `Enhanced statistics recorded for completed track "${state.currentTrackName}"`,
+          "DEBUG",
+        );
+      } catch (error) {
+        store.saveLog(
+          `Failed to record enhanced completion statistics: ${error}`,
+          "ERROR",
+        );
+      }
+
+      // Update not-skipped count (previously tracked)
+      try {
+        await store.updateNotSkippedTrack({
+          id: previousTrackId,
+          name: state.currentTrackName || "",
+          artist: state.currentArtistName || "",
+          skipCount: 0,
+          notSkippedCount: 1,
+          lastSkipped: "",
+        });
+
+        store.saveLog(
+          `Recorded completed play for "${state.currentTrackName}"`,
+          "DEBUG",
+        );
+      } catch (error) {
+        store.saveLog(`Failed to update not-skipped count: ${error}`, "ERROR");
+      }
     }
   } catch (error) {
     store.saveLog(`Error handling track change: ${error}`, "ERROR");

@@ -14,5 +14,8 @@ export * from "./settings-store";
 // Re-export logging functions
 export * from "./logs-store";
 
-// Re-export skipped tracks functions
+// Re-export tracks storage functions
 export * from "./tracks-store";
+
+// Re-export enhanced statistics storage functions
+export * from "./statistics-store";

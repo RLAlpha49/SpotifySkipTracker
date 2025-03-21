@@ -286,6 +286,9 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
         currentTrackDuration: playback.item.duration_ms,
         currentTrackProgress: playback.progress_ms || 0,
         lastProgress: playback.progress_ms || 0,
+        currentDeviceName: playback.device?.name || null,
+        currentDeviceType: playback.device?.type || null,
+        currentDeviceVolume: playback.device?.volume_percent || null,
         isInLibrary,
         libraryStatusLogged: false,
         lastUpdated: Date.now(),
@@ -367,9 +370,9 @@ async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
           (playback.progress_ms / playback.item.duration_ms) * 100,
         trackDuration: Math.round(playback.item.duration_ms / 1000),
         trackProgress: (playback.progress_ms / playback.item.duration_ms) * 100,
-        deviceName: state.currentDeviceName,
-        deviceType: state.currentDeviceType,
-        deviceVolume: state.currentDeviceVolume,
+        deviceName: playback.device?.name || null,
+        deviceType: playback.device?.type || null,
+        deviceVolume: playback.device?.volume_percent || null,
       } as PlaybackUpdateData);
     }
   } catch (error) {

@@ -5,6 +5,8 @@
  * window extensions for IPC communication, and Spotify API structures.
  */
 
+import { StatisticsData } from "./types/statistics";
+
 // Vite-generated environment constants for Electron integration
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -131,6 +133,9 @@ declare interface Window {
     // Settings
     saveSettings: (settings: SpotifySettings) => Promise<boolean>;
     getSettings: () => Promise<SpotifySettings>;
+
+    // Statistics
+    getStatistics: () => Promise<StatisticsData>;
 
     // Logs
     saveLog: (

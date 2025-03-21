@@ -20,6 +20,8 @@ import {
   skipsPath,
   removeSkippedTrack,
   filterSkippedTracksByTimeframe,
+  getStatistics,
+  clearStatistics,
 } from "../../helpers/storage/store";
 
 // Spotify service imports
@@ -633,6 +635,29 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
       return true;
     } catch (error) {
       saveLog(`Failed to skip to next track: ${error}`, "ERROR");
+      return false;
+    }
+  });
+
+  // Statistics handlers
+  ipcMain.handle("spotify:getStatistics", async () => {
+    try {
+      saveLog("Retrieving statistics data", "DEBUG");
+      const stats = await getStatistics();
+      return stats;
+    } catch (error) {
+      saveLog(`Error retrieving statistics: ${error}`, "ERROR");
+      throw new Error(`Failed to get statistics: ${error}`);
+    }
+  });
+
+  ipcMain.handle("spotify:clearStatistics", async () => {
+    try {
+      saveLog("Clearing statistics data", "INFO");
+      const result = await clearStatistics();
+      return result;
+    } catch (error) {
+      saveLog(`Error clearing statistics: ${error}`, "ERROR");
       return false;
     }
   });
