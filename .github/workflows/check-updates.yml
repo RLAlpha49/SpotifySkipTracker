@@ -474,13 +474,23 @@ jobs:
             fi
           fi
 
-          # Check for unpushed local commits
+          # Save changes status for later steps
+          if [ "$CHANGES_TO_COMMIT" = "true" ]; then
+            echo "changes_committed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changes_committed=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Count unpushed changes for later status reporting
           UNPUSHED_COUNT=0
           if [ "$BRANCH_EXISTS_REMOTELY" = "true" ]; then
             UNPUSHED_COUNT=$(git rev-list --count "origin/$PR_BRANCH..HEAD" 2>/dev/null || echo "0")
             if [ "$UNPUSHED_COUNT" -gt 0 ]; then
               echo "[INFO] Found $UNPUSHED_COUNT unpushed local commit(s)"
               NEEDS_PUSH=true
+              echo "unpushed_count=$UNPUSHED_COUNT" >> $GITHUB_OUTPUT
+            else
+              echo "unpushed_count=0" >> $GITHUB_OUTPUT
             fi
           else
             # For new branches, check if we have any commits at all
@@ -488,6 +498,9 @@ jobs:
             if [ "$COMMIT_COUNT" -gt 0 ]; then
               echo "[INFO] Branch has $COMMIT_COUNT commit(s) that need to be pushed to the new remote branch"
               NEEDS_PUSH=true
+              echo "unpushed_count=$COMMIT_COUNT" >> $GITHUB_OUTPUT
+            else
+              echo "unpushed_count=0" >> $GITHUB_OUTPUT
             fi
           fi
 
@@ -495,8 +508,11 @@ jobs:
           if [ "$NEEDS_PUSH" = "true" ]; then
             echo "[INFO] Pushing changes to remote"
             git push -u origin "$PR_BRANCH"
+            # Set flag to indicate we pushed changes
+            echo "changes_pushed=true" >> $GITHUB_OUTPUT
           else
             echo "[INFO] Skipping push as no changes need to be pushed"
+            echo "changes_pushed=false" >> $GITHUB_OUTPUT
           fi
 
           # Verify branch exists remotely
@@ -514,7 +530,7 @@ jobs:
           fi
 
       - name: Add comment to existing PR about updates
-        if: ${{ steps.check-pr.outputs.pr_exists == 'true' && (steps.check-updates.outputs.has_updates == 'true' || steps.check-dependabot.outputs.has_dependabot_prs == 'true') }}
+        if: ${{ steps.check-pr.outputs.pr_exists == 'true' && (steps.push-changes.outputs.changes_committed == 'true' || steps.push-changes.outputs.changes_pushed == 'true' || steps.check-dependabot-incorporate.outputs.incorporated_count > 0) }}
         env:
           GITHUB_TOKEN: ${{ secrets.PULL_REQUEST_TOKEN || secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.check-pr.outputs.pr_number }}
@@ -527,17 +543,6 @@ jobs:
           # Store original branch to return to it later
           ORIGINAL_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
-          # First check if the PR branch changed in this run by comparing with remote
-          git fetch origin "$PR_BRANCH"
-          LOCAL_HEAD=$(git rev-parse HEAD)
-          REMOTE_HEAD=$(git rev-parse "origin/$PR_BRANCH")
-
-          BRANCH_CHANGED=false
-          if [ "$LOCAL_HEAD" != "$REMOTE_HEAD" ]; then
-            BRANCH_CHANGED=true
-            echo "[INFO] Local branch differs from remote - changes detected"
-          fi
-
           # Count dependabot PRs newly incorporated in this run
           NEWLY_INCORPORATED=0
           if [ -n "${{ steps.check-dependabot-incorporate.outputs.incorporated_prs }}" ]; then
@@ -546,24 +551,7 @@ jobs:
             echo "[INFO] $NEWLY_INCORPORATED Dependabot PRs were newly incorporated"
           fi
 
-          # Specifically check for updates to the PR branch, not just any branch
-          PACKAGES_UPDATED=false
-          NEW_PR_COMMITS=0
-
-          # Check for new commits to the PR branch specifically
-          if git log "origin/$PR_BRANCH..$PR_BRANCH" --pretty=format:"%h %s" | grep -q "update npm dependencies"; then
-            PACKAGES_UPDATED=true
-            NEW_PR_COMMITS=$(git log "origin/$PR_BRANCH..$PR_BRANCH" --pretty=format:"%h" | wc -l)
-            echo "[INFO] Found $NEW_PR_COMMITS new commits with package updates on branch $PR_BRANCH"
-          fi
-
-          # Only proceed if we made actual commits to the PR branch or Dependabot PRs were incorporated
-          if [[ "$BRANCH_CHANGED" == "false" && "$NEWLY_INCORPORATED" -eq 0 && "$PACKAGES_UPDATED" == "false" ]]; then
-            echo "[INFO] No changes were made to PR branch $PR_BRANCH in this run - skipping comment"
-            exit 0
-          fi
-
-          echo "[INFO] Changes were made to PR branch $PR_BRANCH - adding PR comment"
+          echo "[INFO] Adding PR comment with updates to PR #$PR_NUMBER"
 
           # Create the PR comment
           COMMENT_FILE=$(mktemp)
