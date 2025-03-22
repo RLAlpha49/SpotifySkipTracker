@@ -1,9 +1,6 @@
 import React, { lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  AlertTriangle,
-  XCircle,
-} from "lucide-react";
+import { AlertTriangle, XCircle } from "lucide-react";
 import { SkippedTrack } from "@/types/spotify";
 import { shouldSuggestRemoval } from "./utils";
 import {
