@@ -44,8 +44,13 @@ export const getDayName = (day: number) => {
 };
 
 /**
- * Gets a formatted hour label for 24-hour format
+ * Formats an hour number into a readable time label
+ *
+ * @param hour - Hour in 24-hour format (0-23)
+ * @returns Time label in 12-hour format (e.g., "12 AM", "1 PM")
  */
-export const getHourLabel = (hour: number) => {
-  return `${hour}:00${hour < 12 ? "am" : "pm"}`;
-};
+export function getHourLabel(hour: number): string {
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12; // Convert 0 to 12 for 12 AM
+  return `${displayHour} ${period}`;
+}

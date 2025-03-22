@@ -212,3 +212,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Fix for ScrollArea display:table issue */
+[data-radix-scroll-area-viewport] > div {
+  display: block !important;
+}

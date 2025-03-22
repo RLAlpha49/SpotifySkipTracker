@@ -16,7 +16,24 @@ import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatisticsData } from "@/types/statistics";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Trash2 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  RefreshCw,
+  Trash2,
+  LayoutDashboard,
+  GitBranch,
+  Clock,
+  Music,
+  ListMusic,
+  Disc,
+  Smartphone,
+  SkipForward,
+} from "lucide-react";
 import {
   OverviewTab,
   ListeningPatternsTab,
@@ -196,17 +213,185 @@ export default function StatisticsPage() {
         defaultValue="overview"
         value={activeTab}
         onValueChange={setActiveTab}
+        className="space-y-4"
       >
-        <TabsList className="mb-4 flex w-full justify-start overflow-x-auto">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="listening">Listening Patterns</TabsTrigger>
-          <TabsTrigger value="time">Time Analytics</TabsTrigger>
-          <TabsTrigger value="artists">Artists</TabsTrigger>
-          <TabsTrigger value="sessions">Sessions</TabsTrigger>
-          <TabsTrigger value="tracks">Tracks</TabsTrigger>
-          <TabsTrigger value="devices">Devices</TabsTrigger>
-          <TabsTrigger value="patterns">Skip Patterns</TabsTrigger>
-        </TabsList>
+        <div className="bg-card mb-4 h-auto rounded-lg border shadow">
+          <TabsList className="no-scrollbar flex min-h-fit w-full flex-wrap justify-start gap-2 p-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="overview"
+                    className={`flex items-center gap-1.5 rounded-md border px-3 py-2 shadow-sm transition-all duration-200 ${
+                      activeTab === "overview"
+                        ? "bg-primary/10 border-primary/50 text-primary -translate-y-0.5 font-semibold shadow-md"
+                        : "bg-background/50 hover:bg-background/70 hover:border-border/50 border-transparent hover:-translate-y-0.5 hover:shadow"
+                    }`}
+                  >
+                    <LayoutDashboard
+                      className={`h-4 w-4 ${activeTab === "overview" ? "text-primary" : ""}`}
+                    />
+                    <span className="hidden sm:inline">Overview</span>
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent className="sm:hidden">Overview</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="listening"
+                    className={`flex items-center gap-1.5 rounded-md border px-3 py-2 shadow-sm transition-all duration-200 ${
+                      activeTab === "listening"
+                        ? "bg-primary/10 border-primary/50 text-primary -translate-y-0.5 font-semibold shadow-md"
+                        : "bg-background/50 hover:bg-background/70 hover:border-border/50 border-transparent hover:-translate-y-0.5 hover:shadow"
+                    }`}
+                  >
+                    <GitBranch
+                      className={`h-4 w-4 ${activeTab === "listening" ? "text-primary" : ""}`}
+                    />
+                    <span className="hidden sm:inline">Listening Patterns</span>
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent className="sm:hidden">
+                  Listening Patterns
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="time"
+                    className={`flex items-center gap-1.5 rounded-md border px-3 py-2 shadow-sm transition-all duration-200 ${
+                      activeTab === "time"
+                        ? "bg-primary/10 border-primary/50 text-primary -translate-y-0.5 font-semibold shadow-md"
+                        : "bg-background/50 hover:bg-background/70 hover:border-border/50 border-transparent hover:-translate-y-0.5 hover:shadow"
+                    }`}
+                  >
+                    <Clock
+                      className={`h-4 w-4 ${activeTab === "time" ? "text-primary" : ""}`}
+                    />
+                    <span className="hidden sm:inline">Time Analytics</span>
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent className="sm:hidden">
+                  Time Analytics
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="artists"
+                    className={`flex items-center gap-1.5 rounded-md border px-3 py-2 shadow-sm transition-all duration-200 ${
+                      activeTab === "artists"
+                        ? "bg-primary/10 border-primary/50 text-primary -translate-y-0.5 font-semibold shadow-md"
+                        : "bg-background/50 hover:bg-background/70 hover:border-border/50 border-transparent hover:-translate-y-0.5 hover:shadow"
+                    }`}
+                  >
+                    <Music
+                      className={`h-4 w-4 ${activeTab === "artists" ? "text-primary" : ""}`}
+                    />
+                    <span className="hidden sm:inline">Artists</span>
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent className="sm:hidden">Artists</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="sessions"
+                    className={`flex items-center gap-1.5 rounded-md border px-3 py-2 shadow-sm transition-all duration-200 ${
+                      activeTab === "sessions"
+                        ? "bg-primary/10 border-primary/50 text-primary -translate-y-0.5 font-semibold shadow-md"
+                        : "bg-background/50 hover:bg-background/70 hover:border-border/50 border-transparent hover:-translate-y-0.5 hover:shadow"
+                    }`}
+                  >
+                    <ListMusic
+                      className={`h-4 w-4 ${activeTab === "sessions" ? "text-primary" : ""}`}
+                    />
+                    <span className="hidden sm:inline">Sessions</span>
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent className="sm:hidden">Sessions</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="tracks"
+                    className={`flex items-center gap-1.5 rounded-md border px-3 py-2 shadow-sm transition-all duration-200 ${
+                      activeTab === "tracks"
+                        ? "bg-primary/10 border-primary/50 text-primary -translate-y-0.5 font-semibold shadow-md"
+                        : "bg-background/50 hover:bg-background/70 hover:border-border/50 border-transparent hover:-translate-y-0.5 hover:shadow"
+                    }`}
+                  >
+                    <Disc
+                      className={`h-4 w-4 ${activeTab === "tracks" ? "text-primary" : ""}`}
+                    />
+                    <span className="hidden sm:inline">Tracks</span>
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent className="sm:hidden">Tracks</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="devices"
+                    className={`flex items-center gap-1.5 rounded-md border px-3 py-2 shadow-sm transition-all duration-200 ${
+                      activeTab === "devices"
+                        ? "bg-primary/10 border-primary/50 text-primary -translate-y-0.5 font-semibold shadow-md"
+                        : "bg-background/50 hover:bg-background/70 hover:border-border/50 border-transparent hover:-translate-y-0.5 hover:shadow"
+                    }`}
+                  >
+                    <Smartphone
+                      className={`h-4 w-4 ${activeTab === "devices" ? "text-primary" : ""}`}
+                    />
+                    <span className="hidden sm:inline">Devices</span>
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent className="sm:hidden">Devices</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="patterns"
+                    className={`flex items-center gap-1.5 rounded-md border px-3 py-2 shadow-sm transition-all duration-200 ${
+                      activeTab === "patterns"
+                        ? "bg-primary/10 border-primary/50 text-primary -translate-y-0.5 font-semibold shadow-md"
+                        : "bg-background/50 hover:bg-background/70 hover:border-border/50 border-transparent hover:-translate-y-0.5 hover:shadow"
+                    }`}
+                  >
+                    <SkipForward
+                      className={`h-4 w-4 ${activeTab === "patterns" ? "text-primary" : ""}`}
+                    />
+                    <span className="hidden sm:inline">Skip Patterns</span>
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent className="sm:hidden">
+                  Skip Patterns
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </TabsList>
+        </div>
 
         {/* Overview Tab */}
         <TabsContent value="overview">
