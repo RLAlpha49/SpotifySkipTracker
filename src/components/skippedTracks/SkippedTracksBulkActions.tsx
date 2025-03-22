@@ -1,6 +1,9 @@
 import React, { lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
-import { TrashIcon, MinusCircleIcon } from "lucide-react";
+import {
+  AlertTriangle,
+  XCircle,
+} from "lucide-react";
 import { SkippedTrack } from "@/types/spotify";
 import { shouldSuggestRemoval } from "./utils";
 import {
@@ -9,6 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Card, CardContent } from "@/components/ui/card";
 
 // Lazy load the dialogs
 const ClearDataDialog = lazy(() => import("./dialogs/ClearDataDialog"));
@@ -46,53 +50,75 @@ export function SkippedTracksBulkActions({
   );
 
   return (
-    <div className="mb-4 flex justify-end gap-2">
-      {/* Clear All Skipped Data Button */}
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={loading || tracks.length === 0}
-              className="flex items-center gap-1 border-yellow-300 text-yellow-600 hover:text-yellow-800"
-              onClick={() => setShowClearDataDialog(true)}
-            >
-              <TrashIcon className="h-4 w-4" />
-              <span>Clear All Skipped Data</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>
-              Delete all skip statistics while keeping your tracks in Spotify
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+    <Card className="border-muted mb-4 border">
+      <CardContent className="p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-muted-foreground text-sm">
+            <span className="font-medium">{tracks.length}</span> tracks tracked
+            {tracksToRemove.length > 0 && (
+              <span className="ml-2 text-rose-500">
+                (<span className="font-medium">{tracksToRemove.length}</span>{" "}
+                highlighted for removal)
+              </span>
+            )}
+          </div>
 
-      {/* Remove All Highlighted Button */}
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={loading || tracksToRemove.length === 0}
-              className="flex items-center gap-1 border-red-300 text-red-600 hover:text-red-800"
-              onClick={() => setShowRemoveHighlightedDialog(true)}
-            >
-              <MinusCircleIcon className="h-4 w-4" />
-              <span>Remove All Highlighted</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>
-              Remove all frequently-skipped tracks (highlighted rows) from your
-              Spotify library
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+          <div className="flex flex-wrap gap-2">
+            {/* Clear All Skipped Data Button */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={loading || tracks.length === 0}
+                    className="flex items-center gap-1.5 border-yellow-200 text-amber-600 transition-colors hover:bg-amber-50 hover:text-amber-700 dark:border-yellow-900 dark:text-amber-500 dark:hover:bg-amber-950/50"
+                    onClick={() => setShowClearDataDialog(true)}
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    <span>Clear Skip Data</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="text-xs">
+                    Delete all skip statistics while keeping your tracks in
+                    Spotify
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* Remove All Highlighted Button */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={loading || tracksToRemove.length === 0}
+                    className="flex items-center gap-1.5 border-rose-200 bg-rose-50/50 text-rose-600 transition-colors hover:bg-rose-100 hover:text-rose-700 dark:border-rose-900/70 dark:bg-rose-950/20 dark:text-rose-500 dark:hover:bg-rose-950/50"
+                    onClick={() => setShowRemoveHighlightedDialog(true)}
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <span>Remove Highlighted</span>
+                    {tracksToRemove.length > 0 && (
+                      <span className="ml-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-200 px-1 text-xs font-semibold text-rose-700 dark:bg-rose-800 dark:text-rose-200">
+                        {tracksToRemove.length}
+                      </span>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="text-xs">
+                    Remove all frequently-skipped tracks (highlighted rows) from
+                    your Spotify library
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+      </CardContent>
 
       {/* Lazy load the dialogs only when needed */}
       {showClearDataDialog && (
@@ -117,6 +143,6 @@ export function SkippedTracksBulkActions({
           />
         </Suspense>
       )}
-    </div>
+    </Card>
   );
 }

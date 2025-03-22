@@ -1,6 +1,13 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { FolderOpen, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  FolderOpen,
+  RefreshCw,
+  SkipForward,
+  AlertCircle,
+  Calendar,
+} from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -24,15 +31,37 @@ export function SkippedTracksHeader({
   onOpenSkipsDirectory,
 }: SkippedTracksHeaderProps) {
   return (
-    <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row">
-      <div className="flex-1 pr-4">
-        <h1 className="text-2xl font-bold">Skipped Tracks</h1>
-        <p className="text-muted-foreground text-sm text-wrap">
-          Tracks you&apos;ve skipped within the last {timeframeInDays} days.
-          <span className="mt-0.5 block text-xs">
-            Tracks skipped {skipThreshold}+ times are highlighted for removal.
-          </span>
-        </p>
+    <div className="bg-card mb-6 flex flex-col justify-between gap-4 rounded-lg border p-4 shadow-sm sm:flex-row sm:items-center">
+      <div className="flex-1 space-y-2">
+        <div className="flex items-center gap-2">
+          <SkipForward className="h-5 w-5 text-rose-500" />
+          <h1 className="text-2xl font-bold">Skipped Tracks</h1>
+        </div>
+        <div className="space-y-1">
+          <p className="text-muted-foreground flex items-center gap-1.5">
+            <Calendar className="h-4 w-4" />
+            <span>
+              Tracks you&apos;ve skipped within the last{" "}
+              <Badge variant="outline" className="mr-0.5 ml-0.5 font-mono">
+                {timeframeInDays}
+              </Badge>{" "}
+              days
+            </span>
+          </p>
+          <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+            <AlertCircle className="h-3.5 w-3.5 text-rose-500" />
+            <span>
+              Tracks skipped{" "}
+              <Badge
+                variant="outline"
+                className="mr-0.5 ml-0.5 font-mono text-xs"
+              >
+                {skipThreshold}+
+              </Badge>{" "}
+              times are highlighted for removal
+            </span>
+          </p>
+        </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <TooltipProvider>
@@ -42,9 +71,9 @@ export function SkippedTracksHeader({
                 variant="outline"
                 size="sm"
                 onClick={onOpenSkipsDirectory}
-                className="flex items-center gap-1"
+                className="border-muted-foreground/20 hover:bg-muted flex items-center gap-1 transition-colors duration-200"
               >
-                <FolderOpen className="h-4 w-4" />
+                <FolderOpen className="h-4 w-4 text-amber-500" />
                 <span>Open Skips</span>
               </Button>
             </TooltipTrigger>
@@ -60,10 +89,13 @@ export function SkippedTracksHeader({
               <Button
                 onClick={onRefresh}
                 disabled={loading}
-                className="flex items-center gap-1"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1 transition-colors duration-200"
               >
                 {loading ? (
-                  "Loading..."
+                  <span className="flex items-center gap-1">
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <span>Loading...</span>
+                  </span>
                 ) : (
                   <>
                     <RefreshCw className="h-4 w-4" />

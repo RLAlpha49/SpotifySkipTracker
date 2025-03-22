@@ -25,6 +25,7 @@ import { SkipDetectionForm } from "@/components/settings/SkipDetectionForm";
 import { ApplicationSettingsForm } from "@/components/settings/ApplicationSettingsForm";
 import { RestartDialog } from "@/components/settings/RestartDialog";
 import { settingsFormSchema } from "@/components/settings/settingsFormSchema";
+import { Save } from "lucide-react";
 
 export default function SettingsPage() {
   // State for application restart confirmation dialog
@@ -180,17 +181,17 @@ export default function SettingsPage() {
   }, [form]);
 
   return (
-    <div className="container mx-auto py-4">
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-muted-foreground text-sm">
+    <div className="container mx-auto max-w-4xl py-8">
+      <div className="mb-8 border-b pb-4">
+        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <p className="text-muted-foreground mt-2">
           Configure application settings and Spotify credentials
         </p>
       </div>
 
-      <CardContent className="p-2 sm:p-6">
+      <CardContent className="p-0 sm:p-0">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10">
             {/* Spotify API Settings */}
             <ApiCredentialsForm
               form={form}
@@ -211,8 +212,14 @@ export default function SettingsPage() {
               setSettingsChanged={setSettingsChanged}
             />
 
-            <div className="mt-6 flex justify-end">
-              <Button type="submit" disabled={!settingsChanged}>
+            <div className="mt-10 flex justify-end border-t pt-6">
+              <Button
+                type="submit"
+                disabled={!settingsChanged}
+                className="px-6 transition-all duration-200"
+                size="lg"
+              >
+                <Save className="mr-2 h-4 w-4" />
                 Save Settings
               </Button>
             </div>

@@ -30,6 +30,7 @@ declare global {
       getCurrentPlayback: () => Promise<SpotifyPlaybackInfo | null>;
 
       // Skipped tracks
+      openURL: (url: string) => Promise<boolean>;
       getSkippedTracks: () => Promise<SkippedTrack[]>;
       refreshSkippedTracks: () => Promise<SkippedTrack[]>;
       saveSkippedTracks: (tracks: SkippedTrack[]) => Promise<boolean>;

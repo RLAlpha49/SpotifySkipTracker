@@ -671,4 +671,32 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
       return false;
     }
   });
+
+  // URL and file system handling
+  ipcMain.handle("spotify:openURL", async (_, url) => {
+    try {
+      console.log("Opening URL in default browser:", url);
+      // Open URL in default browser
+      await shell.openExternal(url);
+      saveLog(`Opened URL in default browser: ${url}`, "INFO");
+      return true;
+    } catch (error) {
+      console.error("Failed to open URL:", error);
+      saveLog(`Failed to open URL in default browser: ${error}`, "ERROR");
+      return false;
+    }
+  });
+
+  ipcMain.handle("spotify:showItemInFolder", async (_, path) => {
+    try {
+      console.log("Showing item in folder:", path);
+      await shell.showItemInFolder(path);
+      saveLog(`Showed item in folder: ${path}`, "INFO");
+      return true;
+    } catch (error) {
+      console.error("Failed to show item in folder:", error);
+      saveLog(`Failed to show item in folder: ${error}`, "ERROR");
+      return false;
+    }
+  });
 }

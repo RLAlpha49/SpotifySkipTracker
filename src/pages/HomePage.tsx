@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { PlaybackInfo, LogSettings } from "@/types/spotify";
 import { LogLevel } from "@/types/logging";
 import { LoadingSpinner } from "@/components/ui/spinner";
+import { MusicIcon } from "lucide-react";
 
 const AuthenticationCard = lazy(() => {
   return import("@/components/spotify/AuthenticationCard")
@@ -668,76 +669,88 @@ export default function HomePage() {
   };
 
   return (
-    <div className="container mx-auto flex flex-col gap-6 py-4">
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <Suspense
-          fallback={
-            <div className="border p-4">
-              <LoadingSpinner size="md" text="Loading authentication..." />
-            </div>
-          }
-        >
-          <AuthenticationCard
-            isAuthenticated={isAuthenticated}
-            needsReauthentication={needsReauthentication}
-            onLogin={handleAuthenticate}
-            onLogout={handleLogout}
-          />
-        </Suspense>
+    <div className="container mx-auto max-w-5xl py-8">
+      <div className="mb-8 border-b pb-4">
+        <h1 className="flex items-center text-3xl font-bold tracking-tight">
+          <MusicIcon className="text-primary mr-3 h-8 w-8" />
+          Spotify Skip Tracker
+        </h1>
+        <p className="text-muted-foreground mt-2">
+          Monitor your Spotify playback and identify frequently skipped tracks
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <Suspense
+            fallback={
+              <div className="bg-muted/30 flex h-40 animate-pulse items-center justify-center rounded-lg border p-6 shadow-sm">
+                <LoadingSpinner size="md" text="Loading authentication..." />
+              </div>
+            }
+          >
+            <AuthenticationCard
+              isAuthenticated={isAuthenticated}
+              needsReauthentication={needsReauthentication}
+              onLogin={handleAuthenticate}
+              onLogout={handleLogout}
+            />
+          </Suspense>
+
+          <Suspense
+            fallback={
+              <div className="bg-muted/30 flex h-40 animate-pulse items-center justify-center rounded-lg border p-6 shadow-sm">
+                <LoadingSpinner size="md" text="Loading playback controls..." />
+              </div>
+            }
+          >
+            <PlaybackMonitoringCard
+              isAuthenticated={isAuthenticated}
+              isMonitoring={isMonitoring}
+              onStartMonitoring={handleStartMonitoring}
+              onStopMonitoring={handleStopMonitoring}
+            />
+          </Suspense>
+        </div>
+
+        {(isAuthenticated || playbackInfo) && (
+          <Suspense
+            fallback={
+              <div className="bg-muted/30 flex h-52 animate-pulse items-center justify-center rounded-lg border p-6 shadow-sm">
+                <LoadingSpinner size="md" text="Loading now playing..." />
+              </div>
+            }
+          >
+            <NowPlayingCard
+              isAuthenticated={isAuthenticated}
+              isMonitoring={isMonitoring}
+              playbackInfo={playbackInfo}
+              onPlayPause={handlePlayPause}
+              onPreviousTrack={handlePreviousTrack}
+              onNextTrack={handleNextTrack}
+            />
+          </Suspense>
+        )}
 
         <Suspense
           fallback={
-            <div className="border p-4">
-              <LoadingSpinner size="md" text="Loading playback controls..." />
+            <div className="bg-muted/30 flex h-96 animate-pulse items-center justify-center rounded-lg border p-6 shadow-sm">
+              <LoadingSpinner size="md" text="Loading logs..." />
             </div>
           }
         >
-          <PlaybackMonitoringCard
-            isAuthenticated={isAuthenticated}
-            isMonitoring={isMonitoring}
-            onStartMonitoring={handleStartMonitoring}
-            onStopMonitoring={handleStopMonitoring}
+          <LogsCard
+            logs={logs}
+            settings={settings}
+            logSearchTerm={logSearchTerm}
+            onDisplayLogLevelChange={handleDisplayLogLevelChange}
+            onToggleLogAutoRefresh={handleToggleLogAutoRefresh}
+            onLogSearch={handleLogSearch}
+            onClearLogs={handleClearLogs}
+            onOpenLogsDirectory={handleOpenLogsDirectory}
           />
         </Suspense>
       </div>
-
-      {(isAuthenticated || playbackInfo) && (
-        <Suspense
-          fallback={
-            <div className="border p-4">
-              <LoadingSpinner size="md" text="Loading now playing..." />
-            </div>
-          }
-        >
-          <NowPlayingCard
-            isAuthenticated={isAuthenticated}
-            isMonitoring={isMonitoring}
-            playbackInfo={playbackInfo}
-            onPlayPause={handlePlayPause}
-            onPreviousTrack={handlePreviousTrack}
-            onNextTrack={handleNextTrack}
-          />
-        </Suspense>
-      )}
-
-      <Suspense
-        fallback={
-          <div className="border p-4">
-            <LoadingSpinner size="md" text="Loading logs..." />
-          </div>
-        }
-      >
-        <LogsCard
-          logs={logs}
-          settings={settings}
-          logSearchTerm={logSearchTerm}
-          onDisplayLogLevelChange={handleDisplayLogLevelChange}
-          onToggleLogAutoRefresh={handleToggleLogAutoRefresh}
-          onLogSearch={handleLogSearch}
-          onClearLogs={handleClearLogs}
-          onOpenLogsDirectory={handleOpenLogsDirectory}
-        />
-      </Suspense>
     </div>
   );
 }

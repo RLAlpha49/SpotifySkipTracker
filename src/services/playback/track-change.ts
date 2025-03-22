@@ -56,6 +56,15 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
 
     // If track changed before the skip threshold and is not in recently played, consider it skipped
     if (progressPercent < skipProgressThreshold && !isInRecentlyPlayed) {
+      // Check if the track is in the user's library (only count skips for library tracks)
+      if (!state.isInLibrary) {
+        store.saveLog(
+          `Track "${state.currentTrackName}" was skipped but not in library - skip not counted`,
+          "DEBUG",
+        );
+        return;
+      }
+
       store.saveLog(
         `Track "${state.currentTrackName}" was skipped at ${(progressPercent * 100).toFixed(1)}% (threshold: ${skipProgressThreshold * 100}%)`,
         "INFO",

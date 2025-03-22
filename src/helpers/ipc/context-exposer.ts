@@ -17,9 +17,10 @@ import { exposeThemeContext } from "./theme/theme-context";
 import { exposeWindowContext } from "./window/window-context";
 import { contextBridge, ipcRenderer } from "electron";
 import { LogLevel } from "@/types/logging";
-import { SkippedTrack } from "@/types/spotify";
+import { SkippedTrack, SpotifySettings } from "@/types/spotify";
 import { PlaybackState } from "@/types/playback";
 import { StatisticsData } from "@/types/statistics";
+import { SpotifyCredentials, SpotifyPlaybackInfo } from "@/types";
 
 // Local type definitions for IPC communication
 type AuthStatus = "authenticated" | "unauthenticated" | "authenticating";
