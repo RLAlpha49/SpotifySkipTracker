@@ -21,7 +21,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { saveLog } from "@/helpers/storage/logs-store";
 
 interface LogsCardProps {
   logs: string[];
@@ -104,7 +103,7 @@ export function LogsCard({
     const isLatestLog = value === "latest.log";
     const isAutoRefresh = settings.logAutoRefresh;
 
-    saveLog(
+    window.spotify.saveLog(
       `Switching to log file: ${value} (auto-refresh: ${isAutoRefresh && isLatestLog ? "enabled" : "disabled"})`,
       "DEBUG",
     );

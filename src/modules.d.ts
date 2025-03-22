@@ -53,6 +53,14 @@ declare global {
         level?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
       ) => Promise<boolean>;
       getLogs: (count?: number) => Promise<string[]>;
+      getLogsFromFile: (selectedLogFile: string) => Promise<string[]>;
+      getAvailableLogFiles: () => Promise<
+        {
+          name: string;
+          mtime: number;
+          displayName: string;
+        }[]
+      >;
       clearLogs: () => Promise<boolean>;
       openLogsDirectory: () => Promise<boolean>;
       openSkipsDirectory: () => Promise<boolean>;
