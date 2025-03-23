@@ -1,19 +1,29 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import {
-  Clock,
   Calendar,
-  LineChart,
   BarChart3,
-  AlarmClock,
-  Timer,
-  PlayCircle,
+  Clock,
+  Disc3,
+  FastForward,
+  MusicIcon,
+  LineChartIcon,
 } from "lucide-react";
 import { StatisticsData } from "@/types/statistics";
 import { NoDataMessage } from "./NoDataMessage";
 import { formatPercent, formatTime } from "./utils";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 interface TimeAnalyticsTabProps {
   loading: boolean;
@@ -24,6 +34,13 @@ export function TimeAnalyticsTab({
   loading,
   statistics,
 }: TimeAnalyticsTabProps) {
+  const [skipRateChartType, setSkipRateChartType] = useState<"bar" | "line">(
+    "bar",
+  );
+  const [listeningTimeChartType, setListeningTimeChartType] = useState<
+    "bar" | "line"
+  >("bar");
+
   if (loading) {
     return (
       <div className="grid gap-4 md:grid-cols-2">
@@ -151,7 +168,7 @@ export function TimeAnalyticsTab({
                       </div>
                       <div className="w-16 text-right text-xs">
                         <span className="flex items-center justify-end gap-1">
-                          <PlayCircle className="h-3 w-3" />
+                          <MusicIcon className="h-3 w-3" />
                           <span>{data.tracksPlayed}</span>
                         </span>
                       </div>
@@ -166,7 +183,7 @@ export function TimeAnalyticsTab({
       <Card className="group overflow-hidden transition-all duration-200 hover:border-violet-200 hover:shadow-md">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
-            <AlarmClock className="h-4 w-4 text-violet-500" />
+            <Clock className="h-4 w-4 text-violet-500" />
             Daily Listening (Last 7 Days)
           </CardTitle>
         </CardHeader>
@@ -205,7 +222,7 @@ export function TimeAnalyticsTab({
                         {displayDate}
                       </span>
                       <span className="flex items-center gap-1 text-xs font-medium">
-                        <PlayCircle className="h-3 w-3" />
+                        <MusicIcon className="h-3 w-3" />
                         {data.tracksPlayed}
                       </span>
                     </div>
@@ -227,7 +244,7 @@ export function TimeAnalyticsTab({
                         </div>
                       </div>
                       <div className="flex w-32 items-center justify-end gap-1 text-right text-xs">
-                        <Timer className="text-muted-foreground h-3 w-3" />
+                        <FastForward className="text-muted-foreground h-3 w-3" />
                         <span className="text-muted-foreground">
                           {formatTime(data.listeningTimeMs)}
                         </span>
@@ -257,7 +274,7 @@ export function TimeAnalyticsTab({
       <Card className="group mt-0 overflow-hidden transition-all duration-200 hover:border-cyan-200 hover:shadow-md md:col-span-2">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
-            <LineChart className="h-4 w-4 text-cyan-500" />
+            <MusicIcon className="h-4 w-4 text-cyan-500" />
             Listening Trends (Last 14 Days)
           </CardTitle>
         </CardHeader>
@@ -265,49 +282,271 @@ export function TimeAnalyticsTab({
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
               <div>
-                <div className="mb-10 flex items-center gap-2 text-sm font-medium">
-                  <BarChart3 className="h-4 w-4 text-rose-500" />
-                  Skip Rate Trend
+                <div className="mb-10 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Disc3 className="h-4 w-4 text-rose-500" />
+                    Skip Rate Trend
+                  </div>
+                  <ToggleGroup
+                    type="single"
+                    value={skipRateChartType}
+                    onValueChange={(value: string) =>
+                      value && setSkipRateChartType(value as "bar" | "line")
+                    }
+                    size="sm"
+                  >
+                    <ToggleGroupItem value="bar" aria-label="Bar chart">
+                      <BarChart3 className="h-3.5 w-3.5" />
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="line" aria-label="Line chart">
+                      <LineChartIcon className="h-3.5 w-3.5" />
+                    </ToggleGroupItem>
+                  </ToggleGroup>
                 </div>
-                <div className="flex h-[180px] items-end justify-between gap-1">
-                  {(statistics.recentSkipRateTrend || Array(14).fill(0)).map(
-                    (rate, index) => {
+
+                {skipRateChartType === "bar" ? (
+                  <div className="flex h-[180px] items-end justify-between gap-1">
+                    {(statistics.recentSkipRateTrend || Array(14).fill(0)).map(
+                      (rate, index) => {
+                        const barHeight = 160; // Fixed height for visualization area
+                        const minBarHeight = 4; // Minimum visible height
+                        const barHeightPx =
+                          rate > 0
+                            ? Math.max(
+                                Math.floor(rate * barHeight),
+                                minBarHeight,
+                              )
+                            : minBarHeight;
+
+                        const date = new Date();
+                        date.setDate(date.getDate() - (13 - index));
+                        const day = date.getDate();
+
+                        // Determine color based on skip rate
+                        const getColorClass = (rate: number) => {
+                          if (rate === 0) return "bg-muted/40 dark:bg-muted/20";
+                          if (rate < 0.3) return "bg-emerald-500";
+                          if (rate < 0.5) return "bg-amber-500";
+                          return "bg-rose-500";
+                        };
+
+                        return (
+                          <div
+                            key={index}
+                            className="flex flex-1 flex-col items-center gap-1"
+                          >
+                            <div
+                              className={`mb-1 text-xs font-medium ${
+                                rate > 0.5
+                                  ? "text-rose-500"
+                                  : rate > 0.3
+                                    ? "text-amber-500"
+                                    : rate > 0
+                                      ? "text-emerald-500"
+                                      : "text-muted-foreground"
+                              }`}
+                            >
+                              {rate > 0 ? `${Math.round(rate * 100)}%` : "-"}
+                            </div>
+                            <div
+                              className="bg-muted/30 dark:bg-muted/10 relative w-full overflow-hidden rounded-sm"
+                              style={{
+                                height: "160px",
+                              }}
+                            >
+                              <div
+                                className={`absolute bottom-0 w-full transition-all duration-500 ${getColorClass(rate)}`}
+                                style={{ height: `${barHeightPx}px` }}
+                              ></div>
+                            </div>
+                            <div className="text-xs font-medium">{day}</div>
+                          </div>
+                        );
+                      },
+                    )}
+                  </div>
+                ) : (
+                  <div className="h-[200px] w-full">
+                    {/* Prepare data for Recharts */}
+                    {(() => {
+                      const data = (
+                        statistics.recentSkipRateTrend || Array(14).fill(0)
+                      ).map((rate, index) => {
+                        const date = new Date();
+                        date.setDate(date.getDate() - (13 - index));
+                        const day = date.getDate();
+                        const month = date.toLocaleString("default", {
+                          month: "short",
+                        });
+
+                        return {
+                          day: `${day} ${month}`,
+                          skipRate: rate * 100, // Convert to percentage
+                          color:
+                            rate > 0.5
+                              ? "#f43f5e"
+                              : rate > 0.3
+                                ? "#f59e0b"
+                                : "#10b981",
+                        };
+                      });
+
+                      return (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart
+                            data={data}
+                            margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              vertical={false}
+                              stroke="rgba(100, 116, 139, 0.2)"
+                            />
+                            <XAxis
+                              dataKey="day"
+                              tickLine={false}
+                              axisLine={false}
+                              tick={{ fontSize: 11 }}
+                              tickFormatter={(value) => value.split(" ")[0]}
+                              padding={{ left: 10, right: 10 }}
+                            />
+                            <YAxis
+                              domain={[0, 100]}
+                              tickCount={5}
+                              tickLine={false}
+                              axisLine={false}
+                              tick={{ fontSize: 11 }}
+                              tickFormatter={(value) => `${value}%`}
+                            />
+                            <Tooltip
+                              formatter={(value) => [
+                                `${(value as number).toFixed(1)}%`,
+                                "Skip Rate",
+                              ]}
+                              labelFormatter={(label) => label}
+                              contentStyle={{
+                                backgroundColor: "rgba(15, 23, 42, 0.8)",
+                                border: "none",
+                                borderRadius: "6px",
+                                fontSize: "12px",
+                                padding: "8px 12px",
+                                color: "white",
+                              }}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="skipRate"
+                              stroke="rgba(244, 63, 94, 0.8)"
+                              strokeWidth={2}
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              dot={(props: any) => {
+                                const { cx, cy, index } = props;
+                                // Always return a circle element, don't return null
+                                if (
+                                  cx === undefined ||
+                                  cy === undefined ||
+                                  index === undefined
+                                ) {
+                                  return (
+                                    <circle cx={0} cy={0} r={0} fill="none" />
+                                  );
+                                }
+                                const rate = data[index].skipRate / 100;
+
+                                let fillColor = "rgba(74, 222, 128, 0.8)";
+                                if (rate > 0.5)
+                                  fillColor = "rgba(244, 63, 94, 0.8)";
+                                else if (rate > 0.3)
+                                  fillColor = "rgba(245, 158, 11, 0.8)";
+
+                                return (
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={4}
+                                    fill={fillColor}
+                                    stroke="white"
+                                    strokeWidth={1}
+                                  />
+                                );
+                              }}
+                              activeDot={{ r: 6, fill: "rgba(244, 63, 94, 1)" }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="mb-10 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <FastForward className="h-4 w-4 text-emerald-500" />
+                    Listening Time Trend
+                  </div>
+                  <ToggleGroup
+                    type="single"
+                    value={listeningTimeChartType}
+                    onValueChange={(value: string) =>
+                      value &&
+                      setListeningTimeChartType(value as "bar" | "line")
+                    }
+                    size="sm"
+                  >
+                    <ToggleGroupItem value="bar" aria-label="Bar chart">
+                      <BarChart3 className="h-3.5 w-3.5" />
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="line" aria-label="Line chart">
+                      <LineChartIcon className="h-3.5 w-3.5" />
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+
+                {listeningTimeChartType === "bar" ? (
+                  <div className="flex h-[180px] items-end justify-between gap-1">
+                    {(
+                      statistics.recentListeningTimeTrend || Array(14).fill(0)
+                    ).map((time, _index) => {
+                      const maxTime = Math.max(
+                        ...(statistics.recentListeningTimeTrend || [1]),
+                        1,
+                      );
+
                       const barHeight = 160; // Fixed height for visualization area
                       const minBarHeight = 4; // Minimum visible height
                       const barHeightPx =
-                        rate > 0
-                          ? Math.max(Math.floor(rate * barHeight), minBarHeight)
+                        time > 0
+                          ? Math.max(
+                              Math.floor((time / maxTime) * barHeight),
+                              minBarHeight,
+                            )
                           : minBarHeight;
 
                       const date = new Date();
-                      date.setDate(date.getDate() - (13 - index));
+                      date.setDate(date.getDate() - (13 - _index));
                       const day = date.getDate();
 
-                      // Determine color based on skip rate
-                      const getColorClass = (rate: number) => {
-                        if (rate === 0) return "bg-muted/40 dark:bg-muted/20";
-                        if (rate < 0.3) return "bg-emerald-500";
-                        if (rate < 0.5) return "bg-amber-500";
-                        return "bg-rose-500";
+                      // Determine intensity based on relative time
+                      const getTimeColorClass = (
+                        time: number,
+                        maxTime: number,
+                      ) => {
+                        if (time === 0) return "bg-muted/40 dark:bg-muted/20";
+                        const ratio = time / maxTime;
+                        if (ratio > 0.8) return "bg-emerald-500";
+                        if (ratio > 0.4) return "bg-emerald-500/80";
+                        return "bg-emerald-500/60";
                       };
 
                       return (
                         <div
-                          key={index}
+                          key={_index}
                           className="flex flex-1 flex-col items-center gap-1"
                         >
-                          <div
-                            className={`mb-1 text-xs font-medium ${
-                              rate > 0.5
-                                ? "text-rose-500"
-                                : rate > 0.3
-                                  ? "text-amber-500"
-                                  : rate > 0
-                                    ? "text-emerald-500"
-                                    : "text-muted-foreground"
-                            }`}
-                          >
-                            {rate > 0 ? `${Math.round(rate * 100)}%` : "-"}
+                          <div className="mb-1 text-xs font-medium text-emerald-500/90">
+                            {time > 0 ? formatTime(time) : "-"}
                           </div>
                           <div
                             className="bg-muted/30 dark:bg-muted/10 relative w-full overflow-hidden rounded-sm"
@@ -316,82 +555,134 @@ export function TimeAnalyticsTab({
                             }}
                           >
                             <div
-                              className={`absolute bottom-0 w-full transition-all duration-500 ${getColorClass(rate)}`}
+                              className={`absolute bottom-0 w-full transition-all duration-500 ${getTimeColorClass(time, maxTime)}`}
                               style={{ height: `${barHeightPx}px` }}
                             ></div>
                           </div>
                           <div className="text-xs font-medium">{day}</div>
                         </div>
                       );
-                    },
-                  )}
-                </div>
-              </div>
+                    })}
+                  </div>
+                ) : (
+                  <div className="h-[200px] w-full">
+                    {/* Prepare data for Recharts */}
+                    {(() => {
+                      const maxTime = Math.max(
+                        ...(statistics.recentListeningTimeTrend || [1]),
+                        1,
+                      );
+                      const data = (
+                        statistics.recentListeningTimeTrend || Array(14).fill(0)
+                      ).map((time, index) => {
+                        const date = new Date();
+                        date.setDate(date.getDate() - (13 - index));
+                        const day = date.getDate();
+                        const month = date.toLocaleString("default", {
+                          month: "short",
+                        });
+                        const normalizedValue = time / maxTime;
 
-              <div>
-                <div className="mb-10 flex items-center gap-2 text-sm font-medium">
-                  <Timer className="h-4 w-4 text-emerald-500" />
-                  Listening Time Trend
-                </div>
-                <div className="flex h-[180px] items-end justify-between gap-1">
-                  {(
-                    statistics.recentListeningTimeTrend || Array(14).fill(0)
-                  ).map((time, _index) => {
-                    const maxTime = Math.max(
-                      ...(statistics.recentListeningTimeTrend || [1]),
-                      1,
-                    );
+                        return {
+                          day: `${day} ${month}`,
+                          time: time,
+                          timeLabel: time > 0 ? formatTime(time) : "-",
+                          normalizedValue: normalizedValue,
+                        };
+                      });
 
-                    const barHeight = 160; // Fixed height for visualization area
-                    const minBarHeight = 4; // Minimum visible height
-                    const barHeightPx =
-                      time > 0
-                        ? Math.max(
-                            Math.floor((time / maxTime) * barHeight),
-                            minBarHeight,
-                          )
-                        : minBarHeight;
+                      return (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart
+                            data={data}
+                            margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              vertical={false}
+                              stroke="rgba(100, 116, 139, 0.2)"
+                            />
+                            <XAxis
+                              dataKey="day"
+                              tickLine={false}
+                              axisLine={false}
+                              tick={{ fontSize: 11 }}
+                              tickFormatter={(value) => value.split(" ")[0]}
+                              padding={{ left: 10, right: 10 }}
+                            />
+                            <YAxis
+                              tickCount={5}
+                              tickLine={false}
+                              axisLine={false}
+                              tick={{ fontSize: 11 }}
+                              tickFormatter={(value) =>
+                                formatTime(value as number)
+                              }
+                            />
+                            <Tooltip
+                              formatter={(value) => [
+                                formatTime(value as number),
+                                "Listening Time",
+                              ]}
+                              labelFormatter={(label) => label}
+                              contentStyle={{
+                                backgroundColor: "rgba(15, 23, 42, 0.8)",
+                                border: "none",
+                                borderRadius: "6px",
+                                fontSize: "12px",
+                                padding: "8px 12px",
+                                color: "white",
+                              }}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="time"
+                              stroke="rgba(16, 185, 129, 0.8)"
+                              strokeWidth={2}
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              dot={(props: any) => {
+                                const { cx, cy, index } = props;
+                                // Always return a circle element, don't return null
+                                if (
+                                  cx === undefined ||
+                                  cy === undefined ||
+                                  index === undefined
+                                ) {
+                                  return (
+                                    <circle cx={0} cy={0} r={0} fill="none" />
+                                  );
+                                }
+                                const normalizedValue =
+                                  data[index].normalizedValue;
 
-                    const date = new Date();
-                    date.setDate(date.getDate() - (13 - _index));
-                    const day = date.getDate();
+                                let pointColor = "rgba(16, 185, 129, 0.6)";
+                                if (normalizedValue > 0.8)
+                                  pointColor = "rgba(16, 185, 129, 1)";
+                                else if (normalizedValue > 0.4)
+                                  pointColor = "rgba(16, 185, 129, 0.8)";
 
-                    // Determine intensity based on relative time
-                    const getTimeColorClass = (
-                      time: number,
-                      maxTime: number,
-                    ) => {
-                      if (time === 0) return "bg-muted/40 dark:bg-muted/20";
-                      const ratio = time / maxTime;
-                      if (ratio > 0.8) return "bg-emerald-500";
-                      if (ratio > 0.4) return "bg-emerald-500/80";
-                      return "bg-emerald-500/60";
-                    };
-
-                    return (
-                      <div
-                        key={_index}
-                        className="flex flex-1 flex-col items-center gap-1"
-                      >
-                        <div className="mb-1 text-xs font-medium text-emerald-500/90">
-                          {time > 0 ? formatTime(time) : "-"}
-                        </div>
-                        <div
-                          className="bg-muted/30 dark:bg-muted/10 relative w-full overflow-hidden rounded-sm"
-                          style={{
-                            height: "160px",
-                          }}
-                        >
-                          <div
-                            className={`absolute bottom-0 w-full transition-all duration-500 ${getTimeColorClass(time, maxTime)}`}
-                            style={{ height: `${barHeightPx}px` }}
-                          ></div>
-                        </div>
-                        <div className="text-xs font-medium">{day}</div>
-                      </div>
-                    );
-                  })}
-                </div>
+                                return (
+                                  <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={4}
+                                    fill={pointColor}
+                                    stroke="white"
+                                    strokeWidth={1}
+                                  />
+                                );
+                              }}
+                              activeDot={{
+                                r: 6,
+                                fill: "rgba(16, 185, 129, 1)",
+                              }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
           </div>
