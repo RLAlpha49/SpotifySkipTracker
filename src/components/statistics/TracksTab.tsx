@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   SkipForward,
   Clock,
@@ -11,10 +12,25 @@ import {
   Check,
   BarChart,
   Disc,
+  BarChart3,
+  List,
 } from "lucide-react";
 import { StatisticsData } from "@/types/statistics";
 import { NoDataMessage } from "./NoDataMessage";
 import { formatPercent } from "./utils";
+import {
+  BarChart as RechartsBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 
 interface TracksTabProps {
   loading: boolean;
@@ -22,6 +38,11 @@ interface TracksTabProps {
 }
 
 export function TracksTab({ loading, statistics }: TracksTabProps) {
+  // Add state for chart types
+  const [mostPlayedChartType, setMostPlayedChartType] = useState<
+    "list" | "bar"
+  >("list");
+
   if (loading) {
     return (
       <div className="grid gap-4 md:grid-cols-2">
@@ -118,82 +139,198 @@ export function TracksTab({ loading, statistics }: TracksTabProps) {
     return "text-rose-500";
   };
 
+  // Prepare data for most played tracks chart
+  const mostPlayedData = Object.entries(statistics?.trackMetrics || {})
+    .sort((a, b) => b[1].playCount - a[1].playCount)
+    .slice(0, 10)
+    .map(([, data]) => ({
+      name:
+        data.name.length > 15 ? data.name.substring(0, 15) + "..." : data.name,
+      plays: data.playCount,
+      artist: data.artistName,
+      completion: data.avgCompletionPercent || 0,
+      fillColor:
+        data.avgCompletionPercent > 90
+          ? "#10b981"
+          : data.avgCompletionPercent > 70
+            ? "#f59e0b"
+            : "#8b5cf6",
+    }));
+
+  // Chart configs
+  const mostPlayedConfig: ChartConfig = {
+    plays: {
+      label: "Play Count",
+      theme: {
+        light: "hsl(var(--violet-500))",
+        dark: "hsl(var(--violet-500))",
+      },
+    },
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Card className="hover:border-primary/30 group overflow-hidden transition-all duration-200 hover:shadow-md md:col-span-2">
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm font-medium">
-            <BarChart className="text-primary h-4 w-4" />
-            Most Played Tracks
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <BarChart className="text-primary h-4 w-4" />
+              Most Played Tracks
+            </CardTitle>
+            <ToggleGroup
+              type="single"
+              value={mostPlayedChartType}
+              onValueChange={(value: string) =>
+                value && setMostPlayedChartType(value as "list" | "bar")
+              }
+              className="rounded-md border"
+            >
+              <ToggleGroupItem value="list" aria-label="List view">
+                <List className="h-3.5 w-3.5" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="bar" aria-label="Bar chart">
+                <BarChart3 className="h-3.5 w-3.5" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </CardHeader>
         <CardContent className="pt-4">
-          <ScrollArea className="h-[360px] pr-4">
-            <div className="space-y-4">
-              {Object.entries(statistics.trackMetrics || {})
-                .sort((a, b) => b[1].playCount - a[1].playCount)
-                .slice(0, 15)
-                .map(([trackId, data], index) => {
-                  const completionPercentage = data.avgCompletionPercent || 0;
-                  const isTopTrack = index < 3;
+          {mostPlayedChartType === "list" ? (
+            // Original list view
+            <ScrollArea className="h-[360px] pr-4">
+              <div className="space-y-4">
+                {Object.entries(statistics.trackMetrics || {})
+                  .sort((a, b) => b[1].playCount - a[1].playCount)
+                  .slice(0, 15)
+                  .map(([trackId, data], index) => {
+                    const completionPercentage = data.avgCompletionPercent || 0;
+                    const isTopTrack = index < 3;
 
-                  return (
-                    <div key={trackId} className="space-y-1.5">
-                      <div className="flex justify-between text-sm">
-                        <span className="flex max-w-[70%] items-center gap-1.5 truncate font-medium">
-                          {isTopTrack && (
-                            <span className="bg-primary/10 text-primary flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold">
-                              {index + 1}
+                    return (
+                      <div key={trackId} className="space-y-1.5">
+                        <div className="flex justify-between text-sm">
+                          <span className="flex max-w-[70%] items-center gap-1.5 truncate font-medium">
+                            {isTopTrack && (
+                              <span className="bg-primary/10 text-primary flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold">
+                                {index + 1}
+                              </span>
+                            )}
+                            <span className={isTopTrack ? "text-primary" : ""}>
+                              {data.name}
                             </span>
+                          </span>
+                          <span className="flex items-center gap-1.5 text-xs font-medium">
+                            <PlayCircle className="text-primary h-3.5 w-3.5" />
+                            {data.playCount}{" "}
+                            {data.playCount === 1 ? "play" : "plays"}
+                          </span>
+                        </div>
+                        <div className="text-muted-foreground flex items-center gap-1 truncate pl-0 text-xs">
+                          <Disc className="h-3 w-3" />
+                          {data.artistName}
+                          {data.hasBeenRepeated && (
+                            <>
+                              <span className="mx-1">•</span>
+                              <Repeat className="h-3 w-3 text-violet-500" />
+                              <span className="text-violet-500">Repeated</span>
+                            </>
                           )}
-                          <span className={isTopTrack ? "text-primary" : ""}>
-                            {data.name}
-                          </span>
-                        </span>
-                        <span className="flex items-center gap-1.5 text-xs font-medium">
-                          <PlayCircle className="text-primary h-3.5 w-3.5" />
-                          {data.playCount}{" "}
-                          {data.playCount === 1 ? "play" : "plays"}
-                        </span>
-                      </div>
-                      <div className="text-muted-foreground flex items-center gap-1 truncate pl-0 text-xs">
-                        <Disc className="h-3 w-3" />
-                        {data.artistName}
-                        {data.hasBeenRepeated && (
-                          <>
-                            <span className="mx-1">•</span>
-                            <Repeat className="h-3 w-3 text-violet-500" />
-                            <span className="text-violet-500">Repeated</span>
-                          </>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1">
-                          <Progress
-                            value={completionPercentage}
-                            className={`h-2 ${getCompletionColor(completionPercentage)}`}
-                          />
                         </div>
-                        <div className="flex w-20 items-center justify-end gap-1 text-right text-xs font-medium">
-                          <Check
-                            className={`h-3 w-3 ${completionPercentage > 80 ? "text-emerald-500" : "text-muted-foreground"}`}
-                          />
-                          <span
-                            className={
-                              completionPercentage > 80
-                                ? "text-emerald-500"
-                                : ""
-                            }
-                          >
-                            {completionPercentage.toFixed(0)}%
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <Progress
+                              value={completionPercentage}
+                              className={`h-2 ${getCompletionColor(completionPercentage)}`}
+                            />
+                          </div>
+                          <div className="flex w-20 items-center justify-end gap-1 text-right text-xs font-medium">
+                            <Check
+                              className={`h-3 w-3 ${completionPercentage > 80 ? "text-emerald-500" : "text-muted-foreground"}`}
+                            />
+                            <span
+                              className={
+                                completionPercentage > 80
+                                  ? "text-emerald-500"
+                                  : ""
+                              }
+                            >
+                              {completionPercentage.toFixed(0)}%
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+              </div>
+            </ScrollArea>
+          ) : (
+            // Bar chart view
+            <div className="h-[360px]">
+              <ChartContainer
+                config={mostPlayedConfig}
+                className="h-full w-full"
+              >
+                <RechartsBarChart
+                  data={mostPlayedData}
+                  margin={{ top: 10, right: 30, left: 40, bottom: 70 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 11 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                    tickMargin={15}
+                  />
+                  <YAxis
+                    yAxisId="left"
+                    tick={{ fontSize: 11 }}
+                    label={{
+                      value: "Play Count",
+                      angle: -90,
+                      position: "left",
+                      style: {
+                        fontSize: "12px",
+                        textAnchor: "middle",
+                      },
+                    }}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value, name) => [`${value} `, `${name}`]}
+                        labelFormatter={(name) => {
+                          const track = mostPlayedData.find(
+                            (t) => t.name === name,
+                          );
+                          return (
+                            <>
+                              {name}
+                              <div className="mt-1 text-xs">
+                                <span>{track?.artist}</span>
+                                <span className="mx-1">•</span>
+                                <span>
+                                  {track?.completion.toFixed(0)}% completion
+                                </span>
+                              </div>
+                            </>
+                          );
+                        }}
+                      />
+                    }
+                  />
+                  <Bar
+                    dataKey="plays"
+                    yAxisId="left"
+                    name="Plays"
+                    fill="#8b5cf6"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </RechartsBarChart>
+              </ChartContainer>
             </div>
-          </ScrollArea>
+          )}
         </CardContent>
       </Card>
 

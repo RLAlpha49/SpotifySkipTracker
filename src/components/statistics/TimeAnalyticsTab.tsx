@@ -10,6 +10,8 @@ import {
   FastForward,
   MusicIcon,
   LineChartIcon,
+  Activity,
+  List,
 } from "lucide-react";
 import { StatisticsData } from "@/types/statistics";
 import { NoDataMessage } from "./NoDataMessage";
@@ -23,6 +25,11 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  AreaChart,
+  Area,
+  ComposedChart,
+  Bar as RechartsBar,
+  Legend as RechartsLegend,
 } from "recharts";
 
 interface TimeAnalyticsTabProps {
@@ -40,6 +47,12 @@ export function TimeAnalyticsTab({
   const [listeningTimeChartType, setListeningTimeChartType] = useState<
     "bar" | "line"
   >("bar");
+  const [monthlyChartType, setMonthlyChartType] = useState<"progress" | "area">(
+    "progress",
+  );
+  const [dailyChartType, setDailyChartType] = useState<"progress" | "composed">(
+    "progress",
+  );
 
   if (loading) {
     return (
@@ -123,151 +136,457 @@ export function TimeAnalyticsTab({
     <div className="grid gap-4 md:grid-cols-2">
       <Card className="hover:border-primary/30 group overflow-hidden transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm font-medium">
-            <Calendar className="text-primary h-4 w-4" />
-            Monthly Listening Activity
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <Calendar className="text-primary h-4 w-4" />
+              Monthly Listening Activity
+            </CardTitle>
+            <ToggleGroup
+              type="single"
+              value={monthlyChartType}
+              onValueChange={(value: string) =>
+                value && setMonthlyChartType(value as "progress" | "area")
+              }
+              className="rounded-md border"
+            >
+              <ToggleGroupItem value="progress" aria-label="Progress bars">
+                <List className="h-3.5 w-3.5" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="area" aria-label="Area chart">
+                <LineChartIcon className="h-3.5 w-3.5" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </CardHeader>
         <CardContent className="pt-4">
-          <div className="space-y-4">
-            {Object.entries(statistics.monthlyMetrics)
-              .sort((a, b) => a[0].localeCompare(b[0]))
-              .map(([month, data]) => {
-                const displayMonth = new Date(month + "-01").toLocaleDateString(
-                  undefined,
-                  {
+          {monthlyChartType === "progress" ? (
+            <div className="space-y-4">
+              {Object.entries(statistics.monthlyMetrics)
+                .sort((a, b) => a[0].localeCompare(b[0]))
+                .map(([month, data]) => {
+                  const displayMonth = new Date(
+                    month + "-01",
+                  ).toLocaleDateString(undefined, {
                     month: "long",
                     year: "numeric",
-                  },
-                );
-                const percentage =
-                  maxMonthlyPlays > 0
-                    ? (data.tracksPlayed / maxMonthlyPlays) * 100
-                    : 0;
+                  });
+                  const percentage =
+                    maxMonthlyPlays > 0
+                      ? (data.tracksPlayed / maxMonthlyPlays) * 100
+                      : 0;
 
-                // Check if this is the month with the highest listening time
-                const isHighestMonth = data.tracksPlayed === maxMonthlyPlays;
+                  // Check if this is the month with the highest listening time
+                  const isHighestMonth = data.tracksPlayed === maxMonthlyPlays;
 
-                return (
-                  <div key={month} className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className={isHighestMonth ? "font-medium" : ""}>
-                        {displayMonth}
-                      </span>
-                      <span className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
-                        <Clock className="h-3 w-3" />
-                        {formatTime(data.listeningTimeMs)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <Progress
-                          value={percentage}
-                          className={`h-2.5 ${isHighestMonth ? "bg-primary" : "bg-primary/60"}`}
-                        />
-                      </div>
-                      <div className="w-16 text-right text-xs">
-                        <span className="flex items-center justify-end gap-1">
-                          <MusicIcon className="h-3 w-3" />
-                          <span>{data.tracksPlayed}</span>
+                  return (
+                    <div key={month} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className={isHighestMonth ? "font-medium" : ""}>
+                          {displayMonth}
+                        </span>
+                        <span className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+                          <Clock className="h-3 w-3" />
+                          {formatTime(data.listeningTimeMs)}
                         </span>
                       </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <Progress
+                            value={percentage}
+                            className={`h-2.5 ${isHighestMonth ? "bg-primary" : "bg-primary/60"}`}
+                          />
+                        </div>
+                        <div className="w-16 text-right text-xs">
+                          <span className="flex items-center justify-end gap-1">
+                            <MusicIcon className="h-3 w-3" />
+                            <span>{data.tracksPlayed}</span>
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  );
+                })}
+            </div>
+          ) : (
+            <div className="h-[250px]">
+              {(() => {
+                // Transform monthly data for the area chart
+                const monthlyData = Object.entries(statistics.monthlyMetrics)
+                  .sort((a, b) => a[0].localeCompare(b[0]))
+                  .map(([month, data]) => {
+                    const date = new Date(month + "-01");
+                    return {
+                      month: date.toLocaleDateString(undefined, {
+                        month: "short",
+                        year: "2-digit",
+                      }),
+                      tracksPlayed: data.tracksPlayed,
+                      listeningTime: data.listeningTimeMs / (1000 * 60), // Convert to minutes
+                      fullDate: date,
+                    };
+                  });
+
+                return (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={monthlyData}
+                      margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
+                    >
+                      <defs>
+                        <linearGradient
+                          id="colorTracks"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="hsl(var(--primary))"
+                            stopOpacity={0.8}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="hsl(var(--primary))"
+                            stopOpacity={0.2}
+                          />
+                        </linearGradient>
+                      </defs>
+                      <XAxis
+                        dataKey="month"
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fontSize: 11 }}
+                      />
+                      <YAxis
+                        yAxisId="left"
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fontSize: 11 }}
+                      />
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        tickFormatter={(value) => `${Math.round(value)}m`}
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fontSize: 11 }}
+                      />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        stroke="rgba(100, 116, 139, 0.2)"
+                      />
+                      <Tooltip
+                        formatter={(value, name) => {
+                          if (name === "listeningTime") {
+                            return [
+                              formatTime(Number(value) * 60 * 1000),
+                              "Listening Time",
+                            ];
+                          }
+                          return [
+                            value,
+                            name === "tracksPlayed" ? "Tracks Played" : name,
+                          ];
+                        }}
+                        labelFormatter={(label) => {
+                          const entry = monthlyData.find(
+                            (d) => d.month === label,
+                          );
+                          return entry?.fullDate.toLocaleDateString(undefined, {
+                            month: "long",
+                            year: "numeric",
+                          });
+                        }}
+                        contentStyle={{
+                          backgroundColor: "rgba(15, 23, 42, 0.8)",
+                          border: "none",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                          padding: "8px 12px",
+                          color: "white",
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="tracksPlayed"
+                        stroke="hsl(var(--primary))"
+                        fillOpacity={1}
+                        fill="url(#colorTracks)"
+                        yAxisId="left"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="listeningTime"
+                        stroke="rgba(16, 185, 129, 0.8)"
+                        strokeWidth={2}
+                        yAxisId="right"
+                        dot={{
+                          r: 3,
+                          fill: "rgba(16, 185, 129, 0.8)",
+                          stroke: "white",
+                          strokeWidth: 1,
+                        }}
+                      />
+                      <RechartsLegend
+                        verticalAlign="top"
+                        height={36}
+                        formatter={(value) => {
+                          return value === "tracksPlayed"
+                            ? "Tracks Played"
+                            : "Listening Time";
+                        }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 );
-              })}
-          </div>
+              })()}
+            </div>
+          )}
         </CardContent>
       </Card>
 
       <Card className="group overflow-hidden transition-all duration-200 hover:border-violet-200 hover:shadow-md">
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm font-medium">
-            <Clock className="h-4 w-4 text-violet-500" />
-            Daily Listening (Last 7 Days)
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <Clock className="h-4 w-4 text-violet-500" />
+              Daily Listening (Last 7 Days)
+            </CardTitle>
+            <ToggleGroup
+              type="single"
+              value={dailyChartType}
+              onValueChange={(value: string) =>
+                value && setDailyChartType(value as "progress" | "composed")
+              }
+              className="rounded-md border"
+            >
+              <ToggleGroupItem value="progress" aria-label="Progress bars">
+                <List className="h-3.5 w-3.5" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="composed" aria-label="Composed chart">
+                <Activity className="h-3.5 w-3.5" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </CardHeader>
         <CardContent className="pt-4">
-          <div className="space-y-4">
-            {Object.entries(statistics.dailyMetrics)
-              .sort((a, b) => b[0].localeCompare(a[0])) // Sort by date descending
-              .slice(0, 7) // Take last 7 days
-              .reverse() // Display in chronological order
-              .map(([date, data]) => {
-                const displayDate = new Date(date).toLocaleDateString(
-                  undefined,
-                  {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  },
-                );
-                const skipPercentage =
-                  data.tracksPlayed > 0
-                    ? (data.tracksSkipped / data.tracksPlayed) * 100
-                    : 0;
+          {dailyChartType === "progress" ? (
+            <div className="space-y-4">
+              {Object.entries(statistics.dailyMetrics)
+                .sort((a, b) => b[0].localeCompare(a[0])) // Sort by date descending
+                .slice(0, 7) // Take last 7 days
+                .reverse() // Display in chronological order
+                .map(([date, data]) => {
+                  const displayDate = new Date(date).toLocaleDateString(
+                    undefined,
+                    {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    },
+                  );
+                  const skipPercentage =
+                    data.tracksPlayed > 0
+                      ? (data.tracksSkipped / data.tracksPlayed) * 100
+                      : 0;
 
-                // Check if this is the day with the highest listening time
-                const isHighestDay =
-                  data.listeningTimeMs === maxDailyListeningTime &&
-                  maxDailyListeningTime > 0;
+                  // Check if this is the day with the highest listening time
+                  const isHighestDay =
+                    data.listeningTimeMs === maxDailyListeningTime &&
+                    maxDailyListeningTime > 0;
 
-                // Calculate completion rate (non-skipped percentage)
-                const completionRate = 100 - skipPercentage;
+                  // Calculate completion rate (non-skipped percentage)
+                  const completionRate = 100 - skipPercentage;
 
-                return (
-                  <div key={date} className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className={isHighestDay ? "font-medium" : ""}>
-                        {displayDate}
-                      </span>
-                      <span className="flex items-center gap-1 text-xs font-medium">
-                        <MusicIcon className="h-3 w-3" />
-                        {data.tracksPlayed}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <div className="bg-muted dark:bg-muted/50 h-2.5 overflow-hidden rounded-full">
-                          <div
-                            className={`h-full transition-all ${
-                              completionRate > 80
-                                ? "bg-emerald-500"
-                                : completionRate > 50
-                                  ? "bg-amber-500"
-                                  : "bg-rose-500"
+                  return (
+                    <div key={date} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className={isHighestDay ? "font-medium" : ""}>
+                          {displayDate}
+                        </span>
+                        <span className="flex items-center gap-1 text-xs font-medium">
+                          <MusicIcon className="h-3 w-3" />
+                          {data.tracksPlayed}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <div className="bg-muted dark:bg-muted/50 h-2.5 overflow-hidden rounded-full">
+                            <div
+                              className={`h-full transition-all ${
+                                completionRate > 80
+                                  ? "bg-emerald-500"
+                                  : completionRate > 50
+                                    ? "bg-amber-500"
+                                    : "bg-rose-500"
+                              }`}
+                              style={{
+                                width: `${completionRate}%`,
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                        <div className="flex w-32 items-center justify-end gap-1 text-right text-xs">
+                          <FastForward className="text-muted-foreground h-3 w-3" />
+                          <span className="text-muted-foreground">
+                            {formatTime(data.listeningTimeMs)}
+                          </span>
+                          <span className="text-muted-foreground mx-1">•</span>
+                          <span
+                            className={`${
+                              skipPercentage < 20
+                                ? "text-emerald-500"
+                                : skipPercentage < 50
+                                  ? "text-amber-500"
+                                  : "text-rose-500"
                             }`}
-                            style={{
-                              width: `${completionRate}%`,
-                            }}
-                          ></div>
+                          >
+                            {formatPercent(
+                              data.tracksSkipped / data.tracksPlayed,
+                            )}
+                          </span>
                         </div>
                       </div>
-                      <div className="flex w-32 items-center justify-end gap-1 text-right text-xs">
-                        <FastForward className="text-muted-foreground h-3 w-3" />
-                        <span className="text-muted-foreground">
-                          {formatTime(data.listeningTimeMs)}
-                        </span>
-                        <span className="text-muted-foreground mx-1">•</span>
-                        <span
-                          className={`${
-                            skipPercentage < 20
-                              ? "text-emerald-500"
-                              : skipPercentage < 50
-                                ? "text-amber-500"
-                                : "text-rose-500"
-                          }`}
-                        >
-                          {formatPercent(
-                            data.tracksSkipped / data.tracksPlayed,
-                          )}
-                        </span>
-                      </div>
                     </div>
-                  </div>
+                  );
+                })}
+            </div>
+          ) : (
+            <div className="h-[250px]">
+              {(() => {
+                // Transform daily data for the composed chart
+                const dailyData = Object.entries(statistics.dailyMetrics)
+                  .sort((a, b) => b[0].localeCompare(a[0])) // Sort by date descending
+                  .slice(0, 7) // Take last 7 days
+                  .reverse() // Display in chronological order
+                  .map(([date, data]) => {
+                    const displayDate = new Date(date).toLocaleDateString(
+                      undefined,
+                      { weekday: "short" },
+                    );
+
+                    const completed = data.tracksPlayed - data.tracksSkipped;
+
+                    return {
+                      day: displayDate,
+                      skipped: data.tracksSkipped,
+                      completed: completed,
+                      listeningTime: data.listeningTimeMs / (1000 * 60), // Convert to minutes
+                      fullDate: new Date(date),
+                      skipRate:
+                        data.tracksPlayed > 0
+                          ? (data.tracksSkipped / data.tracksPlayed) * 100
+                          : 0,
+                    };
+                  });
+
+                return (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart
+                      data={dailyData}
+                      margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        stroke="rgba(100, 116, 139, 0.2)"
+                      />
+                      <XAxis
+                        dataKey="day"
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fontSize: 11 }}
+                      />
+                      <YAxis
+                        yAxisId="left"
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fontSize: 11 }}
+                      />
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        tickFormatter={(value) => `${value}%`}
+                        domain={[0, 100]}
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fontSize: 11 }}
+                      />
+                      <Tooltip
+                        formatter={(value, name) => {
+                          if (name === "listeningTime") {
+                            return [
+                              formatTime(Number(value) * 60 * 1000),
+                              "Listening Time",
+                            ];
+                          }
+                          if (name === "skipRate") {
+                            return [
+                              `${Number(value).toFixed(1)}%`,
+                              "Skip Rate",
+                            ];
+                          }
+                          return [
+                            value,
+                            name.charAt(0).toUpperCase() + name.slice(1),
+                          ];
+                        }}
+                        labelFormatter={(label) => {
+                          const entry = dailyData.find((d) => d.day === label);
+                          return entry?.fullDate.toLocaleDateString(undefined, {
+                            weekday: "long",
+                            month: "short",
+                            day: "numeric",
+                          });
+                        }}
+                        contentStyle={{
+                          backgroundColor: "rgba(15, 23, 42, 0.8)",
+                          border: "none",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                          padding: "8px 12px",
+                          color: "white",
+                        }}
+                      />
+                      <RechartsBar
+                        dataKey="completed"
+                        name="Completed"
+                        stackId="a"
+                        fill="rgba(16, 185, 129, 0.7)"
+                        radius={[4, 4, 0, 0]}
+                        yAxisId="left"
+                      />
+                      <RechartsBar
+                        dataKey="skipped"
+                        name="Skipped"
+                        stackId="a"
+                        fill="rgba(244, 63, 94, 0.7)"
+                        radius={[4, 4, 0, 0]}
+                        yAxisId="left"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="skipRate"
+                        name="Skip Rate"
+                        stroke="rgba(244, 63, 94, 0.9)"
+                        strokeWidth={2}
+                        yAxisId="right"
+                        dot={{
+                          r: 3,
+                          fill: "rgba(244, 63, 94, 0.9)",
+                          stroke: "white",
+                          strokeWidth: 1,
+                        }}
+                      />
+                      <RechartsLegend verticalAlign="top" height={36} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
                 );
-              })}
-          </div>
+              })()}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -293,7 +612,7 @@ export function TimeAnalyticsTab({
                     onValueChange={(value: string) =>
                       value && setSkipRateChartType(value as "bar" | "line")
                     }
-                    size="sm"
+                    className="rounded-md border"
                   >
                     <ToggleGroupItem value="bar" aria-label="Bar chart">
                       <BarChart3 className="h-3.5 w-3.5" />
@@ -493,7 +812,7 @@ export function TimeAnalyticsTab({
                       value &&
                       setListeningTimeChartType(value as "bar" | "line")
                     }
-                    size="sm"
+                    className="rounded-md border"
                   >
                     <ToggleGroupItem value="bar" aria-label="Bar chart">
                       <BarChart3 className="h-3.5 w-3.5" />
