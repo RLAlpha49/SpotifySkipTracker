@@ -11,8 +11,111 @@ import {
   getPlaybackState,
   getTrackLastLogged,
   setTrackLastLogged,
+  updatePlaybackState,
 } from "./state";
 import { recordSkippedTrack } from "./history";
+
+const recentlyPlayedHistory: Array<{ id: string; timestamp: number }> = [];
+const MAX_HISTORY_SIZE = 50;
+
+// Store the most recently navigated-to track to distinguish between
+// backward navigation and skipping after backward navigation
+let lastNavigatedToTrackId: string | null = null;
+let lastNavigationTimestamp: number = 0;
+const NAVIGATION_EXPIRY_TIME = 60000; // 60 seconds
+
+/**
+ * Adds a track to the local history
+ *
+ * @param trackId Track ID to add to history
+ */
+function addToLocalHistory(trackId: string): void {
+  if (!trackId) return;
+
+  // Add to start of array with current timestamp
+  recentlyPlayedHistory.unshift({
+    id: trackId,
+    timestamp: Date.now(),
+  });
+
+  // Trim if needed
+  if (recentlyPlayedHistory.length > MAX_HISTORY_SIZE) {
+    recentlyPlayedHistory.pop();
+  }
+
+  // Add this info to the playback state
+  updatePlaybackState({
+    lastTrackChangeTimestamp: Date.now(),
+  });
+}
+
+/**
+ * Check if navigating to a previous track based on local history
+ *
+ * @param newTrackId ID of the track being navigated to
+ * @param previousTrackId ID of the track being navigated from
+ * @param progressPercent How far through the previous track we were
+ * @returns Whether this appears to be a backward navigation
+ */
+function isBackwardNavigationInLocalHistory(
+  newTrackId: string,
+  previousTrackId: string,
+  progressPercent: number,
+): boolean {
+  if (!newTrackId || recentlyPlayedHistory.length <= 1) return false;
+
+  const now = Date.now();
+
+  // If we're coming from a track we recently navigated to,
+  // this is probably a skip, not backward navigation
+  if (
+    lastNavigatedToTrackId === previousTrackId &&
+    now - lastNavigationTimestamp < NAVIGATION_EXPIRY_TIME &&
+    progressPercent < 0.3 // Less than 30% through the track
+  ) {
+    store.saveLog(
+      `User likely skipping a previously navigated-to track (${previousTrackId})`,
+      "DEBUG",
+    );
+    return false;
+  }
+
+  // Skip the first entry (current track) and look for the new track ID
+  let positionInHistory = -1;
+  for (let i = 1; i < recentlyPlayedHistory.length; i++) {
+    if (recentlyPlayedHistory[i].id === newTrackId) {
+      positionInHistory = i;
+      break;
+    }
+  }
+
+  if (positionInHistory === -1) return false;
+
+  // Only consider it backward navigation if:
+  // 1. The track is in our recent history (position found)
+  // 2. It's relatively recent (one of the last 10 tracks)
+  // 3. OR it was played very recently (last 2 minutes)
+  const isRecentPosition = positionInHistory < 10;
+  const trackTimestamp = recentlyPlayedHistory[positionInHistory].timestamp;
+  const isRecentTime = now - trackTimestamp < 120000; // 2 minutes
+
+  if (isRecentPosition || isRecentTime) {
+    store.saveLog(
+      `Local history indicates backward navigation to previously played track at position ${positionInHistory}`,
+      "DEBUG",
+    );
+
+    // Remember this as a backward navigation for future reference
+    lastNavigatedToTrackId = newTrackId;
+    lastNavigationTimestamp = now;
+
+    return true;
+  }
+
+  // If the track is in history but not recent, don't consider it backward navigation
+  // This handles the case of skipping to a track that was played long ago
+  return false;
+}
 
 /**
  * Handles a track change event
@@ -32,6 +135,7 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
     // Skip handling if there was no previous track
     if (!previousTrackId) {
       store.saveLog("No previous track to evaluate for skip", "DEBUG");
+      addToLocalHistory(newTrackId); // Still add to history
       return;
     }
 
@@ -48,14 +152,109 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
       "DEBUG",
     );
 
-    // Get recently played tracks to check if this is a navigation to previous tracks
+    // Check if this is a repeated track (same track playing again)
+    const isRepeatedTrack = previousTrackId === newTrackId;
+    if (isRepeatedTrack) {
+      store.saveLog(
+        `Track "${state.currentTrackName}" is repeating - not a skip`,
+        "DEBUG",
+      );
+      return;
+    }
+
+    // Check if track was played very briefly (less than 2 seconds)
+    // This could indicate rapidly browsing through tracks with previous/next buttons
+    const veryShortPlay = duration > 0 && lastProgress < 2000;
+
+    // Step 1: Check our local history with improved logic that considers timing and sequence
+    const isBackwardNavigation = isBackwardNavigationInLocalHistory(
+      newTrackId,
+      previousTrackId,
+      progressPercent,
+    );
+
+    // Step 2: Get recently played tracks from Spotify API as backup
     const recentlyPlayed = await spotifyApi.getRecentlyPlayedTracks(20);
-    const isInRecentlyPlayed = recentlyPlayed?.items?.some(
+
+    // Step 3: Check if new track appears before previous track in Spotify history
+    // (this is our original approach, kept as a fallback)
+    let isPreviousTrackNavigationAPI = false;
+
+    if (recentlyPlayed?.items) {
+      const newTrackIndex = recentlyPlayed.items.findIndex(
+        (item) => item.track.id === newTrackId,
+      );
+
+      const previousTrackIndex = recentlyPlayed.items.findIndex(
+        (item) => item.track.id === previousTrackId,
+      );
+
+      // If both tracks are in recently played AND the new track appears before the previous track
+      // in the history, this is likely a "previous track" navigation
+      if (
+        newTrackIndex !== -1 &&
+        previousTrackIndex !== -1 &&
+        newTrackIndex < previousTrackIndex &&
+        previousTrackIndex - newTrackIndex < 3 // They're close together in history
+      ) {
+        isPreviousTrackNavigationAPI = true;
+        store.saveLog(
+          `API history indicates backward navigation: "${newTrackId}" (position ${newTrackIndex}) from "${previousTrackId}" (position ${previousTrackIndex})`,
+          "DEBUG",
+        );
+      }
+    }
+
+    // Also check if the previous track itself is in recently played
+    const isPreviousTrackInRecentlyPlayed = recentlyPlayed?.items?.some(
       (item) => item.track.id === previousTrackId,
     );
 
-    // If track changed before the skip threshold and is not in recently played, consider it skipped
-    if (progressPercent < skipProgressThreshold && !isInRecentlyPlayed) {
+    // Add the current track to our history AFTER all the checks
+    addToLocalHistory(newTrackId);
+
+    // Special handling for skipping forward from a track we previously navigated back to
+    if (
+      lastNavigatedToTrackId === previousTrackId &&
+      Date.now() - lastNavigationTimestamp < NAVIGATION_EXPIRY_TIME &&
+      progressPercent < 0.3 // Less than 30% through the track
+    ) {
+      // We previously navigated back to this track, and now we're skipping forward from it
+      // This should be counted as a skip, not a navigation
+      store.saveLog(
+        `User skipping forward from a previously navigated-to track (${previousTrackId}) - counting as skip`,
+        "DEBUG",
+      );
+
+      // Continue to skip handling below - don't return or mark as navigation
+    }
+    // Only if NOT skipping from a previously navigated track, check backward navigation
+    else {
+      // Combine all our detection signals with more flexible logic
+      const isNavigatingBackward =
+        isBackwardNavigation ||
+        isPreviousTrackNavigationAPI ||
+        (progressPercent < 0.05 &&
+          recentlyPlayedHistory.some((entry) => entry.id === newTrackId));
+
+      // Log the decision factors more clearly
+      store.saveLog(
+        `Navigation detection: local=${isBackwardNavigation}, API=${isPreviousTrackNavigationAPI}, veryShortPlay=${veryShortPlay}, inRecentlyPlayed=${isPreviousTrackInRecentlyPlayed}`,
+        "DEBUG",
+      );
+
+      // If we detected backward navigation, don't count it as a skip
+      if (isNavigatingBackward) {
+        store.saveLog(
+          `Track change for "${state.currentTrackName}" detected as backward navigation - not counted as skip`,
+          "DEBUG",
+        );
+        return;
+      }
+    }
+
+    // If track changed before the skip threshold, consider it skipped
+    if (progressPercent < skipProgressThreshold) {
       // Check if the track is in the user's library (only count skips for library tracks)
       if (!state.isInLibrary) {
         store.saveLog(
@@ -140,12 +339,6 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
           store.saveLog(`Failed to unlike track: ${error}`, "ERROR");
         }
       }
-    } else if (isInRecentlyPlayed) {
-      // Track was navigated to from recently played (likely using previous button)
-      store.saveLog(
-        `Track "${state.currentTrackName}" was navigated to from recently played (not counted as skip)`,
-        "DEBUG",
-      );
     } else {
       // Track was played through to completion (or close enough)
       store.saveLog(
@@ -236,10 +429,17 @@ export function logNowPlaying(
 ): void {
   const now = Date.now();
   const lastLogged = getTrackLastLogged(trackId);
+  const state = getPlaybackState();
 
-  // Only log "Now Playing" once every 5 minutes for the same track
-  // to avoid log spam during continuous playback
-  if (now - lastLogged > 5 * 60 * 1000) {
+  // Always log if this is an explicit track change (different track than before)
+  const isTrackChange =
+    state.lastTrackChangeTimestamp &&
+    now - state.lastTrackChangeTimestamp < 3000; // Within 3 seconds of a track change
+
+  // Log the track if:
+  // 1. It's a new track change event, OR
+  // 2. It hasn't been logged in the last 5 minutes (for continuous playback)
+  if (isTrackChange || now - lastLogged > 5 * 60 * 1000) {
     store.saveLog(`Now playing: "${trackName}" by ${artistName}`, "INFO");
     setTrackLastLogged(trackId, now);
   }

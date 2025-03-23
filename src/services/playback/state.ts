@@ -30,6 +30,7 @@ const initialState: PlaybackState = {
   lastSyncTime: null,
   isInLibrary: false,
   lastProgress: 0,
+  lastTrackChangeTimestamp: null,
 };
 
 // Current playback state

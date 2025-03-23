@@ -109,7 +109,6 @@ Spotify Skip Tracker offers various configuration options to tailor the experien
 
 - **User Interface**:
   - Choose between light and dark themes
-  - Customize the home screen layout
 
 - **Logging**:
   - Configure log retention settings

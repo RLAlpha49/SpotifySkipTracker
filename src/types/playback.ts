@@ -32,6 +32,7 @@ export interface PlaybackState {
   lastSyncTime?: number | null;
   isInLibrary?: boolean;
   lastProgress?: number;
+  lastTrackChangeTimestamp?: number | null;
 }
 
 /**
