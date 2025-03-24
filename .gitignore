@@ -102,3 +102,4 @@ out/
 
 # Local
 .vscode/
+.cursor/
