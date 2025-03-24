@@ -1,36 +1,36 @@
-import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { StatisticsData } from "@/types/statistics";
 import {
-  Calendar,
+  Activity,
   BarChart3,
+  Calendar,
   Clock,
   Disc3,
   FastForward,
-  MusicIcon,
   LineChartIcon,
-  Activity,
   List,
+  MusicIcon,
 } from "lucide-react";
-import { StatisticsData } from "@/types/statistics";
-import { NoDataMessage } from "./NoDataMessage";
-import { formatPercent, formatTime } from "./utils";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import React, { useState } from "react";
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
+  ComposedChart,
   Line,
   LineChart,
+  Bar as RechartsBar,
+  Legend as RechartsLegend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
-  AreaChart,
-  Area,
-  ComposedChart,
-  Bar as RechartsBar,
-  Legend as RechartsLegend,
 } from "recharts";
+import { NoDataMessage } from "./NoDataMessage";
+import { formatPercent, formatTime } from "./utils";
 
 interface TimeAnalyticsTabProps {
   loading: boolean;
@@ -131,6 +131,26 @@ export function TimeAnalyticsTab({
   const maxDailyListeningTime = Math.max(
     ...recentDays.map(([, data]) => data.listeningTimeMs),
   );
+
+  // Determine the most recent date with data for proper chart alignment
+  const mostRecentDate =
+    recentDays.length > 0 ? new Date(recentDays[0][0]) : new Date();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  mostRecentDate.setHours(0, 0, 0, 0);
+
+  // For accessing the actual date in the charts
+  const getActualDateFromIndex = (index: number) => {
+    // Create a new date object 14 days before today, then add the index
+    // This gives us a consistent date range regardless of data availability
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    // Go back 14 days (since we're showing 14 days)
+    date.setDate(date.getDate() - 13);
+    // Now add the current index to move forward from earliest date
+    date.setDate(date.getDate() + index);
+    return date;
+  };
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -530,7 +550,9 @@ export function TimeAnalyticsTab({
                           }
                           return [
                             value,
-                            name.charAt(0).toUpperCase() + name.slice(1),
+                            typeof name === "string"
+                              ? name.charAt(0).toUpperCase() + name.slice(1)
+                              : name,
                           ];
                         }}
                         labelFormatter={(label) => {
@@ -637,8 +659,7 @@ export function TimeAnalyticsTab({
                               )
                             : minBarHeight;
 
-                        const date = new Date();
-                        date.setDate(date.getDate() - (13 - index));
+                        const date = getActualDateFromIndex(index);
                         const day = date.getDate();
 
                         // Determine color based on skip rate
@@ -691,8 +712,7 @@ export function TimeAnalyticsTab({
                       const data = (
                         statistics.recentSkipRateTrend || Array(14).fill(0)
                       ).map((rate, index) => {
-                        const date = new Date();
-                        date.setDate(date.getDate() - (13 - index));
+                        const date = getActualDateFromIndex(index);
                         const day = date.getDate();
                         const month = date.toLocaleString("default", {
                           month: "short",
@@ -827,7 +847,7 @@ export function TimeAnalyticsTab({
                   <div className="flex h-[180px] items-end justify-between gap-1">
                     {(
                       statistics.recentListeningTimeTrend || Array(14).fill(0)
-                    ).map((time, _index) => {
+                    ).map((time, index) => {
                       const maxTime = Math.max(
                         ...(statistics.recentListeningTimeTrend || [1]),
                         1,
@@ -843,8 +863,7 @@ export function TimeAnalyticsTab({
                             )
                           : minBarHeight;
 
-                      const date = new Date();
-                      date.setDate(date.getDate() - (13 - _index));
+                      const date = getActualDateFromIndex(index);
                       const day = date.getDate();
 
                       // Determine intensity based on relative time
@@ -861,7 +880,7 @@ export function TimeAnalyticsTab({
 
                       return (
                         <div
-                          key={_index}
+                          key={index}
                           className="flex flex-1 flex-col items-center gap-1"
                         >
                           <div className="mb-1 text-xs font-medium text-emerald-500/90">
@@ -894,8 +913,7 @@ export function TimeAnalyticsTab({
                       const data = (
                         statistics.recentListeningTimeTrend || Array(14).fill(0)
                       ).map((time, index) => {
-                        const date = new Date();
-                        date.setDate(date.getDate() - (13 - index));
+                        const date = getActualDateFromIndex(index);
                         const day = date.getDate();
                         const month = date.toLocaleString("default", {
                           month: "short",
