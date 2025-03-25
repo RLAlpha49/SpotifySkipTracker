@@ -13,13 +13,12 @@ export * from "./settings-store";
 
 // Re-export logging functions
 export {
-  // re-export all the storage functions
-  saveLog,
-  getLogs,
   clearLogs,
   getAvailableLogFiles,
+  getLogs,
   getLogsFromFile,
-  // ... other exports ...
+  // re-export all the storage functions
+  saveLog,
 } from "./logs-store";
 
 // Re-export tracks storage functions
@@ -27,3 +26,6 @@ export * from "./tracks-store";
 
 // Re-export enhanced statistics storage functions
 export * from "./statistics-store";
+
+// Re-export reset settings function
+export * from "./reset-settings";

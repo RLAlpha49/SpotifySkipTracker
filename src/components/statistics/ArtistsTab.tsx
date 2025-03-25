@@ -593,7 +593,7 @@ export function ArtistsTab({ loading, statistics }: ArtistsTabProps) {
             <>
               <div className="mb-4 flex flex-col gap-2 sm:flex-row">
                 <div className="relative flex-1">
-                  <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
+                  <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
                   <Input
                     placeholder="Search artists..."
                     className="flex-1 pl-9"

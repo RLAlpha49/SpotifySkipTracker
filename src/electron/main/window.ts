@@ -7,16 +7,16 @@
  */
 
 import { app, BrowserWindow, Menu } from "electron";
-import path from "path";
 import fs from "fs";
-import { saveLog, getSettings } from "../../helpers/storage/store";
-import { setupSpotifyIPC } from "./spotify-ipc";
+import path from "path";
 import registerListeners from "../../helpers/ipc/listeners-register";
+import { getSettings, saveLog } from "../../helpers/storage/store";
 import { cancelAuthFlow } from "../../services/auth";
 import {
-  stopPlaybackMonitoring,
   isMonitoringActive,
+  stopPlaybackMonitoring,
 } from "../../services/playback";
+import { setupSpotifyIPC } from "./spotify-ipc";
 
 // Environment detection
 const inDevelopment = process.env.NODE_ENV === "development";

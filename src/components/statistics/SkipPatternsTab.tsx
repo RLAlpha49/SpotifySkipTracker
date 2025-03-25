@@ -375,7 +375,7 @@ export function SkipPatternsTab({ loading, statistics }: SkipPatternsTabProps) {
           </div>
           <div className="flex justify-center">
             <div className="relative h-24 w-full max-w-2xl">
-              <div className="bg-muted/30 absolute top-0 left-0 h-full w-full rounded-md"></div>
+              <div className="bg-muted/30 absolute left-0 top-0 h-full w-full rounded-md"></div>
 
               {/* Time marker lines */}
               {[0, 6, 12, 18, 24].map((h) => (
@@ -463,7 +463,7 @@ export function SkipPatternsTab({ loading, statistics }: SkipPatternsTabProps) {
               </div>
 
               {/* High skip hour labels */}
-              <div className="absolute top-1/2 left-0 flex w-full -translate-y-1/2 transform justify-start">
+              <div className="absolute left-0 top-1/2 flex w-full -translate-y-1/2 transform justify-start">
                 {Object.values(statistics.skipPatterns || {})
                   .flatMap((pattern) => pattern.highSkipRateHours || [])
                   .reduce((hours, hour) => {

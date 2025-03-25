@@ -13,14 +13,14 @@
  * 5. Playback monitoring controls
  */
 
+import { SpotifyCredentials, SpotifyPlaybackInfo } from "@/types";
+import { LogLevel } from "@/types/logging";
+import { PlaybackState } from "@/types/playback";
+import { SkippedTrack, SpotifySettings } from "@/types/spotify";
+import { StatisticsData } from "@/types/statistics";
+import { contextBridge, ipcRenderer } from "electron";
 import { exposeThemeContext } from "./theme/theme-context";
 import { exposeWindowContext } from "./window/window-context";
-import { contextBridge, ipcRenderer } from "electron";
-import { LogLevel } from "@/types/logging";
-import { SkippedTrack, SpotifySettings } from "@/types/spotify";
-import { PlaybackState } from "@/types/playback";
-import { StatisticsData } from "@/types/statistics";
-import { SpotifyCredentials, SpotifyPlaybackInfo } from "@/types";
 
 // Local type definitions for IPC communication
 type AuthStatus = "authenticated" | "unauthenticated" | "authenticating";
@@ -85,6 +85,9 @@ export interface SpotifyAPI {
   // Settings management
   saveSettings: (settings: SpotifySettings) => Promise<boolean>;
   getSettings: () => Promise<SpotifySettings>;
+  resetSettings: () => Promise<boolean>;
+  getLoginConfig: () => Promise<LoginConfig | null>;
+  saveLoginConfig: (config: LoginConfig) => Promise<void>;
 
   // Logging system
   getLogs: (count?: number) => Promise<string[]>;
@@ -177,6 +180,7 @@ export default function exposeContexts(): void {
     saveSettings: (settings: SpotifySettings) =>
       ipcRenderer.invoke("spotify:saveSettings", settings),
     getSettings: () => ipcRenderer.invoke("spotify:getSettings"),
+    resetSettings: () => ipcRenderer.invoke("spotify:resetSettings"),
     getLoginConfig: () => ipcRenderer.invoke("spotify:getSettings"),
     saveLoginConfig: (config: LoginConfig) =>
       ipcRenderer.invoke("spotify:saveSettings", config),

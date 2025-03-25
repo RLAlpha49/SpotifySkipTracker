@@ -11,21 +11,24 @@
  * persisting settings to storage.
  */
 
-import React, { useState, useEffect } from "react";
+import { ApiCredentialsForm } from "@/components/settings/ApiCredentialsForm";
+import { ApplicationSettingsForm } from "@/components/settings/ApplicationSettingsForm";
+import { ImportExportSettings } from "@/components/settings/ImportExportSettings";
+import { ResetSettingsDialog } from "@/components/settings/ResetSettingsDialog";
+import { RestartDialog } from "@/components/settings/RestartDialog";
+import { settingsFormSchema } from "@/components/settings/settingsFormSchema";
+import { SkipDetectionForm } from "@/components/settings/SkipDetectionForm";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
 import { Form } from "@/components/ui/form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { toast } from "sonner";
+import { SettingsSchema } from "@/types/settings";
 import { SpotifySettings } from "@/types/spotify";
-import { ApiCredentialsForm } from "@/components/settings/ApiCredentialsForm";
-import { SkipDetectionForm } from "@/components/settings/SkipDetectionForm";
-import { ApplicationSettingsForm } from "@/components/settings/ApplicationSettingsForm";
-import { RestartDialog } from "@/components/settings/RestartDialog";
-import { settingsFormSchema } from "@/components/settings/settingsFormSchema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Save } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import * as z from "zod";
 
 export default function SettingsPage() {
   // State for application restart confirmation dialog
@@ -34,6 +37,10 @@ export default function SettingsPage() {
   const [settingsChanged, setSettingsChanged] = useState(false);
   // State for skip progress percentage slider
   const [skipProgress, setSkipProgress] = useState(70);
+  // State for storing the complete current settings
+  const [currentSettings, setCurrentSettings] = useState<SettingsSchema | null>(
+    null,
+  );
 
   /**
    * Initialize form with React Hook Form and Zod validation
@@ -62,6 +69,9 @@ export default function SettingsPage() {
     const loadSettings = async () => {
       try {
         const settings = await window.spotify.getSettings();
+
+        // Store complete settings for import/export
+        setCurrentSettings(settings);
 
         // Handle legacy settings format
         const fileLogLevel =
@@ -138,10 +148,10 @@ export default function SettingsPage() {
    */
   async function onSubmit(values: z.infer<typeof settingsFormSchema>) {
     try {
-      const currentSettings = await window.spotify.getSettings();
+      const currentSettingsData = await window.spotify.getSettings();
 
       const settings = {
-        ...currentSettings,
+        ...currentSettingsData,
         ...values,
         skipProgress,
         autoUnlike: values.autoUnlike,
@@ -150,6 +160,9 @@ export default function SettingsPage() {
       const success = await window.spotify.saveSettings(settings);
 
       if (success) {
+        // Update current settings reference for import/export
+        setCurrentSettings(settings);
+
         toast.success("Settings saved", {
           description: "Your settings have been saved successfully.",
         });
@@ -171,6 +184,116 @@ export default function SettingsPage() {
       });
     }
   }
+
+  /**
+   * Handles settings import from file
+   *
+   * @param importedSettings - The settings loaded from an import file
+   */
+  const handleImportSettings = async (importedSettings: SettingsSchema) => {
+    try {
+      // Extract form values from imported settings
+      const {
+        clientId = "",
+        clientSecret = "",
+        redirectUri = "http://localhost:8888/callback",
+        fileLogLevel = "INFO",
+        logLevel = "INFO",
+        logLineCount = 1000,
+        maxLogFiles = 10,
+        logRetentionDays = 30,
+        skipThreshold = 3,
+        timeframeInDays = 30,
+        skipProgress: importedSkipProgress = 70,
+        autoStartMonitoring = true,
+        autoUnlike = true,
+      } = importedSettings;
+
+      // Update form with imported values
+      form.reset({
+        clientId,
+        clientSecret,
+        redirectUri,
+        fileLogLevel: fileLogLevel || logLevel,
+        logLineCount,
+        maxLogFiles,
+        logRetentionDays,
+        skipThreshold,
+        timeframeInDays,
+        autoStartMonitoring,
+        autoUnlike,
+      });
+
+      // Update other state values
+      setSkipProgress(importedSkipProgress);
+
+      // Save the imported settings
+      const success = await window.spotify.saveSettings(importedSettings);
+
+      if (success) {
+        setCurrentSettings(importedSettings);
+        setSettingsChanged(false);
+
+        // Check if restart is needed
+        if (requiresRestart(importedSettings as SpotifySettings)) {
+          setShowRestartDialog(true);
+        }
+      } else {
+        throw new Error("Failed to save imported settings");
+      }
+    } catch (error) {
+      console.error("Error importing settings:", error);
+      toast.error("Import failed", {
+        description: "Failed to apply imported settings. Please try again.",
+      });
+    }
+  };
+
+  /**
+   * Resets all settings to default values
+   */
+  const handleResetSettings = async () => {
+    try {
+      // Get default settings from the main process
+      const success = await window.spotify.resetSettings();
+
+      if (success) {
+        // Reload settings after reset
+        const defaultSettings = await window.spotify.getSettings();
+
+        // Update the form with default values
+        form.reset({
+          clientId: defaultSettings.clientId || "",
+          clientSecret: defaultSettings.clientSecret || "",
+          redirectUri:
+            defaultSettings.redirectUri || "http://localhost:8888/callback",
+          fileLogLevel: defaultSettings.fileLogLevel || "INFO",
+          logLineCount: defaultSettings.logLineCount || 1000,
+          maxLogFiles: defaultSettings.maxLogFiles || 10,
+          logRetentionDays: defaultSettings.logRetentionDays || 30,
+          skipThreshold: defaultSettings.skipThreshold || 3,
+          timeframeInDays: defaultSettings.timeframeInDays || 30,
+          autoStartMonitoring: defaultSettings.autoStartMonitoring ?? true,
+          autoUnlike: defaultSettings.autoUnlike ?? true,
+        });
+
+        setSkipProgress(defaultSettings.skipProgress || 70);
+        setCurrentSettings(defaultSettings);
+        setSettingsChanged(false);
+
+        toast.success("Settings reset", {
+          description: "All settings have been reset to their default values.",
+        });
+      } else {
+        throw new Error("Failed to reset settings");
+      }
+    } catch (error) {
+      console.error("Error resetting settings:", error);
+      toast.error("Reset failed", {
+        description: "Failed to reset settings to defaults. Please try again.",
+      });
+    }
+  };
 
   /**
    * Tracks form changes to enable/disable save button
@@ -212,16 +335,30 @@ export default function SettingsPage() {
               setSettingsChanged={setSettingsChanged}
             />
 
-            <div className="mt-10 flex justify-end border-t pt-6">
-              <Button
-                type="submit"
-                disabled={!settingsChanged}
-                className="px-6 transition-all duration-200"
-                size="lg"
-              >
-                <Save className="mr-2 h-4 w-4" />
-                Save Settings
-              </Button>
+            {/* Import/Export and Reset Settings */}
+            {currentSettings && (
+              <ImportExportSettings
+                currentSettings={currentSettings}
+                onImport={handleImportSettings}
+              />
+            )}
+
+            <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-between">
+              <div className="sm:w-1/3">
+                <ResetSettingsDialog onReset={handleResetSettings} />
+              </div>
+
+              <div className="flex justify-end sm:w-2/3">
+                <Button
+                  type="submit"
+                  disabled={!settingsChanged}
+                  className="w-full px-6 transition-all duration-200 sm:w-auto"
+                  size="lg"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Settings
+                </Button>
+              </div>
             </div>
           </form>
         </Form>

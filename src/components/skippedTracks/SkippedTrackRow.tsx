@@ -112,7 +112,7 @@ export function SkippedTrackRow({
           </div>
         </div>
       </TableCell>
-      <TableCell className={`text-right whitespace-nowrap ${bgColor}`}>
+      <TableCell className={`whitespace-nowrap text-right ${bgColor}`}>
         <span
           className={
             shouldSuggestRemoval
@@ -147,7 +147,7 @@ export function SkippedTrackRow({
           </span>
         </div>
       </TableCell>
-      <TableCell className={`text-right whitespace-nowrap ${bgColor}`}>
+      <TableCell className={`whitespace-nowrap text-right ${bgColor}`}>
         <div className="text-muted-foreground flex items-center justify-end gap-1">
           <Clock className="h-3.5 w-3.5" />
           {formatDate(track)}

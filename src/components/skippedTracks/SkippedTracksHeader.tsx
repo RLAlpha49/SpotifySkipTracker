@@ -42,7 +42,7 @@ export function SkippedTracksHeader({
             <Calendar className="h-4 w-4" />
             <span>
               Tracks you&apos;ve skipped within the last{" "}
-              <Badge variant="outline" className="mr-0.5 ml-0.5 font-mono">
+              <Badge variant="outline" className="ml-0.5 mr-0.5 font-mono">
                 {timeframeInDays}
               </Badge>{" "}
               days
@@ -54,7 +54,7 @@ export function SkippedTracksHeader({
               Tracks skipped{" "}
               <Badge
                 variant="outline"
-                className="mr-0.5 ml-0.5 font-mono text-xs"
+                className="ml-0.5 mr-0.5 font-mono text-xs"
               >
                 {skipThreshold}+
               </Badge>{" "}

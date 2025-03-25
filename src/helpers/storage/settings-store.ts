@@ -4,9 +4,9 @@
  * Handles saving and retrieving application settings.
  */
 
+import { SettingsSchema } from "@/types/settings";
 import fs from "fs";
 import path from "path";
-import { SettingsSchema } from "@/types/settings";
 import { settingsFilePath } from "./utils";
 
 // Default settings configuration
@@ -65,4 +65,23 @@ export function getSettings(): SettingsSchema {
   }
 
   return defaultSettings;
+}
+
+/**
+ * Resets all settings to their default values
+ *
+ * @returns Boolean indicating success or failure
+ */
+export function resetSettings(): boolean {
+  try {
+    // Check if settings file exists
+    if (fs.existsSync(settingsFilePath)) {
+      // Save default settings to disk
+      return saveSettings(defaultSettings);
+    }
+    return true; // If no settings file exists, consider it a success
+  } catch (error) {
+    console.error("Failed to reset settings:", error);
+    return false;
+  }
 }

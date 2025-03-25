@@ -6,58 +6,59 @@
  * and library management.
  */
 
-import { BrowserWindow, ipcMain, shell, app } from "electron";
+import { app, BrowserWindow, ipcMain, shell } from "electron";
 import {
-  saveSettings,
-  getSettings,
-  saveLog,
-  getLogs,
   clearLogs,
-  getSkippedTracks,
-  saveSkippedTracks,
-  updateSkippedTrack,
-  logsPath,
-  skipsPath,
-  removeSkippedTrack,
-  filterSkippedTracksByTimeframe,
-  getStatistics,
   clearStatistics,
+  filterSkippedTracksByTimeframe,
   getAvailableLogFiles,
+  getLogs,
   getLogsFromFile,
+  getSettings,
+  getSkippedTracks,
+  getStatistics,
+  logsPath,
+  removeSkippedTrack,
+  resetSettings,
+  saveLog,
+  saveSettings,
+  saveSkippedTracks,
+  skipsPath,
+  updateSkippedTrack,
 } from "../../helpers/storage/store";
 
 // Spotify service imports
+import axios from "axios";
+import { clearSpotifyAuthData, startAuthFlow } from "../../services/auth";
 import {
-  setCredentials,
-  getCurrentPlayback,
-  setTokens as setApiTokens,
-  unlikeTrack,
-  pause,
-  play,
-  skipToPrevious,
-  skipToNext,
-  isTokenValid,
-  hasCredentials,
-} from "../../services/spotify";
-import {
+  isMonitoringActive,
   startPlaybackMonitoring,
   stopPlaybackMonitoring,
-  isMonitoringActive,
 } from "../../services/playback";
-import { startAuthFlow, clearSpotifyAuthData } from "../../services/auth";
 import {
-  saveTokens,
-  loadTokens,
-  clearTokens as clearStoredTokens,
-} from "../../services/token-storage";
+  getCurrentPlayback,
+  hasCredentials,
+  isTokenValid,
+  pause,
+  play,
+  setTokens as setApiTokens,
+  setCredentials,
+  skipToNext,
+  skipToPrevious,
+  unlikeTrack,
+} from "../../services/spotify";
 import {
+  getAccessToken,
+  getRefreshToken,
   getTokenInfo as getSpotifyTokenInfo,
   refreshAccessToken as refreshSpotifyToken,
   setTokens as setSpotifyApiTokens,
-  getAccessToken,
-  getRefreshToken,
 } from "../../services/spotify/token";
-import axios from "axios";
+import {
+  clearTokens as clearStoredTokens,
+  loadTokens,
+  saveTokens,
+} from "../../services/token-storage";
 
 /**
  * Configures IPC handlers for Spotify functionality
@@ -458,6 +459,18 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
     const settings = getSettings();
     saveLog("Settings loaded from storage", "DEBUG");
     return settings;
+  });
+
+  ipcMain.handle("spotify:resetSettings", async () => {
+    const result = resetSettings();
+
+    if (result) {
+      saveLog("Settings reset to defaults successfully", "INFO");
+    } else {
+      saveLog("Failed to reset settings to defaults", "ERROR");
+    }
+
+    return result;
   });
 
   // Logging system

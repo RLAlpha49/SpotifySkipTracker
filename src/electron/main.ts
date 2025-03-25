@@ -6,14 +6,14 @@
  */
 
 import { app, BrowserWindow } from "electron";
-import { checkForSquirrelEvents } from "./main/installer-events";
-import { createWindow } from "./main/window";
-import { installExtensions } from "./main/extensions";
 import { saveLog } from "../helpers/storage/store";
 import {
-  stopPlaybackMonitoring,
   isMonitoringActive,
+  stopPlaybackMonitoring,
 } from "../services/playback";
+import { installExtensions } from "./main/extensions";
+import { checkForSquirrelEvents } from "./main/installer-events";
+import { createWindow } from "./main/window";
 
 // Check for Windows installer events before doing anything else
 if (checkForSquirrelEvents()) {

@@ -103,3 +103,7 @@ out/
 # Local
 .vscode/
 .cursor/
+
+# Documentation and templates
+xnotes/
+docs/

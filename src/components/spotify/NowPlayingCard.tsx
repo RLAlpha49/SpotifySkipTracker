@@ -126,7 +126,7 @@ export function NowPlayingCard({
               </div>
             </div>
             {/* Playback Controls */}
-            <div className="flex items-center justify-center space-x-4 pt-3 pb-1">
+            <div className="flex items-center justify-center space-x-4 pb-1 pt-3">
               <Button
                 variant="outline"
                 size="icon"
