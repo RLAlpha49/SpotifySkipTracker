@@ -19,4 +19,5 @@ export const settingsFormSchema = z.object({
   timeframeInDays: z.coerce.number().int().min(1).max(365),
   autoStartMonitoring: z.boolean().default(true),
   autoUnlike: z.boolean().default(true),
+  pollingInterval: z.coerce.number().int().min(500).max(10000).default(1000),
 });

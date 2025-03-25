@@ -20,6 +20,7 @@ const defaultSettings: SettingsSchema = {
   timeframeInDays: 30,
   skipProgress: 70,
   autoStartMonitoring: true,
+  pollingInterval: 1000,
 };
 
 /**

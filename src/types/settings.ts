@@ -29,6 +29,9 @@ export interface SettingsSchema {
   autoStartMonitoring: boolean;
   autoUnlike?: boolean;
 
+  // Playback monitoring settings
+  pollingInterval?: number;
+
   // UI settings
   displayLogLevel?: LogLevel;
   logAutoRefresh?: boolean;

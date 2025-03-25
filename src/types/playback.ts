@@ -76,14 +76,32 @@ export interface PlaybackMonitorConfig {
   // Polling interval in milliseconds
   pollingInterval: number;
 
-  // Skip detection threshold in percent
-  skipThreshold: number;
+  // UI progress update interval
+  progressUpdateInterval: number;
 
-  // Whether to automatically start monitoring on app launch
-  autoStart: boolean;
+  // Maximum backoff interval when errors occur
+  maxBackoffInterval: number;
 
-  // Whether to log detailed playback information
-  verbose: boolean;
+  // Initial backoff delay when errors start occurring
+  initialBackoffDelay: number;
+
+  // Multiplier for exponential backoff
+  backoffMultiplier: number;
+
+  // Number of consecutive errors before backoff is applied
+  errorThreshold: number;
+
+  // Polling interval to use when in battery saving mode
+  lowBatteryPollingInterval: number;
+
+  // Skip detection threshold in percent (for backward compatibility)
+  skipThreshold?: number;
+
+  // Whether to automatically start monitoring on app launch (for backward compatibility)
+  autoStart?: boolean;
+
+  // Whether to log detailed playback information (for backward compatibility)
+  verbose?: boolean;
 }
 
 /**

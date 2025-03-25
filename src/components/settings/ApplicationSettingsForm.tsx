@@ -1,15 +1,5 @@
-import React from "react";
+import ToggleTheme from "@/components/ToggleTheme";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   FormControl,
   FormDescription,
@@ -18,10 +8,16 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { UseFormReturn } from "react-hook-form";
-import * as z from "zod";
-import ToggleTheme from "@/components/ToggleTheme";
-import { settingsFormSchema } from "./settingsFormSchema";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
   TooltipContent,
@@ -29,14 +25,19 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  HelpCircle,
-  Settings2,
-  FileText,
   Archive,
   CalendarDays,
+  FileText,
+  Gauge,
+  HelpCircle,
   MonitorPlay,
+  Settings2,
   Sun,
 } from "lucide-react";
+import React from "react";
+import { UseFormReturn } from "react-hook-form";
+import * as z from "zod";
+import { settingsFormSchema } from "./settingsFormSchema";
 
 interface ApplicationSettingsFormProps {
   form: UseFormReturn<z.infer<typeof settingsFormSchema>>;
@@ -98,6 +99,55 @@ export function ApplicationSettingsForm({
                     checked={field.value}
                     onCheckedChange={(checked) => {
                       field.onChange(checked);
+                      setSettingsChanged(true);
+                    }}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="pollingInterval"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <div className="flex items-center space-x-2">
+                    <FormLabel className="flex items-center text-base font-medium">
+                      <Gauge className="text-primary-muted mr-1.5 h-4 w-4" />
+                      Polling Interval (ms)
+                    </FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="text-muted-foreground h-4 w-4" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-md">
+                          <p>
+                            Controls how frequently the app checks with Spotify
+                            for playback changes. Lower values provide more
+                            responsive detection but use more resources. Higher
+                            values conserve system resources but may be less
+                            responsive. Recommended range: 1000-5000ms.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <FormDescription>
+                    Time in milliseconds between Spotify API polling requests
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={500}
+                    max={10000}
+                    className="w-32 text-right"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(Number(e.target.value));
                       setSettingsChanged(true);
                     }}
                   />

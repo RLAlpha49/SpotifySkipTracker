@@ -5,23 +5,134 @@
  * updating the UI, and coordinating playback event processing.
  */
 
+import { LogLevel } from "@/types/logging";
+import { PlaybackMonitorConfig, PlaybackUpdateData } from "@/types/playback";
 import { BrowserWindow } from "electron";
-import * as spotifyApi from "../spotify";
 import * as store from "../../helpers/storage/store";
+import * as spotifyApi from "../spotify";
+import { updateRecentTracks } from "./history";
 import {
+  getCredentials,
   getPlaybackState,
-  updatePlaybackState,
   resetPlaybackState,
   setCredentials,
+  updatePlaybackState,
 } from "./state";
-import { handleTrackChange } from "./track-change";
-import { updateRecentTracks } from "./history";
-import { logNowPlaying } from "./track-change";
-import { PlaybackUpdateData } from "@/types/playback";
+import { handleTrackChange, logNowPlaying } from "./track-change";
 
 // Monitoring state tracking
 let monitoringInterval: NodeJS.Timeout | null = null;
 let progressUpdateInterval: NodeJS.Timeout | null = null;
+
+// Default configuration
+const DEFAULT_CONFIG: PlaybackMonitorConfig = {
+  pollingInterval: 1000, // Default: Poll API every 1 second
+  progressUpdateInterval: 250, // Default: Update UI every 250ms
+  maxBackoffInterval: 15000, // Maximum backoff interval: 15 seconds
+  initialBackoffDelay: 2000, // Initial backoff delay: 2 seconds
+  backoffMultiplier: 1.5, // Backoff multiplier for exponential backoff
+  errorThreshold: 3, // Consecutive errors before backoff
+  lowBatteryPollingInterval: 5000, // Use less frequent polling on low battery
+};
+
+// Current configuration (initialized with defaults)
+let currentConfig: PlaybackMonitorConfig = { ...DEFAULT_CONFIG };
+
+// Error tracking for backoff strategy
+let consecutiveErrors = 0;
+let currentBackoffDelay = DEFAULT_CONFIG.initialBackoffDelay;
+let isInBackoffMode = false;
+
+/**
+ * Sets monitoring configuration options
+ *
+ * @param config Configuration options to override defaults
+ */
+export function setMonitoringConfig(
+  config: Partial<PlaybackMonitorConfig>,
+): void {
+  currentConfig = {
+    ...currentConfig,
+    ...config,
+  };
+
+  store.saveLog(
+    `Updated monitoring configuration: ${JSON.stringify(currentConfig)}`,
+    "DEBUG",
+  );
+
+  // If monitoring is already active, restart it to apply new configuration
+  if (isMonitoringActive()) {
+    const mainWindow = BrowserWindow.getAllWindows()[0];
+    const credentials = getCredentials();
+
+    if (mainWindow && credentials.clientId && credentials.clientSecret) {
+      stopPlaybackMonitoring();
+      startPlaybackMonitoring(
+        mainWindow,
+        credentials.clientId,
+        credentials.clientSecret,
+      );
+    }
+  }
+}
+
+/**
+ * Gets the current monitoring configuration
+ *
+ * @returns The current monitoring configuration
+ */
+export function getMonitoringConfig(): PlaybackMonitorConfig {
+  return { ...currentConfig };
+}
+
+/**
+ * Resets the backoff strategy
+ */
+function resetBackoff(): void {
+  consecutiveErrors = 0;
+  currentBackoffDelay = currentConfig.initialBackoffDelay;
+  isInBackoffMode = false;
+}
+
+/**
+ * Implements exponential backoff strategy for API errors
+ *
+ * @returns The next polling interval in milliseconds
+ */
+function applyBackoffStrategy(): number {
+  // If we haven't hit the error threshold, use normal interval
+  if (consecutiveErrors < currentConfig.errorThreshold && !isInBackoffMode) {
+    return currentConfig.pollingInterval;
+  }
+
+  // Enter backoff mode
+  if (!isInBackoffMode) {
+    isInBackoffMode = true;
+    store.saveLog(
+      `Entering backoff mode due to ${consecutiveErrors} consecutive errors`,
+      "WARN" as LogLevel,
+    );
+  }
+
+  // Calculate backoff delay
+  const backoffInterval = Math.min(
+    currentConfig.maxBackoffInterval,
+    currentBackoffDelay,
+  );
+
+  // Increase backoff for next time
+  currentBackoffDelay = Math.min(
+    currentConfig.maxBackoffInterval,
+    currentBackoffDelay * currentConfig.backoffMultiplier,
+  );
+
+  store.saveLog(
+    `Backoff strategy applied: next poll in ${backoffInterval}ms`,
+    "DEBUG",
+  );
+  return backoffInterval;
+}
 
 /**
  * Starts the Spotify playback monitoring process
@@ -29,14 +140,29 @@ let progressUpdateInterval: NodeJS.Timeout | null = null;
  * @param mainWindow Electron BrowserWindow for sending UI updates
  * @param spotifyClientId Spotify API client ID
  * @param spotifyClientSecret Spotify API client secret
+ * @param config Optional monitoring configuration
  * @returns Success status of the monitoring initialization
  */
 export function startPlaybackMonitoring(
   mainWindow: BrowserWindow,
   spotifyClientId: string,
   spotifyClientSecret: string,
+  config?: Partial<PlaybackMonitorConfig>,
 ): boolean {
   try {
+    // Apply any provided configuration
+    if (config) {
+      setMonitoringConfig(config);
+    }
+
+    // Get user's preferred polling interval if set
+    const settings = store.getSettings();
+    if (settings.pollingInterval && settings.pollingInterval > 0) {
+      setMonitoringConfig({
+        pollingInterval: settings.pollingInterval,
+      });
+    }
+
     // IMPORTANT: Set the shared credentials in the spotify-api module FIRST
     // before any other operations to avoid race conditions
     spotifyApi.setCredentials(spotifyClientId, spotifyClientSecret);
@@ -48,7 +174,6 @@ export function startPlaybackMonitoring(
     store.saveLog("Setting up Spotify playback monitoring...", "INFO");
 
     // Get settings for skip threshold
-    const settings = store.getSettings();
     const skipProgressThreshold = settings.skipProgress / 100 || 0.7; // Convert from percentage to decimal
 
     // Clean up existing intervals if running
@@ -66,18 +191,74 @@ export function startPlaybackMonitoring(
     // Reset the playback state to avoid false track change detection
     resetPlaybackState();
 
+    // Reset any backoff strategy
+    resetBackoff();
+
     store.saveLog(
-      `Started Spotify playback monitoring (skip threshold: ${skipProgressThreshold * 100}%)`,
+      `Started Spotify playback monitoring (skip threshold: ${skipProgressThreshold * 100}%, polling interval: ${currentConfig.pollingInterval}ms)`,
       "DEBUG",
     );
 
     // Start the progress update interval (updates more frequently than API calls)
     startProgressUpdateInterval(mainWindow);
 
-    // Start monitoring interval for API calls (every second)
-    monitoringInterval = setInterval(() => {
-      monitorPlayback(mainWindow);
-    }, 1000);
+    // Instead of setInterval, use a recursive setTimeout approach for dynamic intervals
+    function scheduleNextPoll() {
+      monitoringInterval = setTimeout(
+        async () => {
+          // Execute the polling
+          try {
+            await monitorPlayback(mainWindow);
+
+            // Success! Reset consecutive errors
+            if (consecutiveErrors > 0 || isInBackoffMode) {
+              store.saveLog(
+                "API connection restored, resetting backoff",
+                "INFO",
+              );
+              resetBackoff();
+            }
+
+            // Schedule next poll with standard interval
+            scheduleNextPoll();
+          } catch (error) {
+            // Increment consecutive errors for backoff strategy
+            consecutiveErrors++;
+
+            // Log at appropriate level based on error count
+            const logLevel =
+              consecutiveErrors > 1 ? ("WARN" as LogLevel) : "DEBUG";
+            store.saveLog(
+              `Playback polling error (${consecutiveErrors}): ${error}`,
+              logLevel,
+            );
+
+            // Apply backoff strategy for next interval
+            applyBackoffStrategy();
+
+            // If many consecutive errors, notify the user
+            if (consecutiveErrors === 5) {
+              // Update UI to show connection issues
+              mainWindow.webContents.send(
+                "spotify:playbackStatus",
+                "connection-error",
+              );
+              store.saveLog(
+                "Multiple consecutive API errors, notifying user",
+                "WARN" as LogLevel,
+              );
+            }
+
+            // Schedule next poll with backoff interval
+            scheduleNextPoll();
+          }
+        },
+        isInBackoffMode ? currentBackoffDelay : currentConfig.pollingInterval,
+      );
+    }
+
+    // Start the first poll
+    scheduleNextPoll();
 
     // Initialize recent tracks after establishing monitoring interval
     // Use a small delay to avoid immediate API call at startup
@@ -103,7 +284,7 @@ export function startPlaybackMonitoring(
 export function stopPlaybackMonitoring(): boolean {
   try {
     if (monitoringInterval) {
-      clearInterval(monitoringInterval);
+      clearTimeout(monitoringInterval);
       monitoringInterval = null;
       store.saveLog("Stopped Spotify playback monitoring", "INFO");
     } else {
@@ -115,6 +296,9 @@ export function stopPlaybackMonitoring(): boolean {
       clearInterval(progressUpdateInterval);
       progressUpdateInterval = null;
     }
+
+    // Reset backoff strategy when stopping
+    resetBackoff();
 
     return true;
   } catch (error) {
@@ -143,7 +327,7 @@ function startProgressUpdateInterval(mainWindow: BrowserWindow): void {
     clearInterval(progressUpdateInterval);
   }
 
-  // Update UI every 250ms
+  // Update UI using the configured interval
   progressUpdateInterval = setInterval(() => {
     // Only update if track is playing
     const state = getPlaybackState();
@@ -200,18 +384,13 @@ function startProgressUpdateInterval(mainWindow: BrowserWindow): void {
           currentTimeSeconds: Math.floor(currentProgressMs / 1000),
           currentTimeMs: currentProgressMs,
           isInPlaylist: state.isInLibrary,
-          trackDuration: Math.round(state.currentTrackDuration / 1000),
-          trackProgress: roundedProgressPercent,
-          trackProgressPercent: roundedProgressPercent,
-          deviceName: state.currentDeviceName,
-          deviceType: state.currentDeviceType,
-          deviceVolume: state.currentDeviceVolume,
-        } as PlaybackUpdateData;
+        };
 
+        // Send update to UI
         mainWindow.webContents.send("spotify:playbackUpdate", updateData);
       }
     }
-  }, 250);
+  }, currentConfig.progressUpdateInterval);
 }
 
 /**

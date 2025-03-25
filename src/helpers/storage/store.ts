@@ -26,6 +26,3 @@ export * from "./tracks-store";
 
 // Re-export enhanced statistics storage functions
 export * from "./statistics-store";
-
-// Re-export reset settings function
-export * from "./reset-settings";

@@ -59,6 +59,7 @@ export default function SettingsPage() {
       timeframeInDays: 30,
       autoStartMonitoring: true,
       autoUnlike: true,
+      pollingInterval: currentSettings?.pollingInterval || 1000,
     },
   });
 
@@ -89,6 +90,7 @@ export default function SettingsPage() {
           timeframeInDays: settings.timeframeInDays || 30,
           autoStartMonitoring: settings.autoStartMonitoring ?? true,
           autoUnlike: settings.autoUnlike ?? true,
+          pollingInterval: settings.pollingInterval || 1000,
         });
 
         setSkipProgress(settings.skipProgress || 70);
@@ -222,6 +224,7 @@ export default function SettingsPage() {
         timeframeInDays,
         autoStartMonitoring,
         autoUnlike,
+        pollingInterval: importedSettings.pollingInterval || 1000,
       });
 
       // Update other state values
@@ -275,6 +278,7 @@ export default function SettingsPage() {
           timeframeInDays: defaultSettings.timeframeInDays || 30,
           autoStartMonitoring: defaultSettings.autoStartMonitoring ?? true,
           autoUnlike: defaultSettings.autoUnlike ?? true,
+          pollingInterval: defaultSettings.pollingInterval || 1000,
         });
 
         setSkipProgress(defaultSettings.skipProgress || 70);

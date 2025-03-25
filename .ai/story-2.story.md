@@ -88,21 +88,15 @@ The settings implementation follows this structure:
 
 ```text
 src/
-├── services/
-│   └── settings/
-│       ├── settings.service.ts        # Main settings service
-│       ├── settings.schema.ts         # Zod schema for validation
-│       ├── settings.migrations.ts     # Version migrations
-│       └── settings.constants.ts      # Default values and constants
-│
 ├── components/
 │   └── settings/
-│       ├── ApplicationSettingsForm.tsx  # Main settings form
-│       ├── SkipSettingsSection.tsx      # Skip detection settings section
-│       ├── LibrarySettingsSection.tsx   # Library management settings
-│       ├── UISettingsSection.tsx        # UI settings section
-│       ├── APISettingsSection.tsx       # API credentials settings
-│       └── LoggingSettingsSection.tsx   # Logging settings section
+│       ├── ApiCredentialsForm.tsx
+│       ├── ApplicationSettingsForm.tsx
+│       ├── ImportExportSettings.tsx
+│       ├── ResetSettingsDialog.tsx
+│       ├── RestartDialog.tsx
+│       ├── settingFormSchema.ts
+│       └── SkipDetectionForm.tsx
 │
 └── pages/
     └── SettingsPage.tsx              # Settings page container
