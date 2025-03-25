@@ -549,6 +549,12 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
     const settings = getSettings();
 
     try {
+      // First notify UI that we're initializing
+      mainWindow.webContents.send("spotify:monitoring-status", {
+        status: "initializing",
+        message: "Initializing Spotify connection...",
+      });
+
       // Credentials are set in startPlaybackMonitoring
       const success = startPlaybackMonitoring(
         mainWindow,
@@ -558,30 +564,103 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
 
       if (!success) {
         saveLog("Failed to start playback monitoring", "ERROR");
+        // Notify UI of failure
+        mainWindow.webContents.send("spotify:monitoring-status", {
+          status: "error",
+          message: "Failed to start monitoring",
+          details: "Check log for details",
+        });
+      } else {
+        // Notify UI of success
+        mainWindow.webContents.send("spotify:monitoring-status", {
+          status: "active",
+          message: "Monitoring active",
+        });
       }
 
       return success;
     } catch (error) {
       saveLog(`Error starting monitoring: ${error}`, "ERROR");
+      // Notify UI of error
+      mainWindow.webContents.send("spotify:monitoring-status", {
+        status: "error",
+        message: "Error starting monitoring",
+        details: String(error),
+      });
       return false;
     }
   });
 
   ipcMain.handle("spotify:stopMonitoring", async () => {
     try {
-      return stopPlaybackMonitoring();
+      // Notify UI that we're stopping
+      mainWindow.webContents.send("spotify:monitoring-status", {
+        status: "initializing",
+        message: "Stopping monitoring service...",
+      });
+
+      const success = stopPlaybackMonitoring();
+
+      if (success) {
+        // Notify UI that monitoring stopped
+        mainWindow.webContents.send("spotify:monitoring-status", {
+          status: "inactive",
+          message: "Monitoring stopped",
+        });
+      } else {
+        // Notify UI of failure
+        mainWindow.webContents.send("spotify:monitoring-status", {
+          status: "error",
+          message: "Failed to stop monitoring",
+          details: "The service may be in an inconsistent state",
+        });
+      }
+
+      return success;
     } catch (error) {
       saveLog(`Error stopping monitoring: ${error}`, "ERROR");
+      // Notify UI of error
+      mainWindow.webContents.send("spotify:monitoring-status", {
+        status: "error",
+        message: "Error stopping monitoring",
+        details: String(error),
+      });
       return false;
     }
   });
 
   ipcMain.handle("spotify:isMonitoringActive", async () => {
     try {
-      return isMonitoringActive();
+      const active = isMonitoringActive();
+      // Notify UI of current status
+      mainWindow.webContents.send("spotify:monitoring-status", {
+        status: active ? "active" : "inactive",
+        message: active ? "Monitoring is active" : "Monitoring is inactive",
+      });
+      return active;
     } catch (error) {
       saveLog(`Failed to check monitoring status: ${error}`, "ERROR");
       return false;
+    }
+  });
+
+  // Add a handler for getting detailed monitoring status
+  ipcMain.handle("spotify:getMonitoringStatus", async () => {
+    try {
+      const active = isMonitoringActive();
+      return {
+        active,
+        status: active ? "active" : "inactive",
+        message: active ? "Monitoring is active" : "Monitoring is inactive",
+      };
+    } catch (error) {
+      saveLog(`Error getting monitoring status: ${error}`, "ERROR");
+      return {
+        active: false,
+        status: "error",
+        message: "Error checking monitoring status",
+        details: String(error),
+      };
     }
   });
 

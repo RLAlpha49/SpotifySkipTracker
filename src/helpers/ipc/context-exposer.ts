@@ -106,6 +106,12 @@ export interface SpotifyAPI {
   startMonitoring: () => Promise<boolean>;
   stopMonitoring: () => Promise<boolean>;
   isMonitoringActive: () => Promise<boolean>;
+  getMonitoringStatus: () => Promise<{
+    active: boolean;
+    status: string;
+    message?: string;
+    details?: string;
+  }>;
 
   // Playback controls
   pausePlayback: () => Promise<boolean>;
@@ -121,6 +127,13 @@ export interface SpotifyAPI {
   onPlaybackStatusChange: (callback: (status: PlaybackState) => void) => void;
   onPlaybackTrackChange: (callback: (track: Track | null) => void) => void;
   onTrackSkipped: (callback: (skippedTrack: SkippedTrack) => void) => void;
+  onMonitoringStatusChange: (
+    callback: (status: {
+      status: string;
+      message?: string;
+      details?: string;
+    }) => void,
+  ) => () => void;
 }
 
 /**
@@ -217,6 +230,8 @@ export default function exposeContexts(): void {
     startMonitoring: () => ipcRenderer.invoke("spotify:startMonitoring"),
     stopMonitoring: () => ipcRenderer.invoke("spotify:stopMonitoring"),
     isMonitoringActive: () => ipcRenderer.invoke("spotify:isMonitoringActive"),
+    getMonitoringStatus: () =>
+      ipcRenderer.invoke("spotify:getMonitoringStatus"),
 
     // Playback controls
     pausePlayback: () => ipcRenderer.invoke("spotify:pausePlayback"),
@@ -244,6 +259,25 @@ export default function exposeContexts(): void {
       ipcRenderer.on("spotify:track-skipped", (_, trackData) =>
         callback(trackData),
       ),
+    onMonitoringStatusChange: (
+      callback: (status: {
+        status: string;
+        message?: string;
+        details?: string;
+      }) => void,
+    ) => {
+      const subscription = (
+        _event: Electron.IpcRendererEvent,
+        status: { status: string; message?: string; details?: string },
+      ) => callback(status);
+
+      ipcRenderer.on("spotify:monitoring-status", subscription);
+
+      // Return unsubscribe function for cleanup
+      return () => {
+        ipcRenderer.removeListener("spotify:monitoring-status", subscription);
+      };
+    },
 
     /**
      * Registers a callback for playback updates from the main process

@@ -8,12 +8,13 @@
  * - Playback monitoring controls
  */
 
-import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
-import { toast } from "sonner";
-import { PlaybackInfo, LogSettings } from "@/types/spotify";
-import { LogLevel } from "@/types/logging";
+import { MonitoringStatus } from "@/components/spotify/PlaybackMonitoringCard";
 import { LoadingSpinner } from "@/components/ui/spinner";
+import { LogLevel } from "@/types/logging";
+import { LogSettings, PlaybackInfo } from "@/types/spotify";
 import { MusicIcon } from "lucide-react";
+import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 const AuthenticationCard = lazy(() => {
   return import("@/components/spotify/AuthenticationCard")
@@ -100,6 +101,14 @@ export default function HomePage() {
   });
   const logsRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [logSearchTerm, setLogSearchTerm] = useState("");
+  const [monitoringStatus, setMonitoringStatus] =
+    useState<MonitoringStatus>("inactive");
+  const [statusMessage, setStatusMessage] = useState<string | undefined>(
+    undefined,
+  );
+  const [errorDetails, setErrorDetails] = useState<string | undefined>(
+    undefined,
+  );
 
   /**
    * Fetches current playback information from Spotify API
@@ -232,6 +241,9 @@ export default function HomePage() {
     const unsubscribe = window.spotify.onPlaybackUpdate((data) => {
       if (data.monitoringStopped) {
         setIsMonitoring(false);
+        setMonitoringStatus("error");
+        setStatusMessage("Monitoring stopped due to API errors");
+        setErrorDetails("Try restarting the monitoring service");
         setPlaybackInfo({
           albumArt: "",
           trackName: "Monitoring Stopped",
@@ -270,6 +282,46 @@ export default function HomePage() {
     });
 
     getInitialPlayback();
+
+    return () => {
+      unsubscribe();
+    };
+  }, [isAuthenticated]);
+
+  /**
+   * Add a listener for monitoring status changes
+   */
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Subscribe to monitoring status changes
+    const unsubscribe = window.spotify.onMonitoringStatusChange((status) => {
+      // Update our state based on the monitoring status
+      setMonitoringStatus(status.status as MonitoringStatus);
+      setStatusMessage(status.message);
+      setErrorDetails(status.details);
+
+      // Update the isMonitoring flag based on active status
+      if (status.status === "active") {
+        setIsMonitoring(true);
+      } else if (status.status === "inactive" || status.status === "error") {
+        setIsMonitoring(false);
+      }
+
+      // Log the status change
+      addLog(
+        `Monitoring status changed: ${status.status}${status.message ? ` - ${status.message}` : ""}`,
+        "DEBUG",
+      );
+    });
+
+    // Check initial monitoring status
+    window.spotify.getMonitoringStatus().then((status) => {
+      setMonitoringStatus(status.status as MonitoringStatus);
+      setStatusMessage(status.message);
+      setErrorDetails(status.details);
+      setIsMonitoring(status.active);
+    });
 
     return () => {
       unsubscribe();
@@ -499,16 +551,31 @@ export default function HomePage() {
    */
   const handleStartMonitoring = async () => {
     try {
+      // Update status immediately for better feedback
+      setMonitoringStatus("initializing");
+      setStatusMessage("Connecting to Spotify API...");
+      setErrorDetails(undefined);
+
       addLog("Starting Spotify playback monitoring...", "INFO");
       const success = await window.spotify.startMonitoring();
 
       if (success) {
         setIsMonitoring(true);
+        setMonitoringStatus("active");
+        setStatusMessage(
+          "Monitoring active since " + new Date().toLocaleTimeString(),
+        );
       } else {
+        setMonitoringStatus("error");
+        setStatusMessage("Failed to initialize monitoring");
+        setErrorDetails("Check Spotify connection and log for details");
         addLog("Failed to start monitoring", "ERROR");
       }
     } catch (error) {
       console.error("Error starting monitoring:", error);
+      setMonitoringStatus("error");
+      setStatusMessage("Error starting monitoring");
+      setErrorDetails(String(error));
       addLog(`Error starting monitoring: ${error}`, "ERROR");
     }
   };
@@ -520,11 +587,18 @@ export default function HomePage() {
    */
   const handleStopMonitoring = async () => {
     try {
+      // Show stopping state
+      setMonitoringStatus("initializing");
+      setStatusMessage("Stopping monitoring service...");
+
       addLog("Stopping Spotify playback monitoring...", "INFO");
       const success = await window.spotify.stopMonitoring();
 
       if (success) {
         setIsMonitoring(false);
+        setMonitoringStatus("inactive");
+        setStatusMessage(undefined);
+        setErrorDetails(undefined);
         setPlaybackInfo({
           albumArt: "",
           trackName: "Monitoring Stopped",
@@ -537,10 +611,18 @@ export default function HomePage() {
           isInPlaylist: false,
         });
       } else {
+        setMonitoringStatus("error");
+        setStatusMessage("Failed to stop monitoring");
+        setErrorDetails(
+          "The monitoring service may be in an inconsistent state",
+        );
         addLog("Failed to stop monitoring", "ERROR");
       }
     } catch (error) {
       console.error("Error stopping monitoring:", error);
+      setMonitoringStatus("error");
+      setStatusMessage("Error stopping monitoring");
+      setErrorDetails(String(error));
       addLog(`Error stopping monitoring: ${error}`, "ERROR");
     }
   };
@@ -707,6 +789,9 @@ export default function HomePage() {
             <PlaybackMonitoringCard
               isAuthenticated={isAuthenticated}
               isMonitoring={isMonitoring}
+              monitoringStatus={monitoringStatus}
+              statusMessage={statusMessage}
+              errorDetails={errorDetails}
               onStartMonitoring={handleStartMonitoring}
               onStopMonitoring={handleStopMonitoring}
             />
