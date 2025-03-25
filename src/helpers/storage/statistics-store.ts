@@ -4,10 +4,10 @@
  * Manages persistence of listening statistics and metrics for analysis and visualization
  */
 
+import { StatisticsData } from "@/types/statistics";
+import { app } from "electron";
 import { ensureDir, existsSync, readJsonSync, writeJsonSync } from "fs-extra";
 import { join } from "path";
-import { app } from "electron";
-import { StatisticsData } from "@/types/statistics";
 
 // File path for statistics storage
 const statisticsFilePath = join(
@@ -318,18 +318,20 @@ function calculateUniqueArtistCount(statistics: StatisticsData): number {
 }
 
 /**
- * Update statistics with data from a newly played or skipped track
+ * Updates statistics with details about a played track
  *
  * @param trackId Spotify ID of the track
  * @param trackName Name of the track
  * @param artistId Spotify ID of the artist
  * @param artistName Name of the artist
  * @param durationMs Duration of the track in milliseconds
- * @param wasSkipped Whether the track was skipped or played to completion
- * @param playedTimeMs How long the track was played in milliseconds
+ * @param wasSkipped Whether the track was skipped
+ * @param playedTimeMs How much of the track was played in milliseconds
  * @param deviceName Name of the device used for playback
  * @param deviceType Type of the device used for playback
  * @param timestamp When the track was played (optional, defaults to now)
+ * @param skipType Type of skip (optional, for skipped tracks only)
+ * @param isManualSkip Whether the skip was manual or automatic (optional)
  * @returns Success or failure
  */
 export async function updateTrackStatistics(
@@ -343,6 +345,8 @@ export async function updateTrackStatistics(
   deviceName: string | null,
   deviceType: string | null,
   timestamp: number = Date.now(),
+  skipType: string = "standard",
+  isManualSkip: boolean = true,
 ): Promise<boolean> {
   try {
     // Get current statistics data
@@ -356,6 +360,9 @@ export async function updateTrackStatistics(
     // Calculate ISO week number
     const weekNum = getISOWeek(date);
     const weekStr = `${date.getFullYear()}-W${weekNum.toString().padStart(2, "0")}`;
+
+    // Get hour of day for various metrics
+    const hourOfDay = date.getHours();
 
     // Initialize properties if they don't exist
     if (!statistics.dailyMetrics) statistics.dailyMetrics = {};
@@ -384,6 +391,18 @@ export async function updateTrackStatistics(
     if (statistics.avgSessionDurationMs === undefined)
       statistics.avgSessionDurationMs = 0;
 
+    // Initialize skip type metrics if they don't exist
+    if (!statistics.skipTypeMetrics) {
+      statistics.skipTypeMetrics = {
+        preview: 0,
+        standard: 0,
+        near_end: 0,
+        auto: 0,
+        manual: 0,
+        byTimeOfDay: Array(24).fill(0),
+      };
+    }
+
     // Update daily metrics - ensure the object exists before accessing it
     const dailyMetric = statistics.dailyMetrics[dateStr] || {
       date: dateStr,
@@ -394,11 +413,58 @@ export async function updateTrackStatistics(
       uniqueTracks: new Set<string>(),
       peakHour: 0,
       sequentialSkips: 0,
+      skipsByType: {
+        preview: 0,
+        standard: 0,
+        near_end: 0,
+        auto: 0,
+        manual: 0,
+      },
     };
 
     dailyMetric.listeningTimeMs += playedTimeMs;
     dailyMetric.tracksPlayed += 1;
-    if (wasSkipped) dailyMetric.tracksSkipped += 1;
+
+    // Update skip metrics if this was a skip
+    if (wasSkipped) {
+      dailyMetric.tracksSkipped += 1;
+
+      // Update skip type metrics
+      if (!dailyMetric.skipsByType) {
+        dailyMetric.skipsByType = {
+          preview: 0,
+          standard: 0,
+          near_end: 0,
+          auto: 0,
+          manual: 0,
+        };
+      }
+
+      // Increment the appropriate skip type counter
+      if (skipType === "preview") {
+        dailyMetric.skipsByType.preview += 1;
+        statistics.skipTypeMetrics.preview += 1;
+      } else if (skipType === "near_end") {
+        dailyMetric.skipsByType.near_end += 1;
+        statistics.skipTypeMetrics.near_end += 1;
+      } else {
+        // Default to standard
+        dailyMetric.skipsByType.standard += 1;
+        statistics.skipTypeMetrics.standard += 1;
+      }
+
+      // Track manual vs automatic skips
+      if (isManualSkip) {
+        dailyMetric.skipsByType.manual += 1;
+        statistics.skipTypeMetrics.manual += 1;
+      } else {
+        dailyMetric.skipsByType.auto += 1;
+        statistics.skipTypeMetrics.auto += 1;
+      }
+
+      // Track skip by time of day
+      statistics.skipTypeMetrics.byTimeOfDay[hourOfDay] += 1;
+    }
 
     // Ensure uniqueArtists is a Set
     if (!dailyMetric.uniqueArtists) {
@@ -431,7 +497,6 @@ export async function updateTrackStatistics(
     (dailyMetric.uniqueTracks as Set<string>).add(trackId);
 
     // Update peak hour
-    const hourOfDay = date.getHours();
     const hourlyDist = [...statistics.hourlyDistribution];
     hourlyDist[hourOfDay] += 1;
     statistics.hourlyDistribution = hourlyDist;

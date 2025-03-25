@@ -5,15 +5,21 @@
  * including skip detection and track completion metrics.
  */
 
-import * as spotifyApi from "../spotify";
 import * as store from "../../helpers/storage/store";
+import * as spotifyApi from "../spotify";
+import { recordSkippedTrack } from "./history";
+import {
+  analyzePositionBasedSkip,
+  detectManualVsAutoSkip,
+  handleTrackChangeEdgeCases,
+  recordSkipForPatternAnalysis,
+} from "./skip-detection";
 import {
   getPlaybackState,
   getTrackLastLogged,
   setTrackLastLogged,
   updatePlaybackState,
 } from "./state";
-import { recordSkippedTrack } from "./history";
 
 const recentlyPlayedHistory: Array<{ id: string; timestamp: number }> = [];
 const MAX_HISTORY_SIZE = 50;
@@ -162,9 +168,24 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
       return;
     }
 
-    // Check if track was played very briefly (less than 2 seconds)
-    // This could indicate rapidly browsing through tracks with previous/next buttons
-    const veryShortPlay = duration > 0 && lastProgress < 2000;
+    // Handle track change edge cases first
+    const edgeCaseResult = handleTrackChangeEdgeCases(
+      state,
+      getPlaybackState(), // Current state
+    );
+
+    if (edgeCaseResult.isEdgeCase) {
+      store.saveLog(`Detected edge case: ${edgeCaseResult.edgeCase}`, "DEBUG");
+
+      if (edgeCaseResult.shouldIgnore) {
+        store.saveLog(
+          `Ignoring track change due to edge case: ${edgeCaseResult.edgeCase}`,
+          "DEBUG",
+        );
+        addToLocalHistory(newTrackId); // Still add to history
+        return;
+      }
+    }
 
     // Step 1: Check our local history with improved logic that considers timing and sequence
     const isBackwardNavigation = isBackwardNavigationInLocalHistory(
@@ -174,7 +195,7 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
     );
 
     // Step 2: Get recently played tracks from Spotify API as backup
-    const recentlyPlayed = await spotifyApi.getRecentlyPlayedTracks(20);
+    const recentlyPlayed = await spotifyApi.getRecentlyPlayedTracks();
 
     // Step 3: Check if new track appears before previous track in Spotify history
     // (this is our original approach, kept as a fallback)
@@ -232,14 +253,11 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
     else {
       // Combine all our detection signals with more flexible logic
       const isNavigatingBackward =
-        isBackwardNavigation ||
-        isPreviousTrackNavigationAPI ||
-        (progressPercent < 0.05 &&
-          recentlyPlayedHistory.some((entry) => entry.id === newTrackId));
+        isBackwardNavigation || isPreviousTrackNavigationAPI;
 
       // Log the decision factors more clearly
       store.saveLog(
-        `Navigation detection: local=${isBackwardNavigation}, API=${isPreviousTrackNavigationAPI}, veryShortPlay=${veryShortPlay}, inRecentlyPlayed=${isPreviousTrackInRecentlyPlayed}`,
+        `Navigation detection: local=${isBackwardNavigation}, API=${isPreviousTrackNavigationAPI}, inRecentlyPlayed=${isPreviousTrackInRecentlyPlayed}`,
         "DEBUG",
       );
 
@@ -253,8 +271,35 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
       }
     }
 
+    // Now use our enhanced position-based skip detection
+    const skipAnalysis = analyzePositionBasedSkip(state, skipProgressThreshold);
+
+    // Record this skip for pattern analysis regardless of library status
+    if (skipAnalysis.isSkip) {
+      recordSkipForPatternAnalysis(previousTrackId, progressPercent);
+    }
+
+    // Determine if it was a manual action or automatic
+    let skipTypeInfo = {} as {
+      isManual: boolean;
+      confidence: number;
+      reason: string;
+    };
+
+    if (skipAnalysis.isSkip) {
+      skipTypeInfo = detectManualVsAutoSkip(
+        getPlaybackState(), // Current state
+        state, // Previous state
+      );
+
+      store.saveLog(
+        `Skip type detection: ${skipTypeInfo.isManual ? "manual" : "automatic"} (${skipTypeInfo.confidence.toFixed(2)} confidence) - ${skipTypeInfo.reason}`,
+        "DEBUG",
+      );
+    }
+
     // If track changed before the skip threshold, consider it skipped
-    if (progressPercent < skipProgressThreshold) {
+    if (skipAnalysis.isSkip) {
       // Check if the track is in the user's library (only count skips for library tracks)
       if (!state.isInLibrary) {
         store.saveLog(
@@ -265,7 +310,7 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
       }
 
       store.saveLog(
-        `Track "${state.currentTrackName}" was skipped at ${(progressPercent * 100).toFixed(1)}% (threshold: ${skipProgressThreshold * 100}%)`,
+        `Track "${state.currentTrackName}" was skipped at ${(progressPercent * 100).toFixed(1)}% (threshold: ${skipProgressThreshold * 100}%): ${skipAnalysis.reason}`,
         "INFO",
       );
 
@@ -303,10 +348,12 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
           state.currentDeviceName || null,
           state.currentDeviceType || null,
           Date.now(),
+          skipAnalysis.skipType, // Add skip type to statistics
+          skipTypeInfo.isManual, // Add whether it was manual or automatic
         );
 
         store.saveLog(
-          `Enhanced statistics recorded for skipped track "${trackName}"`,
+          `Enhanced statistics recorded for skipped track "${trackName}" (${skipAnalysis.skipType})`,
           "DEBUG",
         );
       } catch (error) {

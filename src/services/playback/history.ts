@@ -18,7 +18,7 @@ import { SkippedTrack } from "@/types/spotify";
 export async function updateRecentTracks(): Promise<void> {
   try {
     // Get recently played tracks from Spotify API
-    const recentlyPlayed = await spotifyApi.getRecentlyPlayedTracks(20);
+    const recentlyPlayed = await spotifyApi.getRecentlyPlayedTracks();
 
     if (
       recentlyPlayed &&

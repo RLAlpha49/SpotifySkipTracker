@@ -24,6 +24,24 @@ export interface TimeBasedMetrics {
 }
 
 /**
+ * Skip type metrics information
+ */
+export interface SkipTypeMetrics {
+  /** Quick preview skips (listened for a few seconds) */
+  preview: number;
+  /** Standard skips (below threshold) */
+  standard: number;
+  /** Near-end skips (skipped when almost complete) */
+  near_end: number;
+  /** Automatic skips (system-generated) */
+  auto: number;
+  /** Manual skips (user-initiated) */
+  manual: number;
+  /** Skip distribution by hour of day (24-hour array) */
+  byTimeOfDay: number[];
+}
+
+/**
  * Daily listening metrics record
  */
 export interface DailyMetrics extends TimeBasedMetrics {
@@ -33,6 +51,19 @@ export interface DailyMetrics extends TimeBasedMetrics {
   peakHour: number;
   /** Sequential skips count (number of times user skipped multiple tracks in a row) */
   sequentialSkips: number;
+  /** Metrics by skip type */
+  skipsByType?: {
+    /** Quick preview skips (listened for a few seconds) */
+    preview: number;
+    /** Standard skips (below threshold) */
+    standard: number;
+    /** Near-end skips (skipped when almost complete) */
+    near_end: number;
+    /** Automatic skips (system-generated) */
+    auto: number;
+    /** Manual skips (user-initiated) */
+    manual: number;
+  };
 }
 
 /**
@@ -217,4 +248,6 @@ export interface StatisticsData {
   recentSkipRateTrend: number[];
   /** Recent trends (last 14 days) of listening time */
   recentListeningTimeTrend: number[];
+  /** Detailed skip type metrics */
+  skipTypeMetrics?: SkipTypeMetrics;
 }
