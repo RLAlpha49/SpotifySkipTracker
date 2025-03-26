@@ -786,14 +786,17 @@ jobs:
           This PR was automatically created by the dependency update workflow.
           EOF
 
-          # Create the PR using the GitHub CLI
+          # Create the PR using the GitHub CLI with error handling
+          set +e  # Don't exit on error
           PR_URL=$(gh pr create \
             --title "chore: update npm dependencies" \
             --body-file "$PR_BODY_FILE" \
             --base master \
-            --head "$PR_BRANCH")
+            --head "$PR_BRANCH" 2>&1)
+          PR_CREATE_EXIT_CODE=$?
+          set -e  # Restore exit on error behavior
             
-          if [ $? -eq 0 ]; then
+          if [ $PR_CREATE_EXIT_CODE -eq 0 ]; then
             echo "[SUCCESS] Pull request created: $PR_URL"
             echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
             
@@ -801,8 +804,56 @@ jobs:
             PR_NUMBER=$(echo "$PR_URL" | awk -F'/' '{print $NF}')
             echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
           else
-            echo "[ERROR] Failed to create pull request"
-            exit 1
+            echo "[WARNING] Failed to create pull request with exit code $PR_CREATE_EXIT_CODE"
+            echo "[WARNING] Output: $PR_URL"
+            
+            # Check if PR already exists
+            EXISTING_PR=$(gh pr list --json number,title,headRefName --jq '.[] | select(.headRefName == "'$PR_BRANCH'") | .number')
+            
+            if [ -n "$EXISTING_PR" ]; then
+              echo "[INFO] Found existing PR #$EXISTING_PR for branch $PR_BRANCH"
+              echo "pr_number=$EXISTING_PR" >> $GITHUB_OUTPUT
+              echo "pr_url=https://github.com/$GITHUB_REPOSITORY/pull/$EXISTING_PR" >> $GITHUB_OUTPUT
+              echo "[SUCCESS] Using existing pull request: #$EXISTING_PR"
+            else
+              echo "[INFO] Attempting to create PR another way using the GitHub REST API"
+              
+              # Create a JSON payload file for the API request
+              API_PAYLOAD=$(mktemp)
+              cat > "$API_PAYLOAD" << EOF_API
+          {
+            "title": "chore: update npm dependencies",
+            "body": $(cat "$PR_BODY_FILE" | jq -Rs .),
+            "head": "$PR_BRANCH",
+            "base": "master"
+          }
+          EOF_API
+              
+              # Use curl to create the PR via GitHub API
+              API_RESPONSE=$(curl -s -X POST \
+                -H "Authorization: token $GITHUB_TOKEN" \
+                -H "Accept: application/vnd.github.v3+json" \
+                -d @"$API_PAYLOAD" \
+                "https://api.github.com/repos/$GITHUB_REPOSITORY/pulls")
+              
+              # Extract PR number and URL from API response
+              PR_NUMBER=$(echo "$API_RESPONSE" | jq -r '.number')
+              PR_HTML_URL=$(echo "$API_RESPONSE" | jq -r '.html_url')
+              
+              if [[ "$PR_NUMBER" != "null" && -n "$PR_NUMBER" ]]; then
+                echo "[SUCCESS] Pull request created via API: $PR_HTML_URL"
+                echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+                echo "pr_url=$PR_HTML_URL" >> $GITHUB_OUTPUT
+              else
+                echo "[ERROR] Failed to create pull request via API"
+                echo "[ERROR] API Response: $API_RESPONSE"
+                # Don't fail the build, just log the error
+                echo "pr_creation_failed=true" >> $GITHUB_OUTPUT
+              fi
+              
+              # Clean up
+              rm -f "$API_PAYLOAD" 2>/dev/null || true
+            fi
           fi
 
           # Clean up
