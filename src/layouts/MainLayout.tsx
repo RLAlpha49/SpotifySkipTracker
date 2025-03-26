@@ -12,7 +12,12 @@
 
 import React, { useState, ReactNode, lazy, Suspense } from "react";
 import { Link } from "@tanstack/react-router";
-import { HomeIcon, SettingsIcon, SkipForwardIcon } from "lucide-react";
+import {
+  HomeIcon,
+  SettingsIcon,
+  SkipForwardIcon,
+  BarChartIcon,
+} from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LoadingSpinner } from "@/components/ui/spinner";
 
@@ -50,6 +55,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   // Computed states for active route highlighting
   const isHomeActive = activeRoute === "/";
   const isSkippedTracksActive = activeRoute === "/skipped-tracks";
+  const isStatisticsActive = activeRoute === "/statistics";
   const isSettingsActive = activeRoute === "/settings";
 
   return (
@@ -92,6 +98,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
           >
             <SkipForwardIcon className="h-5 w-5" />
             <span className="text-xs">Skips</span>
+          </Link>
+
+          <Link
+            to="/statistics"
+            className={`flex flex-col items-center p-2 ${
+              isStatisticsActive ? "text-primary" : "text-muted-foreground"
+            }`}
+            onClick={() => handleNavigation("/statistics")}
+          >
+            <BarChartIcon className="h-5 w-5" />
+            <span className="text-xs">Stats</span>
           </Link>
 
           <Link

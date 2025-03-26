@@ -6,14 +6,18 @@
  */
 
 import { app, BrowserWindow } from "electron";
-import { checkForSquirrelEvents } from "./main/installer-events";
-import { createWindow } from "./main/window";
-import { installExtensions } from "./main/extensions";
 import { saveLog } from "../helpers/storage/store";
 import {
-  stopPlaybackMonitoring,
   isMonitoringActive,
+  stopPlaybackMonitoring,
 } from "../services/playback";
+import { installExtensions } from "./main/extensions";
+import { checkForSquirrelEvents } from "./main/installer-events";
+import {
+  initializeStatisticsServices,
+  shutdownStatisticsServices,
+} from "./main/statistics-setup";
+import { createWindow } from "./main/window";
 
 // Check for Windows installer events before doing anything else
 if (checkForSquirrelEvents()) {
@@ -25,7 +29,12 @@ app.whenReady().then(async () => {
   saveLog("Application initializing", "DEBUG");
 
   await installExtensions();
-  createWindow();
+
+  // Create the main window
+  const mainWindow = createWindow();
+
+  // Initialize statistics services with the mainWindow
+  await initializeStatisticsServices(mainWindow);
 
   app.on("activate", function () {
     // MacOS dock click behavior
@@ -48,4 +57,7 @@ app.on("quit", () => {
   if (isMonitoringActive()) {
     stopPlaybackMonitoring();
   }
+
+  // Shutdown statistics services
+  shutdownStatisticsServices();
 });

@@ -14,16 +14,11 @@
  * - Unique initialization vectors for each encryption operation
  */
 
+import * as crypto from "crypto";
 import { app } from "electron";
 import * as fs from "fs";
 import * as path from "path";
-import * as crypto from "crypto";
 import { saveLog } from "../helpers/storage/logs-store";
-import { AuthTokens } from "@/types/auth";
-import {
-  setTokens as setAuthTokens,
-  clearTokens as clearAuthTokens,
-} from "./auth/storage/token-operations";
 
 // Storage configuration constants
 const TOKEN_FILE = "spotify-tokens.json";
@@ -147,7 +142,6 @@ function decrypt(encryptedData: string, iv: string): string {
 
 /**
  * Persists authentication tokens to encrypted storage
- * and updates the auth token services
  *
  * @param tokenData - Token data to encrypt and store
  * @returns Boolean indicating operation success
@@ -168,18 +162,6 @@ export function saveTokens(tokenData: TokenData): boolean {
 
     // Write to encrypted storage
     fs.writeFileSync(tokenFilePath, JSON.stringify(storageData));
-
-    // Also update the auth token services
-    const authTokens: AuthTokens = {
-      accessToken: tokenData.accessToken,
-      refreshToken: tokenData.refreshToken,
-      expiresIn: Math.max(
-        0,
-        Math.floor((tokenData.expiresAt - Date.now()) / 1000),
-      ),
-    };
-
-    setAuthTokens(authTokens);
 
     saveLog("Spotify tokens saved securely to disk", "DEBUG");
 
@@ -213,18 +195,6 @@ export function loadTokens(): TokenData | null {
     const decryptedData = decrypt(storageData.encryptedData, storageData.iv);
     const tokenData = JSON.parse(decryptedData) as TokenData;
 
-    // Sync with auth token services
-    const authTokens: AuthTokens = {
-      accessToken: tokenData.accessToken,
-      refreshToken: tokenData.refreshToken,
-      expiresIn: Math.max(
-        0,
-        Math.floor((tokenData.expiresAt - Date.now()) / 1000),
-      ),
-    };
-
-    setAuthTokens(authTokens);
-
     saveLog("Spotify tokens loaded from secure storage", "DEBUG");
     return tokenData;
   } catch (error) {
@@ -245,15 +215,10 @@ export function clearTokens(): boolean {
     if (fs.existsSync(tokenFilePath)) {
       fs.unlinkSync(tokenFilePath);
 
-      // Also clear tokens in the auth token services
-      clearAuthTokens();
-
       saveLog("Spotify tokens cleared from disk", "INFO");
-    } else {
-      saveLog("No tokens to clear", "DEBUG");
+      return true;
     }
-
-    return true;
+    return false;
   } catch (error) {
     saveLog(`Failed to clear tokens: ${error}`, "ERROR");
     return false;

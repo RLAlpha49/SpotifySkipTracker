@@ -1,9 +1,9 @@
-import path from "path";
 import react from "@vitejs/plugin-react";
+import fs from "fs";
+import path from "path";
 import type { UserConfig } from "vite";
 import { defineConfig } from "vite";
 import { pluginExposeRenderer } from "./vite.base.config";
-import fs from "fs";
 
 interface ForgeEnv {
   root: string;
@@ -73,12 +73,20 @@ export default defineConfig((env) => {
               id.includes("node_modules/@radix-ui") ||
               id.includes("node_modules/class-variance-authority") ||
               id.includes("node_modules/tailwind-merge") ||
-              id.includes("node_modules/tailwindcss-animate") ||
-              id.includes("node_modules/lucide-react")
+              id.includes("node_modules/tailwindcss-animate")
             ) {
               return "vendor-ui-framework";
             }
 
+            // Charting libraries
+            if (
+              id.includes("node_modules/recharts") ||
+              id.includes("node_modules/recharts-scale")
+            ) {
+              return "vendor-charts";
+            }
+
+            // Other node modules
             if (id.includes("node_modules")) {
               return "vendor";
             }
@@ -123,6 +131,11 @@ export default defineConfig((env) => {
               return "app-feature-skipped-tracks";
             }
 
+            // Statistics feature
+            if (id.includes("/components/statistics/")) {
+              return "app-feature-statistics";
+            }
+
             // Core API services
             if (id.includes("/services/")) {
               return "app-services";
@@ -136,6 +149,13 @@ export default defineConfig((env) => {
             // Application core
             return "app-core";
           },
+        },
+      },
+      minify: "terser",
+      terserOptions: {
+        compress: {
+          drop_console: isProduction,
+          drop_debugger: isProduction,
         },
       },
     },

@@ -6,6 +6,7 @@
  *
  * - / → HomePage - Dashboard for monitoring and playback controls
  * - /skipped-tracks → SkippedTracksPage - Track statistics and analysis
+ * - /statistics → StatisticsPage - Detailed listening statistics and metrics
  * - /settings → SettingsPage - Application configuration
  */
 
@@ -17,6 +18,7 @@ import { LoadingSpinner } from "@/components/ui/spinner";
 // Lazy load all page components
 const HomePage = lazy(() => import("../pages/HomePage"));
 const SkippedTracksPage = lazy(() => import("../pages/SkippedTracksPage"));
+const StatisticsPage = lazy(() => import("../pages/StatisticsPage"));
 const SettingsPage = lazy(() => import("../pages/SettingsPage"));
 
 // Loading component for suspense fallback
@@ -55,6 +57,20 @@ export const SkippedTracksRoute = createRoute({
 });
 
 /**
+ * Statistics route - Detailed listening statistics and metrics
+ * Path: "/statistics"
+ */
+export const StatisticsRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: "/statistics",
+  component: () => (
+    <Suspense fallback={<PageLoader />}>
+      <StatisticsPage />
+    </Suspense>
+  ),
+});
+
+/**
  * Settings route - Application configuration
  * Path: "/settings"
  */
@@ -75,5 +91,6 @@ export const SettingsRoute = createRoute({
 export const rootTree = RootRoute.addChildren([
   HomeRoute,
   SkippedTracksRoute,
+  StatisticsRoute,
   SettingsRoute,
 ]);

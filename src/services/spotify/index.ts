@@ -38,6 +38,7 @@ export { getCurrentUser } from "./user";
 export {
   getCurrentPlayback,
   getRecentlyPlayedTracks,
+  getTrack,
   pause,
   play,
   skipToPrevious,

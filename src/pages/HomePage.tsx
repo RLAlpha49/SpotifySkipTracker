@@ -8,11 +8,13 @@
  * - Playback monitoring controls
  */
 
-import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
-import { toast } from "sonner";
-import { PlaybackInfo, LogSettings } from "@/types/spotify";
-import { LogLevel } from "@/types/logging";
+import { MonitoringStatus } from "@/components/spotify/PlaybackMonitoringCard";
 import { LoadingSpinner } from "@/components/ui/spinner";
+import { LogLevel } from "@/types/logging";
+import { LogSettings, PlaybackInfo } from "@/types/spotify";
+import { MusicIcon } from "lucide-react";
+import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 const AuthenticationCard = lazy(() => {
   return import("@/components/spotify/AuthenticationCard")
@@ -99,6 +101,14 @@ export default function HomePage() {
   });
   const logsRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [logSearchTerm, setLogSearchTerm] = useState("");
+  const [monitoringStatus, setMonitoringStatus] =
+    useState<MonitoringStatus>("inactive");
+  const [statusMessage, setStatusMessage] = useState<string | undefined>(
+    undefined,
+  );
+  const [errorDetails, setErrorDetails] = useState<string | undefined>(
+    undefined,
+  );
 
   /**
    * Fetches current playback information from Spotify API
@@ -199,6 +209,7 @@ export default function HomePage() {
 
   /**
    * Sets up periodic log refresh mechanism
+   * This will only refresh latest.log, not other log files
    */
   const startLogsRefresh = () => {
     if (logsRefreshIntervalRef.current) {
@@ -211,6 +222,7 @@ export default function HomePage() {
 
     logsRefreshIntervalRef.current = setInterval(async () => {
       try {
+        // Get logs from latest.log
         const updatedLogs = await window.spotify.getLogs();
         setLogs(updatedLogs);
       } catch (error) {
@@ -229,6 +241,9 @@ export default function HomePage() {
     const unsubscribe = window.spotify.onPlaybackUpdate((data) => {
       if (data.monitoringStopped) {
         setIsMonitoring(false);
+        setMonitoringStatus("error");
+        setStatusMessage("Monitoring stopped due to API errors");
+        setErrorDetails("Try restarting the monitoring service");
         setPlaybackInfo({
           albumArt: "",
           trackName: "Monitoring Stopped",
@@ -274,7 +289,48 @@ export default function HomePage() {
   }, [isAuthenticated]);
 
   /**
+   * Add a listener for monitoring status changes
+   */
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Subscribe to monitoring status changes
+    const unsubscribe = window.spotify.onMonitoringStatusChange((status) => {
+      // Update our state based on the monitoring status
+      setMonitoringStatus(status.status as MonitoringStatus);
+      setStatusMessage(status.message);
+      setErrorDetails(status.details);
+
+      // Update the isMonitoring flag based on active status
+      if (status.status === "active") {
+        setIsMonitoring(true);
+      } else if (status.status === "inactive" || status.status === "error") {
+        setIsMonitoring(false);
+      }
+
+      // Log the status change
+      addLog(
+        `Monitoring status changed: ${status.status}${status.message ? ` - ${status.message}` : ""}`,
+        "DEBUG",
+      );
+    });
+
+    // Check initial monitoring status
+    window.spotify.getMonitoringStatus().then((status) => {
+      setMonitoringStatus(status.status as MonitoringStatus);
+      setStatusMessage(status.message);
+      setErrorDetails(status.details);
+      setIsMonitoring(status.active);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [isAuthenticated]);
+
+  /**
    * Saves log message and updates logs state
+   * Always saves to latest.log regardless of which log file is being viewed
    *
    * @param message - Message content to log
    * @param level - Severity level for the log
@@ -283,7 +339,7 @@ export default function HomePage() {
   const addLog = async (message: string, level: LogLevel = "INFO") => {
     try {
       await window.spotify.saveLog(message, level);
-      const updatedLogs = await window.spotify.getLogs();
+      const updatedLogs = await window.spotify.getLogs(100);
       setLogs(updatedLogs);
     } catch (error) {
       console.error("Error saving log:", error);
@@ -334,17 +390,21 @@ export default function HomePage() {
   const handleToggleLogAutoRefresh = async () => {
     try {
       const newAutoRefresh = !settings.logAutoRefresh;
+
+      // Update local state
       setSettings((prev) => ({
         ...prev,
         logAutoRefresh: newAutoRefresh,
       }));
 
+      // Save to storage
       const currentSettings = await window.spotify.getSettings();
       await window.spotify.saveSettings({
         ...currentSettings,
         logAutoRefresh: newAutoRefresh,
       });
 
+      // Start or stop the refresh interval
       if (newAutoRefresh) {
         startLogsRefresh();
         addLog("Log auto-refresh enabled", "DEBUG");
@@ -491,16 +551,31 @@ export default function HomePage() {
    */
   const handleStartMonitoring = async () => {
     try {
+      // Update status immediately for better feedback
+      setMonitoringStatus("initializing");
+      setStatusMessage("Connecting to Spotify API...");
+      setErrorDetails(undefined);
+
       addLog("Starting Spotify playback monitoring...", "INFO");
       const success = await window.spotify.startMonitoring();
 
       if (success) {
         setIsMonitoring(true);
+        setMonitoringStatus("active");
+        setStatusMessage(
+          "Monitoring active since " + new Date().toLocaleTimeString(),
+        );
       } else {
+        setMonitoringStatus("error");
+        setStatusMessage("Failed to initialize monitoring");
+        setErrorDetails("Check Spotify connection and log for details");
         addLog("Failed to start monitoring", "ERROR");
       }
     } catch (error) {
       console.error("Error starting monitoring:", error);
+      setMonitoringStatus("error");
+      setStatusMessage("Error starting monitoring");
+      setErrorDetails(String(error));
       addLog(`Error starting monitoring: ${error}`, "ERROR");
     }
   };
@@ -512,11 +587,18 @@ export default function HomePage() {
    */
   const handleStopMonitoring = async () => {
     try {
+      // Show stopping state
+      setMonitoringStatus("initializing");
+      setStatusMessage("Stopping monitoring service...");
+
       addLog("Stopping Spotify playback monitoring...", "INFO");
       const success = await window.spotify.stopMonitoring();
 
       if (success) {
         setIsMonitoring(false);
+        setMonitoringStatus("inactive");
+        setStatusMessage(undefined);
+        setErrorDetails(undefined);
         setPlaybackInfo({
           albumArt: "",
           trackName: "Monitoring Stopped",
@@ -529,10 +611,18 @@ export default function HomePage() {
           isInPlaylist: false,
         });
       } else {
+        setMonitoringStatus("error");
+        setStatusMessage("Failed to stop monitoring");
+        setErrorDetails(
+          "The monitoring service may be in an inconsistent state",
+        );
         addLog("Failed to stop monitoring", "ERROR");
       }
     } catch (error) {
       console.error("Error stopping monitoring:", error);
+      setMonitoringStatus("error");
+      setStatusMessage("Error stopping monitoring");
+      setErrorDetails(String(error));
       addLog(`Error stopping monitoring: ${error}`, "ERROR");
     }
   };
@@ -540,9 +630,9 @@ export default function HomePage() {
   /**
    * Clears application logs
    *
-   * @returns Promise<void>
+   * @returns Promise<boolean> indicating success or failure
    */
-  const handleClearLogs = async () => {
+  const handleClearLogs = async (): Promise<boolean> => {
     try {
       const result = await window.spotify.clearLogs();
       if (result) {
@@ -550,23 +640,26 @@ export default function HomePage() {
       } else {
         addLog("Failed to clear logs", "ERROR");
       }
+      return result;
     } catch (error) {
       console.error("Error clearing logs:", error);
       addLog(`Error clearing logs: ${error}`, "ERROR");
+      return false;
     }
   };
 
   /**
    * Opens log directory in file explorer
    *
-   * @returns Promise<void>
+   * @returns Promise<boolean> indicating success or failure
    */
-  const handleOpenLogsDirectory = async () => {
+  const handleOpenLogsDirectory = async (): Promise<boolean> => {
     try {
-      await window.spotify.openLogsDirectory();
+      return await window.spotify.openLogsDirectory();
     } catch (error) {
       console.error("Error opening logs directory:", error);
       addLog(`Error opening logs directory: ${error}`, "ERROR");
+      return false;
     }
   };
 
@@ -658,76 +751,91 @@ export default function HomePage() {
   };
 
   return (
-    <div className="container mx-auto flex flex-col gap-6 py-4">
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <Suspense
-          fallback={
-            <div className="border p-4">
-              <LoadingSpinner size="md" text="Loading authentication..." />
-            </div>
-          }
-        >
-          <AuthenticationCard
-            isAuthenticated={isAuthenticated}
-            needsReauthentication={needsReauthentication}
-            onLogin={handleAuthenticate}
-            onLogout={handleLogout}
-          />
-        </Suspense>
+    <div className="container mx-auto max-w-5xl py-8">
+      <div className="mb-8 border-b pb-4">
+        <h1 className="flex items-center text-3xl font-bold tracking-tight">
+          <MusicIcon className="text-primary mr-3 h-8 w-8" />
+          Spotify Skip Tracker
+        </h1>
+        <p className="text-muted-foreground mt-2">
+          Monitor your Spotify playback and identify frequently skipped tracks
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <Suspense
+            fallback={
+              <div className="bg-muted/30 flex h-40 animate-pulse items-center justify-center rounded-lg border p-6 shadow-sm">
+                <LoadingSpinner size="md" text="Loading authentication..." />
+              </div>
+            }
+          >
+            <AuthenticationCard
+              isAuthenticated={isAuthenticated}
+              needsReauthentication={needsReauthentication}
+              onLogin={handleAuthenticate}
+              onLogout={handleLogout}
+            />
+          </Suspense>
+
+          <Suspense
+            fallback={
+              <div className="bg-muted/30 flex h-40 animate-pulse items-center justify-center rounded-lg border p-6 shadow-sm">
+                <LoadingSpinner size="md" text="Loading playback controls..." />
+              </div>
+            }
+          >
+            <PlaybackMonitoringCard
+              isAuthenticated={isAuthenticated}
+              isMonitoring={isMonitoring}
+              monitoringStatus={monitoringStatus}
+              statusMessage={statusMessage}
+              errorDetails={errorDetails}
+              onStartMonitoring={handleStartMonitoring}
+              onStopMonitoring={handleStopMonitoring}
+            />
+          </Suspense>
+        </div>
+
+        {(isAuthenticated || playbackInfo) && (
+          <Suspense
+            fallback={
+              <div className="bg-muted/30 flex h-52 animate-pulse items-center justify-center rounded-lg border p-6 shadow-sm">
+                <LoadingSpinner size="md" text="Loading now playing..." />
+              </div>
+            }
+          >
+            <NowPlayingCard
+              isAuthenticated={isAuthenticated}
+              isMonitoring={isMonitoring}
+              playbackInfo={playbackInfo}
+              onPlayPause={handlePlayPause}
+              onPreviousTrack={handlePreviousTrack}
+              onNextTrack={handleNextTrack}
+            />
+          </Suspense>
+        )}
 
         <Suspense
           fallback={
-            <div className="border p-4">
-              <LoadingSpinner size="md" text="Loading playback controls..." />
+            <div className="bg-muted/30 flex h-96 animate-pulse items-center justify-center rounded-lg border p-6 shadow-sm">
+              <LoadingSpinner size="md" text="Loading logs..." />
             </div>
           }
         >
-          <PlaybackMonitoringCard
-            isAuthenticated={isAuthenticated}
-            isMonitoring={isMonitoring}
-            onStartMonitoring={handleStartMonitoring}
-            onStopMonitoring={handleStopMonitoring}
+          <LogsCard
+            logs={logs}
+            settings={settings}
+            logSearchTerm={logSearchTerm}
+            onDisplayLogLevelChange={handleDisplayLogLevelChange}
+            onToggleLogAutoRefresh={handleToggleLogAutoRefresh}
+            onLogSearch={handleLogSearch}
+            onClearLogs={handleClearLogs}
+            onOpenLogsDirectory={handleOpenLogsDirectory}
           />
         </Suspense>
       </div>
-
-      {(isAuthenticated || playbackInfo) && (
-        <Suspense
-          fallback={
-            <div className="border p-4">
-              <LoadingSpinner size="md" text="Loading now playing..." />
-            </div>
-          }
-        >
-          <NowPlayingCard
-            isAuthenticated={isAuthenticated}
-            isMonitoring={isMonitoring}
-            playbackInfo={playbackInfo}
-            onPlayPause={handlePlayPause}
-            onPreviousTrack={handlePreviousTrack}
-            onNextTrack={handleNextTrack}
-          />
-        </Suspense>
-      )}
-
-      <Suspense
-        fallback={
-          <div className="border p-4">
-            <LoadingSpinner size="md" text="Loading logs..." />
-          </div>
-        }
-      >
-        <LogsCard
-          logs={logs}
-          settings={settings}
-          logSearchTerm={logSearchTerm}
-          onDisplayLogLevelChange={handleDisplayLogLevelChange}
-          onToggleLogAutoRefresh={handleToggleLogAutoRefresh}
-          onLogSearch={handleLogSearch}
-          onClearLogs={handleClearLogs}
-          onOpenLogsDirectory={handleOpenLogsDirectory}
-        />
-      </Suspense>
     </div>
   );
 }

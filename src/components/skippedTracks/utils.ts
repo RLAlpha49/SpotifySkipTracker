@@ -33,7 +33,7 @@ export const getRecentSkipCount = (
   timeframeInDays: number,
 ): number => {
   if (!track.skipTimestamps || track.skipTimestamps.length === 0) {
-    return track.skipCount;
+    return track.skipCount || 0;
   }
 
   const cutoffDate = new Date();
@@ -74,10 +74,13 @@ export const shouldSuggestRemoval = (
  * @returns Formatted percentage string
  */
 export const calculateSkipRatio = (track: SkippedTrack): string => {
-  const totalPlays = track.skipCount + track.notSkippedCount;
+  const skipCount = track.skipCount || 0;
+  const notSkippedCount = track.notSkippedCount || 0;
+  const totalPlays = skipCount + notSkippedCount;
+
   if (totalPlays === 0) return "0%";
 
-  const ratio = (track.skipCount / totalPlays) * 100;
+  const ratio = (skipCount / totalPlays) * 100;
   return `${ratio.toFixed(0)}%`;
 };
 
@@ -99,7 +102,7 @@ export const getMostRecentTimestamp = (track: SkippedTrack): string => {
   }
 
   // Fallback to lastSkipped
-  return track.lastSkipped;
+  return track.lastSkipped || "";
 };
 
 /**
@@ -147,5 +150,5 @@ export const sortBySkipCount = (
     return recentSkipsB - recentSkipsA;
   }
 
-  return b.skipCount - a.skipCount;
+  return (b.skipCount || 0) - (a.skipCount || 0);
 };

@@ -1,15 +1,5 @@
-import React from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import ToggleTheme from "@/components/ToggleTheme";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   FormControl,
   FormDescription,
@@ -18,17 +8,36 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { UseFormReturn } from "react-hook-form";
-import * as z from "zod";
-import ToggleTheme from "@/components/ToggleTheme";
-import { settingsFormSchema } from "./settingsFormSchema";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { HelpCircle } from "lucide-react";
+import {
+  Archive,
+  CalendarDays,
+  FileText,
+  Gauge,
+  HelpCircle,
+  MonitorPlay,
+  Settings2,
+  Sun,
+} from "lucide-react";
+import React from "react";
+import { UseFormReturn } from "react-hook-form";
+import * as z from "zod";
+import { settingsFormSchema } from "./settingsFormSchema";
 
 interface ApplicationSettingsFormProps {
   form: UseFormReturn<z.infer<typeof settingsFormSchema>>;
@@ -40,74 +49,134 @@ export function ApplicationSettingsForm({
   setSettingsChanged,
 }: ApplicationSettingsFormProps) {
   return (
-    <div className="mb-6">
-      <h2 className="text-lg font-semibold">Application Settings</h2>
-      <p className="text-muted-foreground mb-4 text-sm">
-        Configure general application behavior
-      </p>
+    <div>
+      <CardHeader className="px-0 pt-0">
+        <CardTitle className="mb-1 flex items-center text-xl font-semibold">
+          <Settings2 className="text-primary mr-2 h-5 w-5" />
+          Application Settings
+        </CardTitle>
+        <p className="text-muted-foreground text-sm">
+          Configure general application behavior
+        </p>
+      </CardHeader>
 
-      <Card>
-        <CardContent className="p-6">
-          <div className="mb-4">
-            <FormField
-              control={form.control}
-              name="autoStartMonitoring"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center space-x-1">
-                      <FormLabel className="text-base">
-                        Auto-Start Monitoring
-                      </FormLabel>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <HelpCircle className="text-muted-foreground h-4 w-4" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>
-                              When enabled, the app will automatically begin
-                              monitoring your Spotify activity when you launch
-                              the app or log in, without requiring you to
-                              manually start monitoring.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <FormDescription>
-                      Automatically start monitoring when the app launches or
-                      when you log in
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={(checked) => {
-                        field.onChange(checked);
-                        setSettingsChanged(true);
-                      }}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="mb-4">
-            <FormField
-              control={form.control}
-              name="fileLogLevel"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex items-center space-x-1">
-                    <FormLabel>Log File Level</FormLabel>
+      <Card className="border-muted-foreground/20 shadow-sm">
+        <CardContent className="space-y-6 p-6">
+          <FormField
+            control={form.control}
+            name="autoStartMonitoring"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <div className="flex items-center space-x-2">
+                    <FormLabel className="flex items-center text-base font-medium">
+                      <MonitorPlay className="text-primary-muted mr-1.5 h-4 w-4" />
+                      Auto-Start Monitoring
+                    </FormLabel>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <HelpCircle className="text-muted-foreground h-4 w-4" />
                         </TooltipTrigger>
-                        <TooltipContent>
+                        <TooltipContent side="top" className="max-w-md">
+                          <p>
+                            When enabled, the app will automatically begin
+                            monitoring your Spotify activity when you launch the
+                            app or log in, without requiring you to manually
+                            start monitoring.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <FormDescription>
+                    Automatically start monitoring when the app launches or when
+                    you log in
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={(checked) => {
+                      field.onChange(checked);
+                      setSettingsChanged(true);
+                    }}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="pollingInterval"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <div className="flex items-center space-x-2">
+                    <FormLabel className="flex items-center text-base font-medium">
+                      <Gauge className="text-primary-muted mr-1.5 h-4 w-4" />
+                      Polling Interval (ms)
+                    </FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="text-muted-foreground h-4 w-4" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-md">
+                          <p>
+                            Controls how frequently the app checks with Spotify
+                            for playback changes. Lower values provide more
+                            responsive detection but use more resources. Higher
+                            values conserve system resources but may be less
+                            responsive. Recommended range: 1000-5000ms.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <FormDescription>
+                    Time in milliseconds between Spotify API polling requests
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={500}
+                    max={10000}
+                    className="w-32 text-right"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(Number(e.target.value));
+                      setSettingsChanged(true);
+                    }}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          <div className="space-y-4 rounded-lg border p-4">
+            <h3 className="flex items-center text-base font-medium">
+              <FileText className="text-primary-muted mr-1.5 h-4 w-4" />
+              Logging Configuration
+            </h3>
+
+            <FormField
+              control={form.control}
+              name="fileLogLevel"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="mb-1.5 flex items-center space-x-2">
+                    <FormLabel className="font-medium">
+                      Log File Level
+                    </FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="text-muted-foreground h-4 w-4" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-md">
                           <p>
                             Controls the level of detail saved in log files.
                             DEBUG includes all events, INFO includes normal
@@ -126,7 +195,7 @@ export function ApplicationSettingsForm({
                     }}
                     value={field.value}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select log level" />
                     </SelectTrigger>
                     <SelectContent>
@@ -145,112 +214,116 @@ export function ApplicationSettingsForm({
                 </FormItem>
               )}
             />
-          </div>
 
-          <div className="mb-4">
-            <FormField
-              control={form.control}
-              name="logLineCount"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex items-center space-x-1">
-                    <FormLabel>Log Line Count</FormLabel>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <HelpCircle className="text-muted-foreground h-4 w-4" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>
-                            The maximum number of log lines to keep in each log
-                            file. When this limit is reached, older logs are
-                            archived or rotated. Higher values retain more
-                            history but use more disk space.
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={10}
-                      max={10000}
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                        setSettingsChanged(true);
-                      }}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Maximum number of log lines to keep
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="logLineCount"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="mb-1.5 flex items-center space-x-2">
+                      <FormLabel className="flex items-center font-medium">
+                        <Archive className="text-primary-muted mr-1.5 h-4 w-4" />
+                        Log Line Count
+                      </FormLabel>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="text-muted-foreground h-4 w-4" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-md">
+                            <p>
+                              The maximum number of log lines to keep in each
+                              log file. When this limit is reached, older logs
+                              are archived or rotated. Higher values retain more
+                              history but use more disk space.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={10}
+                        max={10000}
+                        {...field}
+                        onChange={(e) => {
+                          field.onChange(e);
+                          setSettingsChanged(true);
+                        }}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Maximum number of log lines to keep
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <div className="mb-4">
-            <FormField
-              control={form.control}
-              name="maxLogFiles"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex items-center space-x-1">
-                    <FormLabel>Max Log Files</FormLabel>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <HelpCircle className="text-muted-foreground h-4 w-4" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>
-                            The maximum number of archived log files to retain.
-                            Older archives beyond this limit will be
-                            automatically deleted. This prevents excessive disk
-                            usage while preserving some history.
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={100}
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                        setSettingsChanged(true);
-                      }}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Maximum number of log files to keep
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+              <FormField
+                control={form.control}
+                name="maxLogFiles"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="mb-1.5 flex items-center space-x-2">
+                      <FormLabel className="font-medium">
+                        Max Log Files
+                      </FormLabel>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="text-muted-foreground h-4 w-4" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-md">
+                            <p>
+                              The maximum number of archived log files to
+                              retain. Older archives beyond this limit will be
+                              automatically deleted. This prevents excessive
+                              disk usage while preserving some history.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={100}
+                        {...field}
+                        onChange={(e) => {
+                          field.onChange(e);
+                          setSettingsChanged(true);
+                        }}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Maximum number of log files to keep
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
-          <div className="mb-4">
             <FormField
               control={form.control}
               name="logRetentionDays"
               render={({ field }) => (
                 <FormItem>
-                  <div className="flex items-center space-x-1">
-                    <FormLabel>Log Retention Days</FormLabel>
+                  <div className="mb-1.5 flex items-center space-x-2">
+                    <FormLabel className="flex items-center font-medium">
+                      <CalendarDays className="text-primary-muted mr-1.5 h-4 w-4" />
+                      Log Retention Days
+                    </FormLabel>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <HelpCircle className="text-muted-foreground h-4 w-4" />
                         </TooltipTrigger>
-                        <TooltipContent>
+                        <TooltipContent side="top" className="max-w-md">
                           <p>
                             The maximum age in days for log files before
                             they&apos;re automatically deleted. This provides an
@@ -282,11 +355,18 @@ export function ApplicationSettingsForm({
             />
           </div>
 
-          <div>
-            <Label>Theme</Label>
-            <div className="mt-2 flex items-center space-x-2">
+          <div className="rounded-lg border p-4">
+            <div className="mb-3 flex items-center space-x-2">
+              <Label className="flex items-center text-base font-medium">
+                <Sun className="text-primary-muted mr-1.5 h-4 w-4" />
+                Theme
+              </Label>
+            </div>
+            <div className="flex items-center space-x-3">
               <ToggleTheme />
-              <span className="text-sm">Toggle dark/light mode</span>
+              <span className="text-muted-foreground text-sm">
+                Toggle between light and dark mode
+              </span>
             </div>
           </div>
         </CardContent>

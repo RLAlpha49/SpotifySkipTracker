@@ -102,3 +102,7 @@ out/
 
 # Local
 .vscode/
+.cursor/templates
+
+# Documentation and templates
+docs/

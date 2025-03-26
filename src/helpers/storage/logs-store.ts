@@ -149,12 +149,12 @@ export function saveLog(
 }
 
 /**
- * Retrieves recent log entries from log files
+ * Retrieves log entries from latest.log file only
  *
  * @param count - Number of log lines to return (default: 100)
  * @returns Array of log lines
  */
-export function getLogs(count: number = 100): string[] {
+export function getLogs(count?: number): string[] {
   try {
     if (fs.existsSync(latestLogPath)) {
       const logContent = fs.readFileSync(latestLogPath, "utf-8");
@@ -162,43 +162,8 @@ export function getLogs(count: number = 100): string[] {
         .split("\n")
         .filter((line) => line.trim() !== "");
 
-      // If we have enough lines in the current log, return the most recent ones
-      if (logLines.length >= count) {
-        return logLines.slice(-count);
-      }
-
-      // Otherwise, gather logs from archived log files as well
-      const logs = [...logLines];
-      const remainingCount = count - logs.length;
-
-      // Get list of log files, newest first
-      const logFiles = fs
-        .readdirSync(logsPath)
-        .filter((file) => file !== "latest.log" && file.endsWith(".log"))
-        .map((file) => {
-          const stats = fs.statSync(path.join(logsPath, file));
-          return { file, mtime: stats.mtime.getTime() };
-        })
-        .sort((a, b) => b.mtime - a.mtime);
-
-      // Gather logs from archive files until we have enough
-      for (const { file } of logFiles) {
-        if (logs.length >= count) break;
-
-        const archiveContent = fs.readFileSync(
-          path.join(logsPath, file),
-          "utf-8",
-        );
-        const archiveLines = archiveContent
-          .split("\n")
-          .filter((line) => line.trim() !== "");
-
-        // Add as many lines as needed from this archive
-        const linesToAdd = Math.min(remainingCount, archiveLines.length);
-        logs.unshift(...archiveLines.slice(-linesToAdd));
-      }
-
-      return logs.slice(-count);
+      // Return at most 'count' lines from latest.log, or all if count is undefined
+      return count ? logLines.slice(-count) : logLines;
     }
 
     return [];
@@ -249,5 +214,91 @@ export function clearLogs(): boolean {
   } catch (error) {
     console.error("Failed to clear logs:", error);
     return false;
+  }
+}
+
+/**
+ * Gets a list of available log files
+ *
+ * @returns Array of log file information with name and last modified date
+ */
+export function getAvailableLogFiles(): {
+  name: string;
+  mtime: number;
+  displayName: string;
+}[] {
+  try {
+    if (!fs.existsSync(logsPath)) {
+      fs.mkdirSync(logsPath, { recursive: true });
+      return [
+        {
+          name: "latest.log",
+          mtime: Date.now(),
+          displayName: "Current Session",
+        },
+      ];
+    }
+
+    // Get all log files including latest.log
+    const files = fs
+      .readdirSync(logsPath)
+      .filter((file) => file.endsWith(".log"))
+      .map((file) => {
+        const stats = fs.statSync(path.join(logsPath, file));
+        const date = new Date(stats.mtime);
+        // Create a friendly display name
+        const displayName =
+          file === "latest.log"
+            ? "Current Session"
+            : `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+
+        return {
+          name: file,
+          mtime: stats.mtime.getTime(),
+          displayName,
+        };
+      })
+      .sort((a, b) => b.mtime - a.mtime); // Sort newest first
+
+    return files;
+  } catch (error) {
+    console.error("Error getting available log files:", error);
+    return [
+      { name: "latest.log", mtime: Date.now(), displayName: "Current Session" },
+    ];
+  }
+}
+
+/**
+ * Reads logs from a specific file
+ *
+ * @param fileName - Name of the log file to read
+ * @param count - Maximum number of lines to return
+ * @returns Array of log lines
+ */
+export function getLogsFromFile(
+  fileName: string,
+  count: number = 100,
+): string[] {
+  try {
+    const filePath = path.join(logsPath, fileName);
+
+    if (!fs.existsSync(filePath)) {
+      return [
+        `[${new Date().toLocaleTimeString()}] [ERROR] Log file not found: ${fileName}`,
+      ];
+    }
+
+    // Read only the specified file, never mixing with other log files
+    const content = fs.readFileSync(filePath, "utf-8");
+    const lines = content.split("\n").filter((line) => line.trim() !== "");
+
+    // Return at most 'count' lines from just this file
+    return lines.slice(-count);
+  } catch (error) {
+    console.error(`Error reading log file ${fileName}:`, error);
+    return [
+      `[${new Date().toLocaleTimeString()}] [ERROR] Error reading log file: ${error}`,
+    ];
   }
 }

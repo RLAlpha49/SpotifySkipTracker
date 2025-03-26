@@ -6,54 +6,59 @@
  * and library management.
  */
 
-import { BrowserWindow, ipcMain, shell, app } from "electron";
+import { app, BrowserWindow, ipcMain, shell } from "electron";
 import {
-  saveSettings,
-  getSettings,
-  saveLog,
-  getLogs,
   clearLogs,
-  getSkippedTracks,
-  saveSkippedTracks,
-  updateSkippedTrack,
-  logsPath,
-  skipsPath,
-  removeSkippedTrack,
+  clearStatistics,
   filterSkippedTracksByTimeframe,
+  getAvailableLogFiles,
+  getLogs,
+  getLogsFromFile,
+  getSettings,
+  getSkippedTracks,
+  getStatistics,
+  logsPath,
+  removeSkippedTrack,
+  resetSettings,
+  saveLog,
+  saveSettings,
+  saveSkippedTracks,
+  skipsPath,
+  updateSkippedTrack,
 } from "../../helpers/storage/store";
 
 // Spotify service imports
+import axios from "axios";
+import { clearSpotifyAuthData, startAuthFlow } from "../../services/auth";
 import {
-  setCredentials,
-  getCurrentPlayback,
-  setTokens as setApiTokens,
-  unlikeTrack,
-  pause,
-  play,
-  skipToPrevious,
-  skipToNext,
-  isTokenValid,
-  hasCredentials,
-} from "../../services/spotify";
-import {
+  isMonitoringActive,
   startPlaybackMonitoring,
   stopPlaybackMonitoring,
-  isMonitoringActive,
 } from "../../services/playback";
-import { startAuthFlow, clearSpotifyAuthData } from "../../services/auth";
 import {
-  saveTokens,
-  loadTokens,
-  clearTokens as clearStoredTokens,
-} from "../../services/token-storage";
+  getCurrentPlayback,
+  hasCredentials,
+  isTokenValid,
+  pause,
+  play,
+  setTokens as setApiTokens,
+  setCredentials,
+  skipToNext,
+  skipToPrevious,
+  unlikeTrack,
+} from "../../services/spotify";
 import {
+  getAccessToken,
+  getRefreshToken,
   getTokenInfo as getSpotifyTokenInfo,
   refreshAccessToken as refreshSpotifyToken,
   setTokens as setSpotifyApiTokens,
-  getAccessToken,
-  getRefreshToken,
 } from "../../services/spotify/token";
-import axios from "axios";
+import {
+  clearTokens as clearStoredTokens,
+  loadTokens,
+  saveTokens,
+} from "../../services/token-storage";
 
 /**
  * Configures IPC handlers for Spotify functionality
@@ -456,6 +461,18 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
     return settings;
   });
 
+  ipcMain.handle("spotify:resetSettings", async () => {
+    const result = resetSettings();
+
+    if (result) {
+      saveLog("Settings reset to defaults successfully", "INFO");
+    } else {
+      saveLog("Failed to reset settings to defaults", "ERROR");
+    }
+
+    return result;
+  });
+
   // Logging system
   ipcMain.handle("spotify:saveLog", async (_, message, level = "INFO") => {
     console.log(`Saving log [${level}]:`, message);
@@ -464,6 +481,14 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
 
   ipcMain.handle("spotify:getLogs", async (_, count) => {
     return getLogs(count);
+  });
+
+  ipcMain.handle("spotify:getAvailableLogFiles", async () => {
+    return getAvailableLogFiles();
+  });
+
+  ipcMain.handle("spotify:getLogsFromFile", async (_, fileName, count) => {
+    return getLogsFromFile(fileName, count);
   });
 
   ipcMain.handle("spotify:clearLogs", async () => {
@@ -524,6 +549,12 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
     const settings = getSettings();
 
     try {
+      // First notify UI that we're initializing
+      mainWindow.webContents.send("spotify:monitoring-status", {
+        status: "initializing",
+        message: "Initializing Spotify connection...",
+      });
+
       // Credentials are set in startPlaybackMonitoring
       const success = startPlaybackMonitoring(
         mainWindow,
@@ -533,30 +564,103 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
 
       if (!success) {
         saveLog("Failed to start playback monitoring", "ERROR");
+        // Notify UI of failure
+        mainWindow.webContents.send("spotify:monitoring-status", {
+          status: "error",
+          message: "Failed to start monitoring",
+          details: "Check log for details",
+        });
+      } else {
+        // Notify UI of success
+        mainWindow.webContents.send("spotify:monitoring-status", {
+          status: "active",
+          message: "Monitoring active",
+        });
       }
 
       return success;
     } catch (error) {
       saveLog(`Error starting monitoring: ${error}`, "ERROR");
+      // Notify UI of error
+      mainWindow.webContents.send("spotify:monitoring-status", {
+        status: "error",
+        message: "Error starting monitoring",
+        details: String(error),
+      });
       return false;
     }
   });
 
   ipcMain.handle("spotify:stopMonitoring", async () => {
     try {
-      return stopPlaybackMonitoring();
+      // Notify UI that we're stopping
+      mainWindow.webContents.send("spotify:monitoring-status", {
+        status: "initializing",
+        message: "Stopping monitoring service...",
+      });
+
+      const success = stopPlaybackMonitoring();
+
+      if (success) {
+        // Notify UI that monitoring stopped
+        mainWindow.webContents.send("spotify:monitoring-status", {
+          status: "inactive",
+          message: "Monitoring stopped",
+        });
+      } else {
+        // Notify UI of failure
+        mainWindow.webContents.send("spotify:monitoring-status", {
+          status: "error",
+          message: "Failed to stop monitoring",
+          details: "The service may be in an inconsistent state",
+        });
+      }
+
+      return success;
     } catch (error) {
       saveLog(`Error stopping monitoring: ${error}`, "ERROR");
+      // Notify UI of error
+      mainWindow.webContents.send("spotify:monitoring-status", {
+        status: "error",
+        message: "Error stopping monitoring",
+        details: String(error),
+      });
       return false;
     }
   });
 
   ipcMain.handle("spotify:isMonitoringActive", async () => {
     try {
-      return isMonitoringActive();
+      const active = isMonitoringActive();
+      // Notify UI of current status
+      mainWindow.webContents.send("spotify:monitoring-status", {
+        status: active ? "active" : "inactive",
+        message: active ? "Monitoring is active" : "Monitoring is inactive",
+      });
+      return active;
     } catch (error) {
       saveLog(`Failed to check monitoring status: ${error}`, "ERROR");
       return false;
+    }
+  });
+
+  // Add a handler for getting detailed monitoring status
+  ipcMain.handle("spotify:getMonitoringStatus", async () => {
+    try {
+      const active = isMonitoringActive();
+      return {
+        active,
+        status: active ? "active" : "inactive",
+        message: active ? "Monitoring is active" : "Monitoring is inactive",
+      };
+    } catch (error) {
+      saveLog(`Error getting monitoring status: ${error}`, "ERROR");
+      return {
+        active: false,
+        status: "error",
+        message: "Error checking monitoring status",
+        details: String(error),
+      };
     }
   });
 
@@ -633,6 +737,57 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
       return true;
     } catch (error) {
       saveLog(`Failed to skip to next track: ${error}`, "ERROR");
+      return false;
+    }
+  });
+
+  // Statistics handlers
+  ipcMain.handle("spotify:getStatistics", async () => {
+    try {
+      saveLog("Retrieving statistics data", "DEBUG");
+      const stats = await getStatistics();
+      return stats;
+    } catch (error) {
+      saveLog(`Error retrieving statistics: ${error}`, "ERROR");
+      throw new Error(`Failed to get statistics: ${error}`);
+    }
+  });
+
+  ipcMain.handle("spotify:clearStatistics", async () => {
+    try {
+      saveLog("Clearing statistics data", "INFO");
+      const result = await clearStatistics();
+      return result;
+    } catch (error) {
+      saveLog(`Error clearing statistics: ${error}`, "ERROR");
+      return false;
+    }
+  });
+
+  // URL and file system handling
+  ipcMain.handle("spotify:openURL", async (_, url) => {
+    try {
+      console.log("Opening URL in default browser:", url);
+      // Open URL in default browser
+      await shell.openExternal(url);
+      saveLog(`Opened URL in default browser: ${url}`, "INFO");
+      return true;
+    } catch (error) {
+      console.error("Failed to open URL:", error);
+      saveLog(`Failed to open URL in default browser: ${error}`, "ERROR");
+      return false;
+    }
+  });
+
+  ipcMain.handle("spotify:showItemInFolder", async (_, path) => {
+    try {
+      console.log("Showing item in folder:", path);
+      await shell.showItemInFolder(path);
+      saveLog(`Showed item in folder: ${path}`, "INFO");
+      return true;
+    } catch (error) {
+      console.error("Failed to show item in folder:", error);
+      saveLog(`Failed to show item in folder: ${error}`, "ERROR");
       return false;
     }
   });

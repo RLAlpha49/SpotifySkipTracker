@@ -1,26 +1,36 @@
-import React from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FolderOpen, Trash2, HelpCircle } from "lucide-react";
 import {
   Select,
-  SelectTrigger,
-  SelectValue,
   SelectContent,
   SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { LogSettings } from "@/types/spotify";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { LogSettings } from "@/types/spotify";
+import {
+  FileText,
+  Filter,
+  FolderOpen,
+  HelpCircle,
+  RefreshCw,
+  Search,
+  Terminal,
+  Trash2,
+} from "lucide-react";
+import React, { useEffect, useState } from "react";
 
 interface LogsCardProps {
   logs: string[];
@@ -29,8 +39,8 @@ interface LogsCardProps {
   onDisplayLogLevelChange: (value: string) => Promise<void>;
   onToggleLogAutoRefresh: () => Promise<void>;
   onLogSearch: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onClearLogs: () => Promise<void>;
-  onOpenLogsDirectory: () => Promise<void>;
+  onClearLogs: () => Promise<boolean>;
+  onOpenLogsDirectory: () => Promise<boolean>;
 }
 
 export function LogsCard({
@@ -43,6 +53,73 @@ export function LogsCard({
   onClearLogs,
   onOpenLogsDirectory,
 }: LogsCardProps) {
+  // Add state for available log files and currently selected log file
+  const [availableLogFiles, setAvailableLogFiles] = useState<
+    { name: string; mtime: number; displayName: string }[]
+  >([]);
+  const [selectedLogFile, setSelectedLogFile] = useState<string>("latest.log");
+  const [selectedFileLogs, setSelectedFileLogs] = useState<string[]>([]);
+
+  // Fetch available log files on component mount
+  useEffect(() => {
+    const fetchLogFiles = async () => {
+      try {
+        const files = await window.spotify.getAvailableLogFiles();
+        setAvailableLogFiles(files);
+      } catch (error) {
+        console.error("Failed to fetch log files:", error);
+      }
+    };
+
+    fetchLogFiles();
+  }, []);
+
+  // Load logs from selected file when it changes
+  useEffect(() => {
+    const loadSelectedFileLogs = async () => {
+      try {
+        // If we're showing latest.log (Current Session), use getLogs
+        if (selectedLogFile === "latest.log") {
+          const currentSessionLogs = await window.spotify.getLogs(100);
+          setSelectedFileLogs(currentSessionLogs);
+          return;
+        }
+
+        // Otherwise, load logs from the selected file
+        const fileLogs = await window.spotify.getLogsFromFile(selectedLogFile);
+        setSelectedFileLogs(fileLogs);
+      } catch (error) {
+        console.error(`Failed to load logs from ${selectedLogFile}:`, error);
+        setSelectedFileLogs([
+          `[${new Date().toLocaleTimeString()}] [ERROR] Failed to load logs from ${selectedLogFile}: ${error}`,
+        ]);
+      }
+    };
+
+    loadSelectedFileLogs();
+  }, [selectedLogFile]); // Removed logs dependency to avoid refreshing when parent logs update
+
+  // Add useEffect to update logs when parent logs change, but only for latest.log
+  useEffect(() => {
+    // Only update if we're viewing the current session (latest.log) and auto-refresh is enabled
+    if (selectedLogFile === "latest.log" && settings.logAutoRefresh) {
+      setSelectedFileLogs(logs);
+    }
+  }, [logs, selectedLogFile, settings.logAutoRefresh]);
+
+  // Handle log file selection change
+  const handleLogFileChange = (value: string) => {
+    // If switching to latest.log, ensure auto-refresh works if enabled
+    const isLatestLog = value === "latest.log";
+    const isAutoRefresh = settings.logAutoRefresh;
+
+    window.spotify.saveLog(
+      `Switching to log file: ${value} (auto-refresh: ${isAutoRefresh && isLatestLog ? "enabled" : "disabled"})`,
+      "DEBUG",
+    );
+    setSelectedLogFile(value);
+  };
+
   /**
    * Filters and processes logs for display
    * - Parses timestamps for sorting
@@ -57,7 +134,7 @@ export function LogsCard({
     const selectedLevelIndex = logLevels.indexOf(settings.displayLogLevel);
 
     // Parse timestamps and sort logs by timestamp (newest first)
-    const parsedLogs = logs.map((log) => {
+    const parsedLogs = selectedFileLogs.map((log) => {
       const matches = log.match(/\[(.*?)\]\s+\[([A-Z]+)\]\s+(.*)/);
       if (matches && matches.length >= 4) {
         const timestamp = matches[1];
@@ -199,135 +276,255 @@ export function LogsCard({
   };
 
   const filteredLogs = getFilteredLogs();
+  const logLevelCounts = {
+    DEBUG: 0,
+    INFO: 0,
+    WARNING: 0,
+    ERROR: 0,
+    CRITICAL: 0,
+  };
+
+  // Count log levels for badges
+  filteredLogs.forEach((log) => {
+    const match = log.match(/\[.*?\]\s+\[([A-Z]+)\]/);
+    if (match && match[1] in logLevelCounts) {
+      const level = match[1] as keyof typeof logLevelCounts;
+      logLevelCounts[level]++;
+    }
+  });
 
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="mb-2 flex flex-col space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Activity Logs</h2>
-            <div className="flex items-center gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={onOpenLogsDirectory}
-                      className="flex items-center gap-1"
-                    >
-                      <FolderOpen className="h-4 w-4" />
-                      <span>Open Logs</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Open the logs directory</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Button variant="outline" size="sm" onClick={onClearLogs}>
-                      <Trash2 className="h-4 w-4" />
-                      <span>Clear Logs</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Clear all log files</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+    <Card className="border-muted-foreground/20 shadow-sm">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center text-xl font-semibold">
+            <Terminal className="text-primary mr-2 h-5 w-5" />
+            Activity Logs
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onOpenLogsDirectory}
+                    className="h-8"
+                  >
+                    <FolderOpen className="mr-1.5 h-4 w-4" />
+                    <span>Open Logs</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Open the logs directory</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onClearLogs}
+                    className="h-8"
+                  >
+                    <Trash2 className="mr-1.5 h-4 w-4" />
+                    <span>Clear</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Clear all log files</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
-
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            <div className="flex items-center gap-2">
-              <div className="flex flex-col">
-                <div className="flex items-center space-x-1">
-                  <Label className="mb-1 text-xs">Display Filter</Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <HelpCircle className="text-muted-foreground h-3 w-3" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>
-                          Filter logs by severity level. Each level includes all
-                          higher severity levels (e.g., INFO shows INFO,
-                          WARNING, ERROR, and CRITICAL).
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <Select
-                  value={settings.displayLogLevel}
-                  onValueChange={onDisplayLogLevelChange}
-                >
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Display Level" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="DEBUG">DEBUG</SelectItem>
-                    <SelectItem value="INFO">INFO</SelectItem>
-                    <SelectItem value="WARNING">WARNING</SelectItem>
-                    <SelectItem value="ERROR">ERROR</SelectItem>
-                    <SelectItem value="CRITICAL">CRITICAL</SelectItem>
-                  </SelectContent>
-                </Select>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
+            <div className="space-y-1 md:col-span-3">
+              <div className="flex items-center space-x-1">
+                <Label className="flex items-center text-xs font-medium">
+                  <FileText className="mr-1 h-3 w-3" />
+                  Log File
+                </Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="text-muted-foreground h-3 w-3" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>
+                        Select which log file to view. Current Session is always
+                        updated with new logs.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
+              <Select
+                value={selectedLogFile}
+                onValueChange={handleLogFileChange}
+              >
+                <SelectTrigger className="h-8 w-full">
+                  <SelectValue placeholder="Log File" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableLogFiles.map((file) => (
+                    <SelectItem key={file.name} value={file.name}>
+                      <div className="flex items-center gap-1">
+                        <FileText className="h-3 w-3" />
+                        <span>{file.displayName}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="flex items-center gap-2">
-              <div className="flex items-center space-x-2">
+            <div className="space-y-1 md:col-span-3">
+              <div className="flex items-center space-x-1">
+                <Label className="flex items-center text-xs font-medium">
+                  <Filter className="mr-1 h-3 w-3" />
+                  Display Filter
+                </Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="text-muted-foreground h-3 w-3" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>
+                        Filter logs by severity level. Each level includes all
+                        higher severity levels.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <Select
+                value={settings.displayLogLevel}
+                onValueChange={onDisplayLogLevelChange}
+              >
+                <SelectTrigger className="h-8 w-full">
+                  <SelectValue placeholder="Display Level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DEBUG">DEBUG</SelectItem>
+                  <SelectItem value="INFO">INFO</SelectItem>
+                  <SelectItem value="WARNING">WARNING</SelectItem>
+                  <SelectItem value="ERROR">ERROR</SelectItem>
+                  <SelectItem value="CRITICAL">CRITICAL</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1 md:col-span-2">
+              <Label className="flex items-center text-xs font-medium">
+                <RefreshCw className="mr-1 h-3 w-3" />
+                Auto-refresh
+              </Label>
+              <div className="flex h-8 items-center">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex items-center space-x-2">
                         <Switch
                           id="log-auto-refresh"
-                          checked={settings.logAutoRefresh}
+                          checked={
+                            settings.logAutoRefresh &&
+                            selectedLogFile === "latest.log"
+                          }
+                          disabled={selectedLogFile !== "latest.log"}
                           onCheckedChange={onToggleLogAutoRefresh}
                         />
-                        <Label htmlFor="log-auto-refresh">Auto-refresh</Label>
+                        <Label htmlFor="log-auto-refresh" className="text-sm">
+                          {settings.logAutoRefresh &&
+                          selectedLogFile === "latest.log"
+                            ? "Enabled"
+                            : "Disabled"}
+                        </Label>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent>
+                    <TooltipContent side="top">
                       <p>
-                        When enabled, logs will automatically update as new
-                        events occur. Disable for better performance when
-                        analyzing specific log entries.
+                        {selectedLogFile === "latest.log"
+                          ? "When enabled, logs will automatically update as new events occur."
+                          : "Auto-refresh is only available for the Current Session log."}
                       </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
+            </div>
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Input
-                      type="text"
-                      placeholder="Search logs..."
-                      value={logSearchTerm}
-                      onChange={onLogSearch}
-                      className="flex-1"
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>
-                      Filter logs by text content. Shows only logs containing
-                      the search term.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+            <div className="space-y-1 md:col-span-4">
+              <Label className="flex items-center text-xs font-medium">
+                <Search className="mr-1 h-3 w-3" />
+                Search Logs
+              </Label>
+              <div className="flex h-8 w-full items-center">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Input
+                        type="text"
+                        placeholder="Search logs..."
+                        value={logSearchTerm}
+                        onChange={onLogSearch}
+                        className="h-8"
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>
+                        Filter logs by text content. Shows only logs containing
+                        the search term.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </div>
           </div>
+
+          <div className="flex flex-wrap gap-1 pt-1">
+            <Badge
+              variant="outline"
+              className={`${settings.displayLogLevel === "DEBUG" ? "bg-muted/90" : "bg-muted/30"}`}
+            >
+              DEBUG: {logLevelCounts.DEBUG}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={`${settings.displayLogLevel === "INFO" || settings.displayLogLevel === "DEBUG" ? "border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-400" : "bg-muted/30"}`}
+            >
+              INFO: {logLevelCounts.INFO}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={`${settings.displayLogLevel === "WARNING" || settings.displayLogLevel === "DEBUG" || settings.displayLogLevel === "INFO" ? "border-yellow-200 bg-yellow-100 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400" : "bg-muted/30"}`}
+            >
+              WARNING: {logLevelCounts.WARNING}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={`${settings.displayLogLevel === "ERROR" || settings.displayLogLevel === "DEBUG" || settings.displayLogLevel === "INFO" || settings.displayLogLevel === "WARNING" ? "border-red-200 bg-red-100 text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400" : "bg-muted/30"}`}
+            >
+              ERROR: {logLevelCounts.ERROR}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={`${settings.displayLogLevel === "CRITICAL" || settings.displayLogLevel === "DEBUG" || settings.displayLogLevel === "INFO" || settings.displayLogLevel === "WARNING" || settings.displayLogLevel === "ERROR" ? "border-red-300 bg-red-100 font-semibold text-red-900 dark:border-red-900 dark:bg-red-900/30 dark:text-red-300" : "bg-muted/30"}`}
+            >
+              CRITICAL: {logLevelCounts.CRITICAL}
+            </Badge>
+          </div>
         </div>
-        <Separator className="my-2" />
-        <ScrollArea className="h-60 w-full rounded-md border p-4">
+
+        <Separator className="my-3" />
+        <ScrollArea className="bg-muted/5 h-[350px] w-full rounded-md border px-4 py-3">
           {filteredLogs.length > 0 ? (
             <div className="space-y-1">
               {filteredLogs.map((log, index) => (
@@ -340,9 +537,11 @@ export function LogsCard({
               ))}
             </div>
           ) : (
-            <p className="text-muted-foreground text-center text-sm">
-              No logs to display
-            </p>
+            <div className="flex h-full items-center justify-center">
+              <p className="text-muted-foreground text-center text-sm">
+                No logs to display
+              </p>
+            </div>
           )}
         </ScrollArea>
       </CardContent>

@@ -63,10 +63,47 @@ export interface SkippedTrack {
   id: string;
   name: string;
   artist: string;
-  skipCount: number;
-  notSkippedCount: number;
-  lastSkipped: string;
-  skipTimestamps?: string[]; // Current implementation
-  skipHistory?: string[]; // Legacy field name
-  autoProcessed?: boolean; // Flag for tracks that have been automatically processed
+  albumName?: string;
+  albumId?: string;
+  duration?: number;
+  skipCount?: number;
+  skipTypes?: Record<string, number>;
+  manualSkipCount?: number;
+  autoSkipCount?: number;
+  lastSkipped?: string;
+  timeOfDay?: Record<string, number>;
+  averagePlayPercentage?: number;
+  skipHistory?: string[];
+  skipTimestamps?: string[];
+  notSkippedCount?: number;
+  lastContext?: {
+    type: string;
+    uri?: string;
+    name?: string;
+    id?: string;
+  };
+  contextStats?: {
+    total: number;
+    contexts: Record<
+      string,
+      {
+        type: string;
+        name?: string;
+        uri?: string;
+        count: number;
+      }
+    >;
+  };
+  skipEvents?: Array<{
+    timestamp: string;
+    progress: number;
+    isManualSkip?: boolean;
+    skipType?: string;
+    context?: {
+      type: string;
+      uri?: string;
+      name?: string;
+      id?: string;
+    };
+  }>;
 }

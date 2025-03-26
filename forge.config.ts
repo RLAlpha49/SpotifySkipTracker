@@ -2,7 +2,6 @@ import type { ForgeConfig } from "@electron-forge/shared-types";
 import { MakerSquirrel } from "@electron-forge/maker-squirrel";
 import { MakerDMG } from "@electron-forge/maker-dmg";
 import { MakerDeb } from "@electron-forge/maker-deb";
-import { MakerRpm } from "@electron-forge/maker-rpm";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
@@ -14,33 +13,46 @@ const config: ForgeConfig = {
     asar: true,
     appCopyright: `Copyright © ${new Date().getFullYear()}`,
     icon: "./src/assets/SpotifySkipTrackerIconTransparent",
+    appVersion: "1.0.0",
+    buildVersion: "1.0.0",
+    appBundleId: "com.rlapps.spotifyskiptracker",
+    name: "Spotify Skip Tracker",
   },
   rebuildConfig: {},
   makers: [
     new MakerSquirrel({
-      // Add these settings to fix the installation issues
       setupIcon: "./src/assets/SpotifySkipTrackerIconTransparent.ico",
-      //loadingGif: './src/assets/loading.gif',
-      //iconUrl: 'https://raw.githubusercontent.com/RLAlpha49/spotify-skip-tracker/main/src/assets/SpotifySkipTrackerIconTransparent.ico',
-      // Create proper shortcuts
+      iconUrl:
+        "https://raw.githubusercontent.com/RLAlpha49/SpotifySkipTracker/refs/heads/master/src/assets/SpotifySkipTrackerIconTransparent.ico",
       setupExe: "Spotify-Skip-Tracker-Setup.exe",
       noMsi: false,
       name: "SpotifySkipTracker",
-      // Create an MSI installer
       setupMsi: "Spotify-Skip-Tracker-Setup.msi",
     }),
-    new MakerDMG({}, ["darwin"]),
+    new MakerDMG(
+      {
+        name: "Spotify-Skip-Tracker",
+        icon: "./src/assets/SpotifySkipTrackerIconTransparent.icns",
+        format: "ULFO",
+      },
+      ["darwin"],
+    ),
     new MakerZIP({}, ["darwin"]),
-    new MakerRpm({}),
-    new MakerDeb({}),
+    new MakerDeb({
+      options: {
+        name: "spotify-skip-tracker",
+        productName: "Spotify Skip Tracker",
+        maintainer: "Alex Pettigrew",
+        homepage: "https://github.com/RLAlpha49/spotify-skip-tracker",
+        icon: "./src/assets/SpotifySkipTrackerIconTransparent.png",
+        version: "1.0.0",
+      },
+    }),
   ],
   plugins: [
     new VitePlugin({
-      // `build` can specify multiple entry builds, which can be Main process, Preload scripts, Worker process, etc.
-      // If you are familiar with Vite configuration, it will look really familiar.
       build: [
         {
-          // `entry` is just an alias for `build.lib.entry` in the corresponding file of `config`.
           entry: "src/main.ts",
           config: "vite-config/vite.main.config.ts",
         },
@@ -56,8 +68,6 @@ const config: ForgeConfig = {
         },
       ],
     }),
-    // Fuses are used to enable/disable various Electron functionality
-    // at package time, before code signing the application
     new FusesPlugin({
       version: FuseVersion.V1,
       [FuseV1Options.RunAsNode]: false,
