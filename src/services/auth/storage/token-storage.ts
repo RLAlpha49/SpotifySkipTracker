@@ -1,17 +1,15 @@
 /**
- * Token storage persistence
+ * DEPRECATED - Token storage persistence
  *
- * Handles reading and writing token data to persistent storage.
+ * This file is kept for backwards compatibility but no longer writes to disk.
+ * All token storage is now handled by the secure encrypted token storage module.
  */
 
-import fs from "fs";
-import path from "path";
-import { appDataPath } from "../../../helpers/storage/utils";
-import { saveLog } from "../../../helpers/storage/logs-store";
 import { TokenStorage, TokenValue } from "@/types/token";
 
-// Storage location for auth tokens
-export const TOKEN_STORAGE_PATH = path.join(appDataPath, "auth_tokens.json");
+// Tokens are now stored only in memory in this module
+// for backwards compatibility with code that still uses this API
+const memoryTokenStorage: TokenStorage = {};
 
 // Token storage keys
 export const ACCESS_TOKEN_KEY = "spotify_access_token";
@@ -19,53 +17,35 @@ export const REFRESH_TOKEN_KEY = "spotify_refresh_token";
 export const TOKEN_EXPIRY_KEY = "spotify_token_expiry";
 
 /**
- * Reads token data from persistent storage
+ * Reads token data from memory storage
  *
  * @returns Record containing stored token data or empty object if no data exists
  */
 export function readTokenStorage(): TokenStorage {
-  try {
-    if (fs.existsSync(TOKEN_STORAGE_PATH)) {
-      const data = fs.readFileSync(TOKEN_STORAGE_PATH, "utf8");
-      return JSON.parse(data);
-    }
-  } catch (error) {
-    saveLog(`Error reading token storage: ${error}`, "ERROR");
-  }
-  return {};
+  return { ...memoryTokenStorage };
 }
 
 /**
- * Writes token data to persistent storage
+ * Writes token data to memory storage
  *
  * @param data Token data to write to storage
  */
 export function writeTokenStorage(data: TokenStorage): void {
-  try {
-    // Ensure directory exists
-    if (!fs.existsSync(path.dirname(TOKEN_STORAGE_PATH))) {
-      fs.mkdirSync(path.dirname(TOKEN_STORAGE_PATH), { recursive: true });
-    }
-    fs.writeFileSync(TOKEN_STORAGE_PATH, JSON.stringify(data, null, 2), "utf8");
-  } catch (error) {
-    saveLog(`Error writing token storage: ${error}`, "ERROR");
-  }
+  Object.assign(memoryTokenStorage, data);
 }
 
 /**
- * Stores a token value in persistent storage
+ * Stores a token value in memory storage
  *
  * @param key Token key to store
  * @param value Token value to store
  */
 export function storeTokenValue(key: string, value: TokenValue): void {
-  const tokenData = readTokenStorage();
-  tokenData[key] = value;
-  writeTokenStorage(tokenData);
+  memoryTokenStorage[key] = value;
 }
 
 /**
- * Retrieves a token value from persistent storage
+ * Retrieves a token value from memory storage
  *
  * @param key Token key to retrieve
  * @returns The stored value or null if not found
@@ -73,24 +53,23 @@ export function storeTokenValue(key: string, value: TokenValue): void {
 export function retrieveTokenValue<T extends TokenValue>(
   key: string,
 ): T | null {
-  const tokenData = readTokenStorage();
-  return (tokenData[key] as T) || null;
+  return (memoryTokenStorage[key] as T) || null;
 }
 
 /**
- * Removes a token value from persistent storage
+ * Removes a token value from memory storage
  *
  * @param key Token key to remove
  */
 export function removeTokenValue(key: string): void {
-  const tokenData = readTokenStorage();
-  delete tokenData[key];
-  writeTokenStorage(tokenData);
+  delete memoryTokenStorage[key];
 }
 
 /**
- * Clears all token values from persistent storage
+ * Clears all token values from memory storage
  */
 export function clearTokenStorage(): void {
-  writeTokenStorage({});
+  Object.keys(memoryTokenStorage).forEach((key) => {
+    delete memoryTokenStorage[key];
+  });
 }

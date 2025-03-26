@@ -98,8 +98,13 @@ src/
 │       ├── settingFormSchema.ts
 │       └── SkipDetectionForm.tsx
 │
+├── helpers/
+│   └── storage/
+│       ├── settings-store.ts
+│       └── store.ts
+│
 └── pages/
-    └── SettingsPage.tsx              # Settings page container
+    └── SettingsPage.tsx
 ```
 
 ## Diagrams

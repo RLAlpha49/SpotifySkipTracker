@@ -1,4 +1,4 @@
-# Epic-1 - Story-4
+# Epic-2 - Story-4
 
 # Playback Monitoring and Skip Detection
 
@@ -8,7 +8,7 @@
 
 ## Status
 
-🔄 In Progress
+✅ Complete
 
 ## Context
 
@@ -92,19 +92,29 @@ The playback monitoring implementation follows this structure:
 src/
 ├── services/
 │   ├── playback/
-│   │   ├── monitor.ts          # Core monitoring logic and polling
-│   │   ├── track-change.ts     # Track change detection
-│   │   ├── skip-detection.ts   # Skip analysis and thresholds
-│   │   ├── state.ts            # Monitoring state management
-│   │   └── index.ts            # Public API for monitoring service
+│   │   ├── history.ts
+│   │   ├── index.ts
+│   │   ├── monitor.ts
+│   │   ├── skip-detection.ts
+│   │   ├── state.ts
+│   │   └── track-change.ts
 │   │
-│   ├── spotify/                # Spotify API interaction for playback
-│   └── statistics/             # Statistics collection for skipped tracks
+│   └── spotify/
+│       ├── playback.ts
+│       └── interceptors.ts
 │
-└── components/
-    └── spotify/
-        ├── PlaybackMonitoringCard.tsx  # Monitoring controls and status
-        └── NowPlayingCard.tsx          # Current track display
+├── components/
+│   └── spotify/
+│       ├── NowPlayingCard.tsx
+│       └── PlaybackMonitoringCard.tsx
+│
+├── helpers/
+│   └── storage/
+│       └── tracks-store.ts
+│
+└── types/
+    ├── playback.ts
+    └── spotify-api.ts
 ```
 
 ## Diagrams

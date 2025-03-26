@@ -33,6 +33,8 @@ export interface PlaybackState {
   isInLibrary?: boolean;
   lastProgress?: number;
   lastTrackChangeTimestamp?: number | null;
+  deviceId?: string | null;
+  deviceName?: string | null;
 }
 
 /**

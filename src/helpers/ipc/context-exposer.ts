@@ -11,13 +11,19 @@
  * 3. Spotify API interaction
  * 4. Application settings and logs
  * 5. Playback monitoring controls
+ * 6. Skip statistics services
  */
 
-import { SpotifyCredentials, SpotifyPlaybackInfo } from "@/types";
+import {
+  SpotifyCredentials,
+  SpotifyPlaybackInfo,
+  SpotifySettings,
+} from "@/services/spotify.service";
 import { LogLevel } from "@/types/logging";
 import { PlaybackState } from "@/types/playback";
-import { SkippedTrack, SpotifySettings } from "@/types/spotify";
+import { SkippedTrack } from "@/types/spotify";
 import { StatisticsData } from "@/types/statistics";
+import { StatisticsAPI } from "@/types/statistics-api";
 import { contextBridge, ipcRenderer } from "electron";
 import { exposeThemeContext } from "./theme/theme-context";
 import { exposeWindowContext } from "./window/window-context";
@@ -86,8 +92,6 @@ export interface SpotifyAPI {
   saveSettings: (settings: SpotifySettings) => Promise<boolean>;
   getSettings: () => Promise<SpotifySettings>;
   resetSettings: () => Promise<boolean>;
-  getLoginConfig: () => Promise<LoginConfig | null>;
-  saveLoginConfig: (config: LoginConfig) => Promise<void>;
 
   // Logging system
   getLogs: (count?: number) => Promise<string[]>;
@@ -146,6 +150,62 @@ export default function exposeContexts(): void {
 
   // Theme management API (dark/light mode)
   exposeThemeContext();
+
+  /**
+   * Statistics API Bridge
+   *
+   * Provides controlled access to statistics functionality in the renderer.
+   * Each method invokes a corresponding handler in the main process via IPC.
+   */
+  contextBridge.exposeInMainWorld("statisticsAPI", {
+    isCollectionActive: () =>
+      ipcRenderer.invoke("statistics:isCollectionActive"),
+    startCollection: () => ipcRenderer.invoke("statistics:startCollection"),
+    stopCollection: () => ipcRenderer.invoke("statistics:stopCollection"),
+    triggerAggregation: () =>
+      ipcRenderer.invoke("statistics:triggerAggregation"),
+    getDailySkipMetrics: () =>
+      ipcRenderer.invoke("statistics:getDailySkipMetrics"),
+    getWeeklySkipMetrics: () =>
+      ipcRenderer.invoke("statistics:getWeeklySkipMetrics"),
+    getSkipPatterns: () => ipcRenderer.invoke("statistics:getSkipPatterns"),
+    detectPatterns: () => ipcRenderer.invoke("statistics:detectPatterns"),
+
+    // Add artist insights
+    getArtistInsights: () => ipcRenderer.invoke("statistics:getArtistInsights"),
+
+    // Add statistics data methods
+    getAll: () => ipcRenderer.invoke("statistics:getAll"),
+    getUniqueArtistCount: () =>
+      ipcRenderer.invoke("statistics:getUniqueArtistCount"),
+    getSkippedTracks: () => ipcRenderer.invoke("statistics:getSkippedTracks"),
+    getDailyMetrics: () => ipcRenderer.invoke("statistics:getDailyMetrics"),
+    getArtistMetrics: () => ipcRenderer.invoke("statistics:getArtistMetrics"),
+    getLibraryStats: () => ipcRenderer.invoke("statistics:getLibraryStats"),
+    getTimePatterns: () => ipcRenderer.invoke("statistics:getTimePatterns"),
+
+    // Add export functions
+    exportSkippedTracksToCSV: () =>
+      ipcRenderer.invoke("statistics:exportSkippedTracksToCSV"),
+    exportArtistMetricsToCSV: () =>
+      ipcRenderer.invoke("statistics:exportArtistMetricsToCSV"),
+    exportDailyMetricsToCSV: () =>
+      ipcRenderer.invoke("statistics:exportDailyMetricsToCSV"),
+    exportWeeklyMetricsToCSV: () =>
+      ipcRenderer.invoke("statistics:exportWeeklyMetricsToCSV"),
+    exportLibraryStatisticsToCSV: () =>
+      ipcRenderer.invoke("statistics:exportLibraryStatisticsToCSV"),
+    exportTimePatternsToCSV: () =>
+      ipcRenderer.invoke("statistics:exportTimePatternsToCSV"),
+    exportDetectedPatternsToCSV: () =>
+      ipcRenderer.invoke("statistics:exportDetectedPatternsToCSV"),
+    exportAllToJSON: () => ipcRenderer.invoke("statistics:exportAllToJSON"),
+    copyToClipboard: () => ipcRenderer.invoke("statistics:copyToClipboard"),
+
+    // Need to add getArtistSkipMetrics for interface compatibility
+    getArtistSkipMetrics: () =>
+      ipcRenderer.invoke("statistics:getArtistSkipMetrics"),
+  });
 
   /**
    * Spotify API Bridge
@@ -297,5 +357,19 @@ export default function exposeContexts(): void {
         ipcRenderer.removeListener("spotify:playbackUpdate", subscription);
       };
     },
-  });
+
+    // Statistics methods
+    isCollectionActive: () =>
+      ipcRenderer.invoke("statistics:isCollectionActive"),
+    startCollection: () => ipcRenderer.invoke("statistics:startCollection"),
+    stopCollection: () => ipcRenderer.invoke("statistics:stopCollection"),
+    triggerAggregation: () =>
+      ipcRenderer.invoke("statistics:triggerAggregation"),
+    getDailySkipMetrics: () =>
+      ipcRenderer.invoke("statistics:getDailySkipMetrics"),
+    getWeeklySkipMetrics: () =>
+      ipcRenderer.invoke("statistics:getWeeklySkipMetrics"),
+    getSkipPatterns: () => ipcRenderer.invoke("statistics:getSkipPatterns"),
+    detectPatterns: () => ipcRenderer.invoke("statistics:detectPatterns"),
+  } as SpotifyAPI & Partial<StatisticsAPI>);
 }

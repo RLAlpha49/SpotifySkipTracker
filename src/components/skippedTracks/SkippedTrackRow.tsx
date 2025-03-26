@@ -42,9 +42,12 @@ export function SkippedTrackRow({
   const recentSkips = getRecentSkipCount(track, timeframeInDays);
 
   // Calculate skip percentage for styling
-  const totalInteractions = track.skipCount + track.notSkippedCount;
+  const totalInteractions =
+    (track.skipCount || 0) + (track.notSkippedCount || 0);
   const skipPercentage =
-    totalInteractions > 0 ? (track.skipCount / totalInteractions) * 100 : 0;
+    totalInteractions > 0
+      ? ((track.skipCount || 0) / totalInteractions) * 100
+      : 0;
 
   // Determine cell styling based on removal suggestion
   const bgColor = shouldSuggestRemoval

@@ -315,13 +315,22 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
       );
 
       // Record this as a skipped track
-      await recordSkippedTrack(
-        previousTrackId,
-        state.currentTrackName || "",
-        state.currentArtistName || "",
-        Date.now(),
-        progressPercent * 100,
-      );
+      await recordSkippedTrack({
+        id: previousTrackId,
+        name: state.currentTrackName || "",
+        artist: state.currentArtistName || "",
+        album: state.currentAlbumName || "",
+        skippedAt: Date.now(),
+        playDuration: lastProgress,
+        trackDuration: duration,
+        playPercentage: Math.round(progressPercent * 100),
+        deviceId: state.deviceId || undefined,
+        deviceName: state.deviceName || undefined,
+        skipType: skipAnalysis.skipType,
+        isManualSkip: skipTypeInfo.isManual,
+        confidence: skipTypeInfo.confidence,
+        reason: skipAnalysis.reason,
+      });
 
       // Record enhanced statistics for skipped track
       try {
@@ -372,7 +381,7 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
       if (
         trackData &&
         settings.autoUnlike &&
-        trackData.skipCount >= settings.skipThreshold
+        (trackData.skipCount || 0) >= settings.skipThreshold
       ) {
         try {
           const result = await spotifyApi.unlikeTrack(previousTrackId, true);

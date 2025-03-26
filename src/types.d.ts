@@ -6,6 +6,7 @@
  */
 
 import { StatisticsData } from "./types/statistics";
+import { StatisticsAPI } from "./types/statistics-api";
 
 // Vite-generated environment constants for Electron integration
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
@@ -102,7 +103,20 @@ interface SpotifySettings {
  */
 declare interface Window {
   themeMode: ThemeModeContext;
-  electronWindow: ElectronWindow;
+  electronWindow: {
+    minimize: () => Promise<void>;
+    maximize: () => Promise<void>;
+    close: () => Promise<void>;
+  };
+  theme: {
+    setTheme: (theme: string) => void;
+    getTheme: () => string;
+  };
+
+  /**
+   * Statistics API for accessing skip metrics and patterns
+   */
+  statisticsAPI: StatisticsAPI;
 
   /**
    * Spotify API bindings
@@ -121,6 +135,7 @@ declare interface Window {
     getCurrentPlayback: () => Promise<SpotifyPlaybackInfo | null>;
 
     // Skipped tracks
+    openURL: (url: string) => Promise<boolean | void>;
     getSkippedTracks: () => Promise<SkippedTrack[]>;
     refreshSkippedTracks: () => Promise<SkippedTrack[]>;
     saveSkippedTracks: (tracks: SkippedTrack[]) => Promise<boolean>;
@@ -136,13 +151,22 @@ declare interface Window {
 
     // Statistics
     getStatistics: () => Promise<StatisticsData>;
+    clearStatistics: () => Promise<boolean>;
 
     // Logs
     saveLog: (
       message: string,
       level?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
-    ) => Promise<boolean>;
+    ) => Promise<boolean | void>;
     getLogs: (count?: number) => Promise<string[]>;
+    getLogsFromFile: (selectedLogFile: string) => Promise<string[]>;
+    getAvailableLogFiles: () => Promise<
+      {
+        name: string;
+        mtime: number;
+        displayName: string;
+      }[]
+    >;
     clearLogs: () => Promise<boolean>;
     openLogsDirectory: () => Promise<boolean>;
     openSkipsDirectory: () => Promise<boolean>;

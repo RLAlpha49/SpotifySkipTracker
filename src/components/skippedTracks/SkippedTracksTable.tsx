@@ -144,7 +144,7 @@ export function SkippedTracksTable({
                 <SkipForward className="h-3.5 w-3.5" />
                 <span>
                   {sortedTracks.reduce(
-                    (sum, track) => sum + track.skipCount,
+                    (sum, track) => sum + (track.skipCount || 0),
                     0,
                   )}{" "}
                   total skips recorded

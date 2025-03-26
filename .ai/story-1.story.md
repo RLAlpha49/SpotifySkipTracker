@@ -70,33 +70,62 @@ N/A for initial setup
 Following the structure defined in the architecture document:
 
 ```text
-spotify-skip-tracker/
-├── src/
-│   ├── assets/              # Static assets and images
-│   ├── components/          # Reusable UI components
-│   │   ├── ui/              # shadcn components (Radix UI + Tailwind)
-│   │   └── ...              # Other component directories to be created
-│   ├── electron/            # Electron-specific code
-│   │   ├── main/            # Main process modules
-│   │   └── main.ts          # Main process entry point
-│   ├── helpers/             # Helper utilities
-│   ├── layouts/             # Page layout components
-│   ├── pages/               # Page components
-│   ├── routes/              # Routing configuration
-│   ├── services/            # API and business logic services
-│   ├── styles/              # Global styles and Tailwind config
-│   ├── tests/               # Test files
-│   ├── types/               # TypeScript type definitions
-│   ├── utils/               # Utility functions
-│   ├── App.tsx              # Main React component
-│   ├── main.ts              # Application entry point
-│   ├── preload.ts           # Electron preload script
-│   ├── renderer.ts          # Renderer process entry point
-│   └── types.d.ts           # Global type definitions
-├── vite-config/            # Vite configuration files
-├── config/                 # Project configuration files
-├── test-results/           # Test results output
-└── public/                 # Static public assets
+Spotify-Skip-Tracker
+├── config
+│   └── eslint.config.mjs
+├── src
+│   ├── assets
+│   │   ├── SpotifySkipTrackerIconTransparent.icns
+│   │   ├── SpotifySkipTrackerIconTransparent.ico
+│   │   └── SpotifySkipTrackerIconTransparent.png
+│   ├── components
+│   │   ├── ui
+│   │   │   ├── button.tsx
+│   │   │   ├── card.tsx
+│   │   │   ├── form.tsx
+│   │   │   ├── input.tsx
+│   │   │   └── ... other UI components
+│   │   └── ToggleTheme.tsx
+│   ├── electron
+│   │   ├── main
+│   │   │   ├── extensions.ts
+│   │   │   ├── installer-events.ts
+│   │   │   └── window.ts
+│   │   └── main.ts
+│   ├── layouts
+│   │   └── MainLayout.tsx
+│   ├── pages
+│   │   └── HomePage.tsx
+│   ├── routes
+│   │   ├── __root.tsx
+│   │   ├── router.tsx
+│   │   └── routes.tsx
+│   ├── styles
+│   │   └── global.css
+│   ├── tests
+│   │   └── unit
+│   │       └── setup.ts
+│   ├── types
+│   ├── utils
+│   │   └── tailwind.ts
+│   ├── App.tsx
+│   ├── main.ts
+│   ├── preload.ts
+│   ├── renderer.ts
+│   └── types.d.ts
+├── vite-config
+│   ├── vite.base.config.ts
+│   ├── vite.main.config.ts
+│   ├── vite.preload.config.ts
+│   ├── vite.renderer.config.ts
+│   └── vitest.config.ts
+├── components.json
+├── forge.config.ts
+├── index.html
+├── package.json
+├── postcss.config.ts
+├── README.md
+└── tsconfig.json
 ```
 
 ## Diagrams

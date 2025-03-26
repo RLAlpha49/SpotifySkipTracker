@@ -4,24 +4,22 @@
  * Provides the main interface for token management operations.
  */
 
+import { AuthTokens } from "@/types/auth";
 import { saveLog } from "../../../helpers/storage/logs-store";
 import * as spotifyApi from "../../spotify";
-import { AuthTokens } from "@/types/auth";
+import * as tokenStorage from "../../token-storage";
 import {
-  ACCESS_TOKEN_KEY,
-  REFRESH_TOKEN_KEY,
-  TOKEN_EXPIRY_KEY,
-  storeTokenValue,
-  clearTokenStorage,
-} from "./token-storage";
+  clearTokens as clearEncryptedTokens,
+  saveTokens as saveEncryptedTokens,
+} from "../../token-storage";
 import {
+  clearTokenState,
   getAccessTokenState,
   getRefreshTokenState,
   getTokenExpiryState,
   setAccessTokenState,
   setRefreshTokenState,
   setTokenExpiryState,
-  clearTokenState,
 } from "./token-state";
 
 // Function to schedule token refresh - will be set by token-refresh module
@@ -56,10 +54,12 @@ export function setTokens(tokens: AuthTokens): void {
     setRefreshTokenState(refreshToken);
     setTokenExpiryState(expiryTimestamp);
 
-    // Store in persistent storage
-    storeTokenValue(ACCESS_TOKEN_KEY, accessToken);
-    storeTokenValue(REFRESH_TOKEN_KEY, refreshToken);
-    storeTokenValue(TOKEN_EXPIRY_KEY, expiryTimestamp);
+    // Store in encrypted persistent storage
+    saveEncryptedTokens({
+      accessToken,
+      refreshToken,
+      expiresAt: expiryTimestamp,
+    });
 
     // Set tokens in spotify API module for compatibility
     spotifyApi.setTokens(accessToken, refreshToken, expiresIn);
@@ -83,8 +83,8 @@ export function clearTokens(): void {
     // Clear memory
     clearTokenState();
 
-    // Clear persistent storage
-    clearTokenStorage();
+    // Clear encrypted persistent storage
+    clearEncryptedTokens();
 
     // Clear spotify API module tokens
     spotifyApi.clearTokens();
@@ -101,7 +101,20 @@ export function clearTokens(): void {
  * @returns Current access token or null if not authenticated
  */
 export function getAccessToken(): string | null {
-  return getAccessTokenState();
+  const accessToken = getAccessTokenState();
+  if (accessToken) return accessToken;
+
+  // If not in memory, try loading from encrypted storage
+  const tokens = tokenStorage.loadTokens();
+  if (tokens) {
+    // Update memory state with loaded tokens
+    setAccessTokenState(tokens.accessToken);
+    setRefreshTokenState(tokens.refreshToken);
+    setTokenExpiryState(tokens.expiresAt);
+    return tokens.accessToken;
+  }
+
+  return null;
 }
 
 /**
@@ -110,7 +123,20 @@ export function getAccessToken(): string | null {
  * @returns Current refresh token or null if not authenticated
  */
 export function getRefreshToken(): string | null {
-  return getRefreshTokenState();
+  const refreshToken = getRefreshTokenState();
+  if (refreshToken) return refreshToken;
+
+  // If not in memory, try loading from encrypted storage
+  const tokens = tokenStorage.loadTokens();
+  if (tokens) {
+    // Update memory state with loaded tokens
+    setAccessTokenState(tokens.accessToken);
+    setRefreshTokenState(tokens.refreshToken);
+    setTokenExpiryState(tokens.expiresAt);
+    return tokens.refreshToken;
+  }
+
+  return null;
 }
 
 /**
@@ -119,7 +145,20 @@ export function getRefreshToken(): string | null {
  * @returns Timestamp when the token expires or null if not authenticated
  */
 export function getTokenExpiry(): number | null {
-  return getTokenExpiryState();
+  const expiry = getTokenExpiryState();
+  if (expiry) return expiry;
+
+  // If not in memory, try loading from encrypted storage
+  const tokens = tokenStorage.loadTokens();
+  if (tokens) {
+    // Update memory state with loaded tokens
+    setAccessTokenState(tokens.accessToken);
+    setRefreshTokenState(tokens.refreshToken);
+    setTokenExpiryState(tokens.expiresAt);
+    return tokens.expiresAt;
+  }
+
+  return null;
 }
 
 /**

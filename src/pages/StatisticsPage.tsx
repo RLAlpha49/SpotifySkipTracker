@@ -11,44 +11,46 @@
  * music listening habits, preferences, and patterns.
  */
 
-import React, { useState, useEffect, useMemo } from "react";
-import { toast } from "sonner";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { StatisticsData } from "@/types/statistics";
+import {
+  ArtistsTab,
+  ClearStatisticsDialog,
+  DevicesTab,
+  ExportDataTab,
+  formatPercent,
+  formatTime,
+  getDayName,
+  getHourLabel,
+  ListeningPatternsTab,
+  OverviewTab,
+  SessionsTab,
+  SkipPatternsTab,
+  TimeAnalyticsTab,
+  TracksTab,
+} from "@/components/statistics";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { StatisticsData } from "@/types/statistics";
 import {
-  RefreshCw,
-  Trash2,
-  LayoutDashboard,
-  GitBranch,
   Clock,
-  Music,
-  ListMusic,
   Disc,
-  Smartphone,
+  FileDown,
+  GitBranch,
+  LayoutDashboard,
+  ListMusic,
+  Music,
+  RefreshCw,
   SkipForward,
+  Smartphone,
+  Trash2,
 } from "lucide-react";
-import {
-  OverviewTab,
-  ListeningPatternsTab,
-  TimeAnalyticsTab,
-  ArtistsTab,
-  SessionsTab,
-  TracksTab,
-  DevicesTab,
-  SkipPatternsTab,
-  ClearStatisticsDialog,
-  formatTime,
-  formatPercent,
-  getDayName,
-  getHourLabel,
-} from "@/components/statistics";
+import React, { useEffect, useMemo, useState } from "react";
+import { toast, Toaster } from "sonner";
 
 export default function StatisticsPage() {
   const [loading, setLoading] = useState(true);
@@ -390,6 +392,29 @@ export default function StatisticsPage() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value="export"
+                    className={`flex items-center gap-1.5 rounded-md border px-3 py-2 shadow-sm transition-all duration-200 ${
+                      activeTab === "export"
+                        ? "bg-primary/10 border-primary/50 text-primary -translate-y-0.5 font-semibold shadow-md"
+                        : "bg-background/50 hover:bg-background/70 hover:border-border/50 border-transparent hover:-translate-y-0.5 hover:shadow"
+                    }`}
+                  >
+                    <FileDown
+                      className={`h-4 w-4 ${activeTab === "export" ? "text-primary" : ""}`}
+                    />
+                    <span className="hidden sm:inline">Export Data</span>
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent className="sm:hidden">
+                  Export Data
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </TabsList>
         </div>
 
@@ -440,7 +465,15 @@ export default function StatisticsPage() {
         <TabsContent value="patterns">
           <SkipPatternsTab loading={loading} statistics={statistics} />
         </TabsContent>
+
+        {/* Export Data Tab */}
+        <TabsContent value="export">
+          <ExportDataTab loading={loading} statistics={statistics} />
+        </TabsContent>
       </Tabs>
+
+      {/* Add the Toaster component from sonner */}
+      <Toaster />
     </div>
   );
 }

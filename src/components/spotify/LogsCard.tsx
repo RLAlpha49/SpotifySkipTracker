@@ -1,36 +1,36 @@
-import React, { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  FolderOpen,
-  Trash2,
-  HelpCircle,
-  FileText,
-  RefreshCw,
-  Filter,
-  Search,
-  Terminal,
-} from "lucide-react";
-import {
   Select,
-  SelectTrigger,
-  SelectValue,
   SelectContent,
   SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { LogSettings } from "@/types/spotify";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Badge } from "@/components/ui/badge";
+import { LogSettings } from "@/types/spotify";
+import {
+  FileText,
+  Filter,
+  FolderOpen,
+  HelpCircle,
+  RefreshCw,
+  Search,
+  Terminal,
+  Trash2,
+} from "lucide-react";
+import React, { useEffect, useState } from "react";
 
 interface LogsCardProps {
   logs: string[];
@@ -288,7 +288,8 @@ export function LogsCard({
   filteredLogs.forEach((log) => {
     const match = log.match(/\[.*?\]\s+\[([A-Z]+)\]/);
     if (match && match[1] in logLevelCounts) {
-      logLevelCounts[match[1] as keyof typeof logLevelCounts]++;
+      const level = match[1] as keyof typeof logLevelCounts;
+      logLevelCounts[level]++;
     }
   });
 

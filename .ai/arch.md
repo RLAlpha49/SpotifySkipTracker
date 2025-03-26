@@ -152,12 +152,11 @@ sequenceDiagram
   "tokenUrl": "https://accounts.spotify.com/api/token",
   "redirectUri": "http://localhost:8888/callback",
   "scopes": [
-    "user-read-private",
-    "user-read-email",
     "user-read-playback-state",
     "user-modify-playback-state",
+    "user-library-modify",
     "user-library-read",
-    "user-library-modify"
+    "user-read-recently-played"
   ]
 }
 ```
@@ -165,71 +164,219 @@ sequenceDiagram
 ## Project Structure
 
 ```text
-spotify-skip-tracker/
-├── src/
-│   ├── assets/              # Static assets and images
-│   ├── components/          # Reusable UI components
-│   │   ├── ui/              # shadcn components (Radix UI + Tailwind)
-│   │   ├── statistics/      # Components for visualization and statistics
-│   │   ├── skippedTracks/   # Components for skipped tracks display
-│   │   ├── spotify/         # Spotify-specific UI components
-│   │   └── settings/        # Settings form components
-│   │
-│   ├── electron/            # Electron-specific code
-│   │   ├── main/            # Main process modules
-│   │   │   ├── spotify-ipc.ts     # IPC handlers for Spotify API
-│   │   │   ├── window.ts          # Window management
-│   │   │   ├── extensions.ts      # Dev extensions installer
-│   │   │   └── installer-events.ts # Windows installer handlers
-│   │   └── main.ts          # Main process entry point
-│   │
-│   ├── helpers/             # Helper utilities
-│   │
-│   ├── layouts/             # Page layout components
-│   │   └── MainLayout.tsx   # Primary application layout
-│   │
-│   ├── pages/               # Page components (route destinations)
-│   │   ├── HomePage.tsx          # Dashboard/main view
-│   │   ├── SkippedTracksPage.tsx # Skipped tracks list view
-│   │   ├── StatisticsPage.tsx    # Statistics and charts view
-│   │   └── SettingsPage.tsx      # Application settings view
-│   │
-│   ├── routes/              # Routing configuration
-│   │   ├── routes.tsx       # Route definitions
-│   │   ├── router.tsx       # Router setup
-│   │   └── __root.tsx       # Root layout wrapper
-│   │
-│   ├── services/            # API and business logic services
-│   │   ├── auth/            # Authentication services
-│   │   ├── playback/        # Playback monitoring modules
-│   │   │   ├── monitor.ts       # Playback monitoring logic
-│   │   │   ├── track-change.ts  # Track change detection
-│   │   │   ├── state.ts         # Playback state management
-│   │   │   ├── history.ts       # Playback history tracking
-│   │   │   └── index.ts         # Service exports
-│   │   ├── spotify/         # Spotify API integration
-│   │   ├── spotify.service.ts # Renderer-side Spotify service
-│   │   ├── token-storage.ts # Token management service
-│   │   └── api-retry.ts     # API retry logic
-│   │
-│   ├── styles/              # Global styles and Tailwind config
-│   │
-│   ├── tests/               # Test files
-│   │
-│   ├── types/               # TypeScript type definitions
-│   │
-│   ├── utils/               # Utility functions
-│   │
-│   ├── App.tsx              # Main React component
-│   ├── main.ts              # Application entry point
-│   ├── preload.ts           # Electron preload script
-│   ├── renderer.ts          # Renderer process entry point
-│   └── types.d.ts           # Global type definitions
-│
-├── vite-config/            # Vite configuration files
-├── config/                 # Project configuration files
-├── test-results/           # Test results output
-└── public/                 # Static public assets
+Spotify-Skip-Tracker
+├── config
+│   └── eslint.config.mjs
+├── docs
+├── src
+│   ├── assets
+│   │   ├── fonts
+│   │   │   ├── geist
+│   │   │   │   └── geist.ttf
+│   │   │   ├── geist-mono
+│   │   │   │   └── geist-mono.ttf
+│   │   │   └── tomorrow
+│   │   │       ├── tomorrow-bold-italic.ttf
+│   │   │       ├── tomorrow-bold.ttf
+│   │   │       ├── tomorrow-italic.ttf
+│   │   │       └── tomorrow-regular.ttf
+│   │   ├── SpotifySkipTrackerIconTransparent.icns
+│   │   ├── SpotifySkipTrackerIconTransparent.ico
+│   │   └── SpotifySkipTrackerIconTransparent.png
+│   ├── components
+│   │   ├── settings
+│   │   │   ├── ApiCredentialsForm.tsx
+│   │   │   ├── ApplicationSettingsForm.tsx
+│   │   │   ├── ImportExportSettings.tsx
+│   │   │   ├── ResetSettingsDialog.tsx
+│   │   │   ├── RestartDialog.tsx
+│   │   │   ├── settingsFormSchema.ts
+│   │   │   └── SkipDetectionForm.tsx
+│   │   ├── skippedTracks
+│   │   │   ├── dialogs
+│   │   │   │   ├── ClearDataDialog.tsx
+│   │   │   │   └── RemoveHighlightedDialog.tsx
+│   │   │   ├── SkippedTrackRow.tsx
+│   │   │   ├── SkippedTracksBulkActions.tsx
+│   │   │   ├── SkippedTracksHeader.tsx
+│   │   │   ├── SkippedTracksTable.tsx
+│   │   │   ├── TrackActionsMenu.tsx
+│   │   │   └── utils.ts
+│   │   ├── spotify
+│   │   │   ├── AuthenticationCard.tsx
+│   │   │   ├── LogsCard.tsx
+│   │   │   ├── NowPlayingCard.tsx
+│   │   │   └── PlaybackMonitoringCard.tsx
+│   │   ├── statistics
+│   │   │   ├── ArtistsTab.tsx
+│   │   │   ├── ClearStatisticsDialog.tsx
+│   │   │   ├── DevicesTab.tsx
+│   │   │   ├── index.ts
+│   │   │   ├── ListeningPatternsTab.tsx
+│   │   │   ├── NoDataMessage.tsx
+│   │   │   ├── OverviewTab.tsx
+│   │   │   ├── SessionsTab.tsx
+│   │   │   ├── SkipPatternsTab.tsx
+│   │   │   ├── TimeAnalyticsTab.tsx
+│   │   │   ├── TracksTab.tsx
+│   │   │   └── utils.ts
+│   │   ├── ui
+│   │   │   ├── alert-dialog.tsx
+│   │   │   ├── badge.tsx
+│   │   │   ├── button.tsx
+│   │   │   ├── card.tsx
+│   │   │   ├── chart.tsx
+│   │   │   ├── collapsible.tsx
+│   │   │   ├── dropdown-menu.tsx
+│   │   │   ├── form.tsx
+│   │   │   ├── input.tsx
+│   │   │   ├── label.tsx
+│   │   │   ├── navigation-menu.tsx
+│   │   │   ├── progress.tsx
+│   │   │   ├── scroll-area.tsx
+│   │   │   ├── select.tsx
+│   │   │   ├── separator.tsx
+│   │   │   ├── skeleton.tsx
+│   │   │   ├── slider.tsx
+│   │   │   ├── sonner.tsx
+│   │   │   ├── spinner.tsx
+│   │   │   ├── switch.tsx
+│   │   │   ├── table.tsx
+│   │   │   ├── tabs.tsx
+│   │   │   ├── toggle-group.tsx
+│   │   │   ├── toggle.tsx
+│   │   │   └── tooltip.tsx
+│   │   ├── DragWindowRegion.tsx
+│   │   └── ToggleTheme.tsx
+│   ├── electron
+│   │   ├── main
+│   │   │   ├── extensions.ts
+│   │   │   ├── installer-events.ts
+│   │   │   ├── spotify-ipc.ts
+│   │   │   ├── statistics-setup.ts
+│   │   │   └── window.ts
+│   │   └── main.ts
+│   ├── helpers
+│   │   ├── ipc
+│   │   │   ├── theme
+│   │   │   │   ├── theme-channels.ts
+│   │   │   │   ├── theme-context.ts
+│   │   │   │   └── theme-listeners.ts
+│   │   │   ├── window
+│   │   │   │   ├── window-channels.ts
+│   │   │   │   ├── window-context.ts
+│   │   │   │   └── window-listeners.ts
+│   │   │   ├── context-exposer.ts
+│   │   │   └── listeners-register.ts
+│   │   ├── storage
+│   │   │   ├── logs-store.ts
+│   │   │   ├── settings-store.ts
+│   │   │   ├── statistics-store.ts
+│   │   │   ├── store.ts
+│   │   │   ├── tracks-store.ts
+│   │   │   └── utils.ts
+│   │   ├── theme_helpers.ts
+│   │   └── window_helpers.ts
+│   ├── layouts
+│   │   └── MainLayout.tsx
+│   ├── pages
+│   │   ├── HomePage.tsx
+│   │   ├── SettingsPage.tsx
+│   │   ├── SkippedTracksPage.tsx
+│   │   └── StatisticsPage.tsx
+│   ├── renderer
+│   │   └── preload
+│   │       └── preload.ts
+│   ├── routes
+│   │   ├── __root.tsx
+│   │   ├── router.tsx
+│   │   └── routes.tsx
+│   ├── services
+│   │   ├── auth
+│   │   │   ├── storage
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── token-init.ts
+│   │   │   │   ├── token-operations.ts
+│   │   │   │   ├── token-refresh.ts
+│   │   │   │   ├── token-state.ts
+│   │   │   │   ├── token-storage.ts
+│   │   │   │   └── token-store.ts
+│   │   │   ├── index.ts
+│   │   │   ├── oauth.ts
+│   │   │   ├── server.ts
+│   │   │   ├── session.ts
+│   │   │   └── window.ts
+│   │   ├── playback
+│   │   │   ├── history.ts
+│   │   │   ├── index.ts
+│   │   │   ├── monitor.ts
+│   │   │   ├── skip-detection.ts
+│   │   │   ├── state.ts
+│   │   │   └── track-change.ts
+│   │   ├── spotify
+│   │   │   ├── auth.ts
+│   │   │   ├── constants.ts
+│   │   │   ├── credentials.ts
+│   │   │   ├── index.ts
+│   │   │   ├── interceptors.ts
+│   │   │   ├── library.ts
+│   │   │   ├── playback.ts
+│   │   │   ├── token.ts
+│   │   │   └── user.ts
+│   │   ├── statistics
+│   │   │   ├── aggregator.ts
+│   │   │   ├── collector.ts
+│   │   │   └── pattern-detector.ts
+│   │   ├── api-retry.ts
+│   │   ├── spotify.service.ts
+│   │   └── token-storage.ts
+│   ├── styles
+│   │   └── global.css
+│   ├── tests
+│   │   └── unit
+│   │       ├── components
+│   │       │   └── ToggleTheme.test.tsx
+│   │       ├── helpers
+│   │       │   └── storage.test.ts
+│   │       ├── services
+│   │       │   ├── playback.test.ts
+│   │       │   └── spotify.service.test.ts
+│   │       └── setup.ts
+│   ├── types
+│   │   ├── auth.ts
+│   │   ├── logging.ts
+│   │   ├── playback.ts
+│   │   ├── settings.ts
+│   │   ├── spotify-api.ts
+│   │   ├── spotify.ts
+│   │   ├── statistics.ts
+│   │   ├── theme-mode.ts
+│   │   └── token.ts
+│   ├── utils
+│   │   └── tailwind.ts
+│   ├── App.tsx
+│   ├── global.d.ts
+│   ├── main.ts
+│   ├── modules.d.ts
+│   ├── preload.ts
+│   ├── renderer.ts
+│   └── types.d.ts
+├── vite-config
+│   ├── vite.base.config.ts
+│   ├── vite.main.config.ts
+│   ├── vite.preload.config.ts
+│   ├── vite.renderer.config.ts
+│   └── vitest.config.ts
+├── components.json
+├── forge.config.ts
+├── forge.env.d.ts
+├── index.html
+├── LICENSE
+├── package-lock.json
+├── package.json
+├── postcss.config.ts
+├── README.md
+└── tsconfig.json
 ```
 
 ## Infrastructure

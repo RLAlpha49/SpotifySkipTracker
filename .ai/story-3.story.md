@@ -1,4 +1,4 @@
-# Epic-1 - Story-3
+# Epic-2 - Story-3
 
 # Spotify Authentication and API Integration
 
@@ -95,21 +95,37 @@ The authentication implementation follows this structure:
 src/
 ├── services/
 │   ├── auth/
-│   │   ├── oauth.ts             # OAuth flow implementation
-│   │   ├── session.ts           # Session management
-│   │   ├── window.ts            # Authentication window management
-│   │   ├── server.ts            # OAuth callback server
-│   │   └── index.ts             # Public API for auth service
+│   │   ├── storage/
+│   │   │   ├── index.ts
+│   │   │   ├── token-init.ts
+│   │   │   ├── token-operations.ts
+│   │   │   ├── token-refresh.ts
+│   │   │   ├── token-state.ts
+│   │   │   ├── token-storage.ts
+│   │   │   └── token-store.ts
+│   │   ├── index.ts
+│   │   ├── oauth.ts
+│   │   ├── server.ts
+│   │   ├── session.ts
+│   │   └── window.ts
 │   │
-│   └── spotify/
-│       ├── token.ts             # Token management
-│       ├── auth.ts              # Authentication-specific API calls
-│       ├── api.ts               # Core API client
-│       └── endpoints/           # API endpoint implementations
+│   ├── spotify/
+│   │   ├── auth.ts
+│   │   ├── token.ts
+│   │   ├── credentials.ts
+│   │   └── index.ts
+│   │
+│   ├── api-retry.ts
+│   └── token-storage.ts
 │
 ├── components/
 │   └── spotify/
-│       └── AuthenticationCard.tsx # UI for authentication status and actions
+│       └── AuthenticationCard.tsx
+│
+└── types/
+    ├── auth.ts
+    ├── spotify.ts
+    └── token.ts
 ```
 
 ## Diagrams

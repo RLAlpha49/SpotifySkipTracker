@@ -17,7 +17,6 @@ export {
   getAvailableLogFiles,
   getLogs,
   getLogsFromFile,
-  // re-export all the storage functions
   saveLog,
 } from "./logs-store";
 
