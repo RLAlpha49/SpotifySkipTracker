@@ -372,4 +372,27 @@ export default function exposeContexts(): void {
     getSkipPatterns: () => ipcRenderer.invoke("statistics:getSkipPatterns"),
     detectPatterns: () => ipcRenderer.invoke("statistics:detectPatterns"),
   } as SpotifyAPI & Partial<StatisticsAPI>);
+
+  /**
+   * File Access API Bridge
+   *
+   * Provides controlled access to file system operations in the renderer.
+   * Each method invokes a corresponding handler in the main process via IPC.
+   */
+  contextBridge.exposeInMainWorld("fileAccess", {
+    readFile: (path: string) => ipcRenderer.invoke("fileAccess:readFile", path),
+    saveFile: (path: string, content: string) =>
+      ipcRenderer.invoke("fileAccess:saveFile", path, content),
+    showOpenDialog: (options: object) =>
+      ipcRenderer.invoke("fileAccess:showOpenDialog", options),
+    showSaveDialog: (options: object) =>
+      ipcRenderer.invoke("fileAccess:showSaveDialog", options),
+    getAppPath: () => ipcRenderer.invoke("fileAccess:getAppPath"),
+    getPath: (name: string) => ipcRenderer.invoke("fileAccess:getPath", name),
+    readDirectory: (path: string) =>
+      ipcRenderer.invoke("fileAccess:readDirectory", path),
+    exists: (path: string) => ipcRenderer.invoke("fileAccess:exists", path),
+    mkdir: (path: string) => ipcRenderer.invoke("fileAccess:mkdir", path),
+    unlink: (path: string) => ipcRenderer.invoke("fileAccess:unlink", path),
+  });
 }

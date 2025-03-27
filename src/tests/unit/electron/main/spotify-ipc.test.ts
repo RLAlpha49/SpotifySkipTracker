@@ -590,7 +590,7 @@ describe("Spotify IPC Module", () => {
 
         if (startMonitoringHandler) {
           await startMonitoringHandler({} as any);
-          
+
           // At minimum, verify that some notifications were sent to the UI
           expect(mockMainWindow.webContents.send).toHaveBeenCalled();
         }

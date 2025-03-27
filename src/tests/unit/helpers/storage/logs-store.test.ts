@@ -158,8 +158,8 @@ describe("Logs Storage", () => {
 
       // Create a spy to simulate the appendFileSync behavior
       // to avoid the actual implementation's logging behavior
-      const appendSpy = vi.spyOn(fs, 'appendFileSync');
-      
+      const appendSpy = vi.spyOn(fs, "appendFileSync");
+
       // Act
       const debugResult = saveLog("Debug message", "DEBUG");
       const infoResult = saveLog("Info message", "INFO");
@@ -173,18 +173,18 @@ describe("Logs Storage", () => {
       expect(infoResult).toBe(false); // Filtered out
       expect(warningResult).toBe(true);
       expect(errorResult).toBe(true);
-      
+
       // Check that appendFileSync was called only for WARNING and ERROR
       expect(appendSpy).toHaveBeenCalledTimes(2);
       expect(appendSpy).toHaveBeenCalledWith(
         expect.stringContaining("latest.log"),
         expect.stringContaining("[WARNING] Warning message"),
-        expect.anything()
+        expect.anything(),
       );
       expect(appendSpy).toHaveBeenCalledWith(
         expect.stringContaining("latest.log"),
         expect.stringContaining("[ERROR] Error message"),
-        expect.anything()
+        expect.anything(),
       );
     });
 
@@ -209,7 +209,7 @@ describe("Logs Storage", () => {
       expect(fs.writeFileSync).toHaveBeenCalledWith(
         "/mock/userData/data/logs/latest.log",
         expect.stringMatching(/.*Log line 2.*Log line 3.*/s),
-        "utf-8"
+        "utf-8",
       );
       expect(mockConsoleLog).toHaveBeenCalledWith(
         expect.stringContaining("Log file rotated"),

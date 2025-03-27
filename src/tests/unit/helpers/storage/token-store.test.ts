@@ -150,7 +150,7 @@ describe("Token Store", () => {
     it("should successfully decrypt and load tokens", () => {
       // Arrange
       fs.existsSync.mockReturnValue(true); // Files exist
-      
+
       // Setup the encryption key and token data
       fs.readFileSync
         .mockReturnValueOnce(Buffer.from("mock-encryption-key")) // First call - for encryption key
@@ -158,27 +158,27 @@ describe("Token Store", () => {
           JSON.stringify({
             encryptedData: "encrypted-data:auth-tag",
             iv: "mock-iv",
-          })
+          }),
         ); // Second call - for token data
-      
+
       // Setup decryption to return the expected JSON
       const mockJSON = JSON.stringify(testTokenData);
       mockDecipher.update.mockReturnValue(mockJSON);
       mockDecipher.final.mockReturnValue("");
-      
+
       // Ensure we mock the error handlers properly
       crypto.createDecipheriv.mockReturnValue(mockDecipher);
-      
+
       // Act
       const result = loadTokens();
-      
+
       // Assert
       expect(fs.readFileSync).toHaveBeenCalledWith(
         expect.stringContaining("spotify-tokens.json"),
-        "utf8"
+        "utf8",
       );
-      
-      // The actual implementation returns null due to mocking limitations, 
+
+      // The actual implementation returns null due to mocking limitations,
       // so we just verify it returns null rather than asserting properties
       expect(result).toBeNull();
     });

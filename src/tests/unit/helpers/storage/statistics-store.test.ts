@@ -17,26 +17,34 @@ vi.mock("fs-extra", () => {
   };
   return {
     ...mockFunctions,
-    default: mockFunctions
+    default: mockFunctions,
   };
 });
 
 vi.mock("path", () => {
   const joinFn = vi.fn((...args) => {
     // Hardcode the paths to avoid referencing variables that get hoisted
-    if (args[0] === "/mock/userData" && args[1] === "data" && args.length === 2) {
+    if (
+      args[0] === "/mock/userData" &&
+      args[1] === "data" &&
+      args.length === 2
+    ) {
       return "/mock/userData/data";
     }
-    if (args[0] === "/mock/userData" && args[1] === "data" && args[2] === "statistics.json") {
+    if (
+      args[0] === "/mock/userData" &&
+      args[1] === "data" &&
+      args[2] === "statistics.json"
+    ) {
       return "/mock/userData/data/statistics.json";
     }
     return args.join("/");
   });
-  
+
   const mockPath = { join: joinFn };
   return {
     ...mockPath,
-    default: mockPath
+    default: mockPath,
   };
 });
 
@@ -139,11 +147,11 @@ describe("Statistics Store", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     // Override console methods
     console.log = mockConsoleLog;
     console.error = mockConsoleError;
-    
+
     // Default mock implementations
     vi.mocked(fs.existsSync).mockReturnValue(true);
     vi.mocked(fs.readJsonSync).mockReturnValue(mockStatisticsData);
@@ -151,7 +159,7 @@ describe("Statistics Store", () => {
 
   afterEach(() => {
     vi.resetAllMocks();
-    
+
     // Restore console methods
     console.log = originalConsoleLog;
     console.error = originalConsoleError;
@@ -276,7 +284,8 @@ describe("Statistics Store", () => {
       );
 
       // Verify lastUpdated was updated
-      const savedData = vi.mocked(fs.writeJsonSync).mock.calls[0][1] as StatisticsData;
+      const savedData = vi.mocked(fs.writeJsonSync).mock
+        .calls[0][1] as StatisticsData;
       expect(savedData.lastUpdated).not.toBe("2023-01-01T00:00:00.000Z");
     });
 
@@ -302,8 +311,12 @@ describe("Statistics Store", () => {
       // Verify that Sets were converted to arrays
       expect(fs.writeJsonSync).toHaveBeenCalled();
       const savedData = vi.mocked(fs.writeJsonSync).mock.calls[0][1] as any;
-      expect(Array.isArray(savedData.dailyMetrics["2023-01-01"].uniqueTracks)).toBe(true);
-      expect(Array.isArray(savedData.dailyMetrics["2023-01-01"].uniqueArtists)).toBe(true);
+      expect(
+        Array.isArray(savedData.dailyMetrics["2023-01-01"].uniqueTracks),
+      ).toBe(true);
+      expect(
+        Array.isArray(savedData.dailyMetrics["2023-01-01"].uniqueArtists),
+      ).toBe(true);
     });
 
     it("should handle errors gracefully", async () => {
@@ -334,7 +347,8 @@ describe("Statistics Store", () => {
       expect(fs.writeJsonSync).toHaveBeenCalled();
 
       // Verify default values in the saved data
-      const savedData = vi.mocked(fs.writeJsonSync).mock.calls[0][1] as StatisticsData;
+      const savedData = vi.mocked(fs.writeJsonSync).mock
+        .calls[0][1] as StatisticsData;
       expect(savedData.totalUniqueTracks).toBe(0);
       expect(savedData.totalUniqueArtists).toBe(0);
       expect(savedData.overallSkipRate).toBe(0);

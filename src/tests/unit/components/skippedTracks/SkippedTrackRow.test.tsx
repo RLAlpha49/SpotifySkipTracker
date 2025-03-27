@@ -24,9 +24,15 @@ vi.mock("lucide-react", async () => {
 // Mock the Tooltip component
 vi.mock("../../../../components/ui/tooltip", () => ({
   Tooltip: ({ children }) => <div data-testid="tooltip">{children}</div>,
-  TooltipProvider: ({ children }) => <div data-testid="tooltip-provider">{children}</div>,
-  TooltipContent: ({ children }) => <div data-testid="tooltip-content">{children}</div>,
-  TooltipTrigger: ({ children, asChild }) => <div data-testid="tooltip-trigger">{children}</div>,
+  TooltipProvider: ({ children }) => (
+    <div data-testid="tooltip-provider">{children}</div>
+  ),
+  TooltipContent: ({ children }) => (
+    <div data-testid="tooltip-content">{children}</div>
+  ),
+  TooltipTrigger: ({ children, asChild }) => (
+    <div data-testid="tooltip-trigger">{children}</div>
+  ),
 }));
 
 // Mock the TrackActionsMenu component and window.spotify
@@ -57,8 +63,12 @@ vi.mock("../../../../components/skippedTracks/utils", () => ({
 
 // Mock dropdown menu components
 vi.mock("../../../../components/ui/dropdown-menu", () => ({
-  DropdownMenu: ({ children }) => <div data-testid="dropdown-menu">{children}</div>,
-  DropdownMenuTrigger: ({ children }) => <div data-testid="dropdown-trigger">{children}</div>,
+  DropdownMenu: ({ children }) => (
+    <div data-testid="dropdown-menu">{children}</div>
+  ),
+  DropdownMenuTrigger: ({ children }) => (
+    <div data-testid="dropdown-trigger">{children}</div>
+  ),
 }));
 
 // Mock Button component
@@ -136,9 +146,7 @@ describe("SkippedTrackRow Component", () => {
   });
 
   it("should display removal warning icon when shouldSuggestRemoval is true", () => {
-    render(
-      <SkippedTrackRow {...defaultProps} shouldSuggestRemoval={true} />,
-    );
+    render(<SkippedTrackRow {...defaultProps} shouldSuggestRemoval={true} />);
 
     // Check for alert triangle icon
     const warningIcon = screen.getByTestId("alert-triangle-icon");
