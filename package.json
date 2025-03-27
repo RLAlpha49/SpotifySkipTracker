@@ -43,7 +43,7 @@
     "@types/react-dom": "^19.0.4",
     "@vitest/ui": "^3.0.9",
     "babel-plugin-react-compiler": "^19.0.0-beta-aeaed83-20250323",
-    "electron": "35.1.1",
+    "electron": "35.1.2",
     "electron-devtools-installer": "^4.0.0",
     "eslint": "^9.23.0",
     "eslint-config-prettier": "^10.1.1",
