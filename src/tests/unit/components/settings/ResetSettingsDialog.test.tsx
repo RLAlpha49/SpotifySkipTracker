@@ -12,7 +12,7 @@ describe("ResetSettingsDialog Component", () => {
     // Verify the trigger button is rendered with correct text
     const triggerButton = screen.getByText("Reset to Defaults");
     expect(triggerButton).toBeInTheDocument();
-    expect(triggerButton.closest("button")).toHaveClass("destructive");
+    expect(triggerButton.closest("button")).toHaveClass("bg-destructive");
   });
 
   it("should show the dialog when the trigger button is clicked", () => {
@@ -21,24 +21,33 @@ describe("ResetSettingsDialog Component", () => {
     render(<ResetSettingsDialog onReset={mockOnReset} />);
 
     // Initially, the dialog content should not be visible
-    expect(screen.queryByText("Reset Settings")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
 
     // Click the trigger button to open the dialog
     const triggerButton = screen.getByText("Reset to Defaults");
     fireEvent.click(triggerButton);
 
     // Now the dialog content should be visible
-    expect(screen.getByText("Reset Settings")).toBeInTheDocument();
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toBeInTheDocument();
+
+    // Check for dialog title
+    expect(
+      screen.getByRole("heading", { name: "Reset Settings" }),
+    ).toBeInTheDocument();
+
+    // Check for dialog description
     expect(
       screen.getByText(
         "Are you sure you want to reset all settings to their default values?",
+        { exact: false },
       ),
     ).toBeInTheDocument();
 
     // Check for dialog buttons
-    expect(screen.getByText("Cancel")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
     expect(
-      screen.getByText("Reset Settings", { selector: "button" }),
+      screen.getByRole("button", { name: "Reset Settings" }),
     ).toBeInTheDocument();
   });
 
@@ -52,8 +61,8 @@ describe("ResetSettingsDialog Component", () => {
     fireEvent.click(triggerButton);
 
     // Click the confirm button
-    const confirmButton = screen.getByText("Reset Settings", {
-      selector: "button",
+    const confirmButton = screen.getByRole("button", {
+      name: "Reset Settings",
     });
     fireEvent.click(confirmButton);
 
@@ -71,16 +80,16 @@ describe("ResetSettingsDialog Component", () => {
     fireEvent.click(triggerButton);
 
     // Verify dialog is open
-    expect(screen.getByText("Reset Settings")).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
 
     // Click the cancel button
-    const cancelButton = screen.getByText("Cancel");
+    const cancelButton = screen.getByRole("button", { name: "Cancel" });
     fireEvent.click(cancelButton);
 
     // Give time for the dialog to close
     setTimeout(() => {
       // Dialog should now be closed
-      expect(screen.queryByText("Reset Settings")).not.toBeInTheDocument();
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
 
       // onReset should not have been called
       expect(mockOnReset).not.toHaveBeenCalled();
@@ -97,6 +106,6 @@ describe("ResetSettingsDialog Component", () => {
       .getByText("Reset to Defaults")
       .closest("button");
     expect(triggerButton).toHaveClass("w-full");
-    expect(triggerButton).toHaveClass("destructive");
+    expect(triggerButton).toHaveClass("bg-destructive");
   });
 });

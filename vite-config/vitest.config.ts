@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(__dirname, "../src"),
     },
   },
   test: {
@@ -22,7 +22,6 @@ export default defineConfig({
       ["junit", { outputFile: "reports/junit.xml" }],
       ["json", { outputFile: "reports/test-results.json" }],
       ["html", { outputFile: "reports/html-report" }],
-      "tap",
     ],
     outputFile: {
       json: "./reports/json-results.json",
