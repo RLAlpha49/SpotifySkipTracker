@@ -14,15 +14,27 @@ vi.mock("electron", () => ({
   },
 }));
 
-vi.mock("path", () => ({
-  basename: vi.fn().mockReturnValue("app.exe"),
-  dirname: vi.fn().mockReturnValue("C:\\Program Files\\App"),
-  resolve: vi.fn().mockReturnValue("C:\\Program Files\\Update.exe"),
-}));
+vi.mock("path", () => {
+  const path = {
+    basename: vi.fn().mockReturnValue("app.exe"),
+    dirname: vi.fn().mockReturnValue("C:\\Program Files\\App"),
+    resolve: vi.fn().mockReturnValue("C:\\Program Files\\Update.exe"),
+  };
+  return {
+    default: path,
+    ...path,
+  };
+});
 
-vi.mock("child_process", () => ({
-  exec: vi.fn(),
-}));
+vi.mock("child_process", () => {
+  const childProcess = {
+    exec: vi.fn(),
+  };
+  return {
+    default: childProcess,
+    ...childProcess,
+  };
+});
 
 describe("Windows Installer Event Handling", () => {
   const originalPlatform = process.platform;

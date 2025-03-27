@@ -500,7 +500,8 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
   ipcMain.handle("spotify:openLogsDirectory", async () => {
     console.log("Opening logs directory:", logsPath);
 
-    shell.openPath(logsPath).then((error) => {
+    try {
+      const error = await shell.openPath(logsPath);
       if (error) {
         console.error("Failed to open logs directory:", error);
         saveLog(`Failed to open logs directory: ${error}`, "ERROR");
@@ -508,15 +509,18 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
       }
       saveLog("Opened logs directory", "INFO");
       return true;
-    });
-
-    return true;
+    } catch (error) {
+      console.error("Error opening logs directory:", error);
+      saveLog(`Error opening logs directory: ${error}`, "ERROR");
+      return false;
+    }
   });
 
   ipcMain.handle("spotify:openSkipsDirectory", async () => {
     console.log("Opening skips directory:", skipsPath);
 
-    shell.openPath(skipsPath).then((error) => {
+    try {
+      const error = await shell.openPath(skipsPath);
       if (error) {
         console.error("Failed to open skips directory:", error);
         saveLog(`Failed to open skips directory: ${error}`, "ERROR");
@@ -524,9 +528,11 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
       }
       saveLog("Opened skips directory", "INFO");
       return true;
-    });
-
-    return true;
+    } catch (error) {
+      console.error("Error opening skips directory:", error);
+      saveLog(`Error opening skips directory: ${error}`, "ERROR");
+      return false;
+    }
   });
 
   // Application lifecycle

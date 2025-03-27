@@ -30,9 +30,15 @@ vi.mock("fs-extra", () => ({
   readFileSync: vi.fn(),
 }));
 
-vi.mock("path", () => ({
-  join: vi.fn().mockImplementation((...args) => args.join("/")),
-}));
+vi.mock("path", () => {
+  const path = {
+    join: vi.fn().mockImplementation((...args) => args.join("/")),
+  };
+  return {
+    default: path,
+    ...path,
+  };
+});
 
 vi.mock("../../../../helpers/storage/store", () => ({
   saveLog: vi.fn(),
