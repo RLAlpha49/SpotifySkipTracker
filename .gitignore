@@ -103,6 +103,7 @@ out/
 # Local
 .vscode/
 .cursor/templates
+reports/
 
 # Documentation and templates
 docs/

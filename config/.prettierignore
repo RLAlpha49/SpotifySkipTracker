@@ -3,4 +3,6 @@ dist
 out
 node_modules
 .vite
+.vscode
+reports
 README.md

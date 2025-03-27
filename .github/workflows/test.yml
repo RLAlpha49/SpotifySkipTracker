@@ -19,12 +19,49 @@ jobs:
           cache: "npm"
       - name: Install dependencies
         run: npm ci
-      - name: Run tests
-        run: npm test
-      - name: Upload test results
+
+      # Create reports directory
+      - name: Create reports directory
+        run: mkdir -p reports
+
+      # Run tests in sections to provide better visibility into failures
+      - name: Run Page Tests
+        run: npm run test -- src/tests/unit/pages
+        continue-on-error: true
+
+      - name: Run Component Tests
+        run: npm run test -- src/tests/unit/components
+        continue-on-error: true
+
+      - name: Run Routes Tests
+        run: npm run test -- src/tests/unit/routes
+        continue-on-error: true
+
+      - name: Run Layouts Tests
+        run: npm run test -- src/tests/unit/layouts
+        continue-on-error: true
+
+      - name: Run Helpers Tests
+        run: npm run test -- src/tests/unit/helpers
+        continue-on-error: true
+
+      - name: Run Services Tests
+        run: npm run test -- src/tests/unit/services
+        continue-on-error: true
+
+      - name: Run Electron Tests
+        run: npm run test -- src/tests/unit/electron
+        continue-on-error: true
+
+      # Run a final complete test to ensure overall pass/fail status
+      - name: Verify All Tests Pass
+        run: npm run test
+
+      # Upload test result artifacts
+      - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: test-results/
+          name: test-reports
+          path: reports/
           retention-days: 7
