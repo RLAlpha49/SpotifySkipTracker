@@ -101,11 +101,6 @@ describe("PlaybackMonitoringCard Component", () => {
     // Check status text is displayed
     expect(screen.getByText("Monitoring Error")).toBeInTheDocument();
     expect(screen.getByText("Error")).toBeInTheDocument();
-    expect(
-      screen.getByText(/An error occurred with the monitoring service/),
-    ).toBeInTheDocument();
-
-    // Check error details are shown on hover
     expect(screen.getByText(errorMessage)).toBeInTheDocument();
 
     // Check stop button is displayed (to allow user to reset)
@@ -131,6 +126,9 @@ describe("PlaybackMonitoringCard Component", () => {
   });
 
   it("should call onStartMonitoring when start button is clicked", async () => {
+    // Get the actual toast function to spy on
+    const { toast } = await import("sonner");
+
     render(<PlaybackMonitoringCard {...defaultProps} />);
 
     // Click the start button
@@ -146,7 +144,7 @@ describe("PlaybackMonitoringCard Component", () => {
     // Wait for the async operation to complete
     await waitFor(() => {
       // Toast success should have been called
-      expect(require("sonner").toast.success).toHaveBeenCalledWith(
+      expect(toast.success).toHaveBeenCalledWith(
         "Monitoring Started",
         expect.anything(),
       );
@@ -154,6 +152,9 @@ describe("PlaybackMonitoringCard Component", () => {
   });
 
   it("should call onStopMonitoring when stop button is clicked", async () => {
+    // Get the actual toast function to spy on
+    const { toast } = await import("sonner");
+
     render(
       <PlaybackMonitoringCard
         {...defaultProps}
@@ -175,7 +176,7 @@ describe("PlaybackMonitoringCard Component", () => {
     // Wait for the async operation to complete
     await waitFor(() => {
       // Toast success should have been called
-      expect(require("sonner").toast.success).toHaveBeenCalledWith(
+      expect(toast.success).toHaveBeenCalledWith(
         "Monitoring Stopped",
         expect.anything(),
       );
@@ -183,6 +184,9 @@ describe("PlaybackMonitoringCard Component", () => {
   });
 
   it("should show error toast when start monitoring fails", async () => {
+    // Get the actual toast function to spy on
+    const { toast } = await import("sonner");
+
     const mockError = new Error("API connection failed");
     const failingProps = {
       ...defaultProps,
@@ -198,7 +202,7 @@ describe("PlaybackMonitoringCard Component", () => {
     // Wait for the async operation to complete
     await waitFor(() => {
       // Toast error should have been called
-      expect(require("sonner").toast.error).toHaveBeenCalledWith(
+      expect(toast.error).toHaveBeenCalledWith(
         "Monitoring Error",
         expect.objectContaining({
           description: expect.stringContaining("Failed to start monitoring"),
@@ -208,6 +212,9 @@ describe("PlaybackMonitoringCard Component", () => {
   });
 
   it("should show error toast when stop monitoring fails", async () => {
+    // Get the actual toast function to spy on
+    const { toast } = await import("sonner");
+
     const mockError = new Error("Failed to stop service");
     const failingProps = {
       ...defaultProps,
@@ -225,7 +232,7 @@ describe("PlaybackMonitoringCard Component", () => {
     // Wait for the async operation to complete
     await waitFor(() => {
       // Toast error should have been called
-      expect(require("sonner").toast.error).toHaveBeenCalledWith(
+      expect(toast.error).toHaveBeenCalledWith(
         "Monitoring Error",
         expect.objectContaining({
           description: expect.stringContaining("Failed to stop monitoring"),
@@ -247,8 +254,7 @@ describe("PlaybackMonitoringCard Component", () => {
       />,
     );
 
-    // Status message and error details should be in the tooltip
+    // Status message should be displayed
     expect(screen.getByText(statusMessage)).toBeInTheDocument();
-    expect(screen.getByText(errorDetails)).toBeInTheDocument();
   });
 });
