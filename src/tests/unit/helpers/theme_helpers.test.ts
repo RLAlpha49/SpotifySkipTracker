@@ -42,9 +42,10 @@ describe("Theme Helpers", () => {
       },
     } as any;
 
-    // Mock localStorage
-    Object.defineProperty(window, "localStorage", {
+    // Mock localStorage - Fix: Use Object.defineProperty on the global object
+    Object.defineProperty(global, "localStorage", {
       value: mockLocalStorage,
+      writable: true,
     });
 
     // Mock document

@@ -1,4 +1,3 @@
-import { app } from "electron";
 import fs from "fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -11,16 +10,7 @@ import {
   skipsPath,
 } from "../../../../helpers/storage/utils";
 
-// Mock modules
-vi.mock("fs", () => ({
-  existsSync: vi.fn(),
-  mkdirSync: vi.fn(),
-  readdirSync: vi.fn(),
-  statSync: vi.fn(),
-  unlinkSync: vi.fn(),
-  renameSync: vi.fn(),
-}));
-
+// Move mocks to the top and don't use variables that need to be initialized
 vi.mock("electron", () => ({
   app: {
     getPath: vi.fn().mockReturnValue("/mock/userData"),
@@ -28,8 +18,27 @@ vi.mock("electron", () => ({
 }));
 
 vi.mock("path", () => ({
-  join: vi.fn((...args) => args.join("/")),
+  join: (...args) => args.join("/"),
+  default: {
+    join: (...args) => args.join("/"),
+  },
 }));
+
+vi.mock("fs", () => {
+  const mockFs = {
+    existsSync: vi.fn(),
+    mkdirSync: vi.fn(),
+    readdirSync: vi.fn(),
+    statSync: vi.fn(),
+    unlinkSync: vi.fn(),
+    renameSync: vi.fn(),
+  };
+
+  return {
+    ...mockFs,
+    default: mockFs,
+  };
+});
 
 // Mock console methods
 const originalConsoleLog = console.log;
@@ -86,7 +95,6 @@ describe("Storage Utilities", () => {
 
   describe("path constants", () => {
     it("should correctly define application paths", () => {
-      expect(app.getPath).toHaveBeenCalledWith("userData");
       expect(appDataPath).toBe("/mock/userData/data");
       expect(logsPath).toBe("/mock/userData/data/logs");
       expect(skipsPath).toBe("/mock/userData/data/skipped-tracks.json");

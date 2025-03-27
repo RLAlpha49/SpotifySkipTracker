@@ -1,14 +1,17 @@
 import fs from "fs";
+import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getSettings,
   resetSettings,
   saveSettings,
 } from "../../../../helpers/storage/settings-store";
-import { settingsFilePath } from "../../../../helpers/storage/utils";
 import { SettingsSchema } from "../../../../types/settings";
 
-// Mock modules
+// Mock the actual implementation of settingsFilePath
+const mockSettingsFilePath = "/mock/userData/data/settings.json";
+
+// Place mocks at the top with proper default exports
 vi.mock("fs", () => {
   const mockFs = {
     existsSync: vi.fn(),
@@ -24,15 +27,18 @@ vi.mock("fs", () => {
 
 vi.mock("path", () => ({
   dirname: vi.fn().mockReturnValue("/mock/userData/data"),
+  join: (...args) => args.join("/"),
+  default: {
+    dirname: vi.fn().mockReturnValue("/mock/userData/data"),
+    join: (...args) => args.join("/"),
+  },
 }));
 
-vi.mock(
-  "../../../../helpers/storage/utils",
-  () => ({
-    settingsFilePath: "/mock/userData/data/settings.json",
-  }),
-  { virtual: true },
-);
+// Mock the utils module with our mock paths
+vi.mock("../../../../helpers/storage/utils", () => ({
+  settingsFilePath: "/mock/userData/data/settings.json",
+  appDataPath: "/mock/userData/data",
+}));
 
 // Mock console methods
 const originalConsoleLog = console.log;
@@ -75,6 +81,12 @@ describe("Settings Storage", () => {
     // Mock console methods
     console.log = mockConsoleLog;
     console.error = mockConsoleError;
+
+    // Set up default mock implementations
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    vi.mocked(fs.writeFileSync).mockImplementation(() => undefined);
+    vi.mocked(fs.mkdirSync).mockImplementation(() => undefined);
+    vi.mocked(path.dirname).mockReturnValue("/mock/userData/data");
   });
 
   afterEach(() => {
@@ -96,7 +108,7 @@ describe("Settings Storage", () => {
       // Assert
       expect(result).toBe(true);
       expect(fs.writeFileSync).toHaveBeenCalledWith(
-        settingsFilePath,
+        mockSettingsFilePath,
         expect.any(String),
         "utf-8",
       );
@@ -148,7 +160,10 @@ describe("Settings Storage", () => {
 
       // Assert
       expect(settings).toEqual(testSettings);
-      expect(fs.readFileSync).toHaveBeenCalledWith(settingsFilePath, "utf-8");
+      expect(fs.readFileSync).toHaveBeenCalledWith(
+        mockSettingsFilePath,
+        "utf-8",
+      );
     });
 
     it("should merge with default settings if file is partial", () => {
@@ -207,6 +222,7 @@ describe("Settings Storage", () => {
     it("should reset settings to defaults if file exists", () => {
       // Arrange
       vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.writeFileSync).mockImplementation(() => undefined);
 
       // Act
       const result = resetSettings();
@@ -214,7 +230,7 @@ describe("Settings Storage", () => {
       // Assert
       expect(result).toBe(true);
       expect(fs.writeFileSync).toHaveBeenCalledWith(
-        settingsFilePath,
+        mockSettingsFilePath,
         expect.any(String),
         "utf-8",
       );

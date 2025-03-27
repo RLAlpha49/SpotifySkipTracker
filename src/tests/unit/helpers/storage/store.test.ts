@@ -1,5 +1,38 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import * as storeModule from "../../../../helpers/storage/store";
+
+// Add necessary mocks
+vi.mock("electron", () => ({
+  app: {
+    getPath: vi.fn().mockReturnValue("/mock/userData"),
+  },
+}));
+
+vi.mock("path", () => ({
+  join: (...args) => args.join("/"),
+  default: {
+    join: (...args) => args.join("/"),
+  },
+}));
+
+vi.mock("fs", () => {
+  const mockFs = {
+    existsSync: vi.fn().mockReturnValue(true),
+    mkdirSync: vi.fn(),
+    readFileSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    unlinkSync: vi.fn(),
+    statSync: vi.fn(),
+    readdirSync: vi.fn(),
+    renameSync: vi.fn(),
+    appendFileSync: vi.fn(),
+  };
+
+  return {
+    ...mockFs,
+    default: mockFs,
+  };
+});
 
 describe("Storage Store Module", () => {
   describe("exports", () => {
@@ -14,8 +47,8 @@ describe("Storage Store Module", () => {
 
     it("should re-export settings storage functions", () => {
       expect(storeModule).toHaveProperty("getSettings");
-      expect(storeModule).toHaveProperty("updateSettings");
       expect(storeModule).toHaveProperty("saveSettings");
+      expect(storeModule).toHaveProperty("resetSettings");
     });
 
     it("should re-export logging functions", () => {
@@ -27,16 +60,18 @@ describe("Storage Store Module", () => {
     });
 
     it("should re-export tracks storage functions", () => {
-      expect(storeModule).toHaveProperty("saveSkippedTrack");
       expect(storeModule).toHaveProperty("getSkippedTracks");
-      expect(storeModule).toHaveProperty("clearSkippedTracks");
+      expect(storeModule).toHaveProperty("saveSkippedTracks");
+      expect(storeModule).toHaveProperty("updateSkippedTrack");
+      expect(storeModule).toHaveProperty("updateNotSkippedTrack");
+      expect(storeModule).toHaveProperty("removeSkippedTrack");
     });
 
     it("should re-export statistics storage functions", () => {
-      expect(storeModule).toHaveProperty("getSkipStatistics");
-      expect(storeModule).toHaveProperty("getListeningHistory");
-      expect(storeModule).toHaveProperty("getTopSkippedArtists");
-      expect(storeModule).toHaveProperty("getTopSkippedTracks");
+      expect(storeModule).toHaveProperty("getStatistics");
+      expect(storeModule).toHaveProperty("saveStatistics");
+      expect(storeModule).toHaveProperty("clearStatistics");
+      expect(storeModule).toHaveProperty("calculateUniqueArtistCount");
     });
   });
 });

@@ -18,11 +18,13 @@ const mockContextBridge = {
 };
 
 // Mock window.require to return mocked electron modules
+// The problem is that vi.stubGlobal doesn't properly set up the require function 
+// Let's make sure the require function is correctly mocked
 vi.stubGlobal("window", {
-  require: vi.fn().mockReturnValue({
+  require: vi.fn(() => ({
     contextBridge: mockContextBridge,
     ipcRenderer: mockIpcRenderer,
-  }),
+  })),
 });
 
 describe("Theme Context", () => {

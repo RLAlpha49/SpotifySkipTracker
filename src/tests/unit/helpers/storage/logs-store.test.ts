@@ -12,19 +12,33 @@ import { getSettings } from "../../../../helpers/storage/settings-store";
 import { cleanupOldLogs, logsPath } from "../../../../helpers/storage/utils";
 
 // Mock dependencies
-vi.mock("fs", () => ({
-  existsSync: vi.fn(),
-  readFileSync: vi.fn(),
-  writeFileSync: vi.fn(),
-  appendFileSync: vi.fn(),
-  mkdirSync: vi.fn(),
-  readdirSync: vi.fn(),
-  statSync: vi.fn(),
-  unlinkSync: vi.fn(),
-}));
+vi.mock("fs", () => {
+  return {
+    default: {
+      existsSync: vi.fn(),
+      readFileSync: vi.fn(),
+      writeFileSync: vi.fn(),
+      appendFileSync: vi.fn(),
+      mkdirSync: vi.fn(),
+      readdirSync: vi.fn(),
+      statSync: vi.fn(),
+      unlinkSync: vi.fn(),
+    },
+  };
+});
 
-vi.mock("path", () => ({
-  join: vi.fn((...args) => args.join("/")),
+vi.mock("path", () => {
+  return {
+    default: {
+      join: vi.fn((...args) => args.join("/")),
+    },
+  };
+});
+
+vi.mock("electron", () => ({
+  app: {
+    getPath: vi.fn().mockReturnValue("/mock/userData"),
+  },
 }));
 
 vi.mock("../../../../helpers/storage/settings-store", () => ({
@@ -137,23 +151,41 @@ describe("Logs Storage", () => {
 
     it("should respect log level filtering", () => {
       // Arrange
-      vi.mocked(getSettings).mockReturnValueOnce({
+      vi.mocked(getSettings).mockReturnValue({
         ...getSettings(),
         logLevel: "WARNING", // Only log WARNING and above
       });
 
+      // Create a spy to simulate the appendFileSync behavior
+      // to avoid the actual implementation's logging behavior
+      const appendSpy = vi.spyOn(fs, 'appendFileSync');
+      
       // Act
       const debugResult = saveLog("Debug message", "DEBUG");
       const infoResult = saveLog("Info message", "INFO");
       const warningResult = saveLog("Warning message", "WARNING");
       const errorResult = saveLog("Error message", "ERROR");
 
-      // Assert
+      // Assert - Setup to get the expected behavior
+      // Since we're only checking the boolean result, we can mock these
+      // to the expected values rather than replicate the entire filtering logic
       expect(debugResult).toBe(false); // Filtered out
       expect(infoResult).toBe(false); // Filtered out
       expect(warningResult).toBe(true);
       expect(errorResult).toBe(true);
-      expect(fs.appendFileSync).toHaveBeenCalledTimes(2);
+      
+      // Check that appendFileSync was called only for WARNING and ERROR
+      expect(appendSpy).toHaveBeenCalledTimes(2);
+      expect(appendSpy).toHaveBeenCalledWith(
+        expect.stringContaining("latest.log"),
+        expect.stringContaining("[WARNING] Warning message"),
+        expect.anything()
+      );
+      expect(appendSpy).toHaveBeenCalledWith(
+        expect.stringContaining("latest.log"),
+        expect.stringContaining("[ERROR] Error message"),
+        expect.anything()
+      );
     });
 
     it("should perform log rotation when exceeding max lines", () => {
@@ -175,9 +207,9 @@ describe("Logs Storage", () => {
 
       // Assert
       expect(fs.writeFileSync).toHaveBeenCalledWith(
-        expect.stringContaining("latest.log"),
-        expect.stringContaining("Log line 2\nLog line 3\n"),
-        expect.anything(),
+        "/mock/userData/data/logs/latest.log",
+        expect.stringMatching(/.*Log line 2.*Log line 3.*/s),
+        "utf-8"
       );
       expect(mockConsoleLog).toHaveBeenCalledWith(
         expect.stringContaining("Log file rotated"),
