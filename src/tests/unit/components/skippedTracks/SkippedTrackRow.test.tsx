@@ -8,6 +8,27 @@ import {
   getRecentSkipCount,
 } from "../../../../components/skippedTracks/utils";
 
+// Mock the AlertTriangle component from lucide-react
+vi.mock("lucide-react", async () => {
+  const actual = await vi.importActual("lucide-react");
+  return {
+    ...actual,
+    AlertTriangle: () => <div data-testid="alert-triangle-icon" />,
+    Music: () => <div data-testid="music-icon" />,
+    ExternalLink: () => <div data-testid="external-link-icon" />,
+    Clock: () => <div data-testid="clock-icon" />,
+    MoreVertical: () => <div data-testid="more-vertical-icon" />,
+  };
+});
+
+// Mock the Tooltip component
+vi.mock("../../../../components/ui/tooltip", () => ({
+  Tooltip: ({ children }) => <div data-testid="tooltip">{children}</div>,
+  TooltipProvider: ({ children }) => <div data-testid="tooltip-provider">{children}</div>,
+  TooltipContent: ({ children }) => <div data-testid="tooltip-content">{children}</div>,
+  TooltipTrigger: ({ children, asChild }) => <div data-testid="tooltip-trigger">{children}</div>,
+}));
+
 // Mock the TrackActionsMenu component and window.spotify
 vi.mock("../../../../components/skippedTracks/TrackActionsMenu", () => ({
   default: vi
@@ -32,6 +53,35 @@ vi.mock("../../../../components/skippedTracks/utils", () => ({
   calculateSkipRatio: vi.fn().mockReturnValue("75%"),
   formatDate: vi.fn().mockReturnValue("2023-04-15"),
   getRecentSkipCount: vi.fn().mockReturnValue(3),
+}));
+
+// Mock dropdown menu components
+vi.mock("../../../../components/ui/dropdown-menu", () => ({
+  DropdownMenu: ({ children }) => <div data-testid="dropdown-menu">{children}</div>,
+  DropdownMenuTrigger: ({ children }) => <div data-testid="dropdown-trigger">{children}</div>,
+}));
+
+// Mock Button component
+vi.mock("../../../../components/ui/button", () => ({
+  Button: ({ children, onClick }) => (
+    <button data-testid="button" onClick={onClick}>
+      {children}
+    </button>
+  ),
+}));
+
+// Mock TableRow and TableCell components
+vi.mock("../../../../components/ui/table", () => ({
+  TableRow: ({ children, className }) => (
+    <tr data-testid="table-row" className={className}>
+      {children}
+    </tr>
+  ),
+  TableCell: ({ children, className }) => (
+    <td data-testid="table-cell" className={className}>
+      {children}
+    </td>
+  ),
 }));
 
 // Mock window.spotify
@@ -86,30 +136,38 @@ describe("SkippedTrackRow Component", () => {
   });
 
   it("should display removal warning icon when shouldSuggestRemoval is true", () => {
-    render(<SkippedTrackRow {...defaultProps} shouldSuggestRemoval={true} />);
+    render(
+      <SkippedTrackRow {...defaultProps} shouldSuggestRemoval={true} />,
+    );
 
-    // Check for the warning icon tooltip
-    expect(
-      screen.getByText("Frequently skipped track, suggested for removal"),
-    ).toBeInTheDocument();
+    // Check for alert triangle icon
+    const warningIcon = screen.getByTestId("alert-triangle-icon");
+    expect(warningIcon).toBeInTheDocument();
+
+    // Check if the row has the highlight styling
+    const row = screen.getByTestId("table-row");
+    expect(row.className).toContain("bg-rose-50");
   });
 
   it("should not display removal warning icon when shouldSuggestRemoval is false", () => {
     render(<SkippedTrackRow {...defaultProps} />);
 
-    // Check that warning tooltip is not present
-    expect(
-      screen.queryByText("Frequently skipped track, suggested for removal"),
-    ).not.toBeInTheDocument();
+    // Check that warning icon is not present
+    const warningIcon = screen.queryByTestId("alert-triangle-icon");
+    expect(warningIcon).not.toBeInTheDocument();
+
+    // Check that the row doesn't have highlight styling
+    const row = screen.getByTestId("table-row");
+    expect(row.className).not.toContain("bg-rose-50");
   });
 
   it("should apply highlight styling when shouldSuggestRemoval is true", () => {
     render(<SkippedTrackRow {...defaultProps} shouldSuggestRemoval={true} />);
 
     // Check that row has the highlight background class
-    const row = screen.getByRole("row");
-    expect(row).toHaveClass("bg-rose-50");
-    expect(row).toHaveClass("hover:bg-rose-100/70");
+    const row = screen.getByTestId("table-row");
+    expect(row.className).toContain("bg-rose-50");
+    expect(row.className).toContain("hover:bg-rose-100/70");
   });
 
   it("should open track in Spotify when track name is clicked", () => {

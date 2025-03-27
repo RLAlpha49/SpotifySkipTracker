@@ -3,6 +3,29 @@ import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import TrackActionsMenu from "../../../../components/skippedTracks/TrackActionsMenu";
 
+// Mock the Radix UI Dropdown Menu components with working click handlers
+vi.mock("@radix-ui/react-dropdown-menu", () => {
+  return {
+    Root: ({ children }) => <div data-testid="dropdown-root">{children}</div>,
+    Trigger: ({ children }) => <div data-testid="dropdown-trigger">{children}</div>,
+    Portal: ({ children }) => <div data-testid="dropdown-portal">{children}</div>,
+    Content: ({ children }) => <div data-testid="dropdown-content">{children}</div>,
+    Item: ({ children, className, onSelect, onClick }) => (
+      <div 
+        data-testid="dropdown-item" 
+        className={className}
+        onClick={(e) => {
+          if (onClick) onClick(e);
+          if (onSelect) onSelect();
+        }}
+      >
+        {children}
+      </div>
+    ),
+    Separator: () => <div data-testid="dropdown-separator" />,
+  };
+});
+
 // Mock the window.spotify object
 const mockOpenURL = vi.fn();
 vi.stubGlobal("window", {
@@ -12,10 +35,35 @@ vi.stubGlobal("window", {
   },
 });
 
-// Using a wrapper component to provide the DropdownMenuContent context
-const MenuWrapper = ({ children }: { children: React.ReactNode }) => (
-  <div data-testid="dropdown-wrapper">{children}</div>
-);
+// Mock the Lucide icons
+vi.mock("lucide-react", async () => {
+  const actual = await vi.importActual("lucide-react");
+  return {
+    ...actual,
+    ExternalLink: () => <span data-testid="external-link-icon">External Link Icon</span>,
+    Trash2: () => <span data-testid="trash-icon">Trash Icon</span>,
+    XCircle: () => <span data-testid="xcircle-icon">XCircle Icon</span>,
+  };
+});
+
+// Mock the UI dropdown-menu components
+vi.mock("../../../../components/ui/dropdown-menu", () => ({
+  DropdownMenuContent: ({ children, align }) => (
+    <div data-testid="dropdown-menu-content" data-align={align}>
+      {children}
+    </div>
+  ),
+  DropdownMenuItem: ({ children, className, onClick }) => (
+    <button 
+      data-testid="dropdown-menu-item" 
+      className={className}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  ),
+  DropdownMenuSeparator: () => <hr data-testid="dropdown-menu-separator" />,
+}));
 
 describe("TrackActionsMenu Component", () => {
   const mockTrack = {
@@ -39,13 +87,11 @@ describe("TrackActionsMenu Component", () => {
 
   it("should render menu items correctly", () => {
     render(
-      <MenuWrapper>
-        <TrackActionsMenu
-          track={mockTrack}
-          onUnlikeTrack={mockOnUnlikeTrack}
-          onRemoveTrackData={mockOnRemoveTrackData}
-        />
-      </MenuWrapper>,
+      <TrackActionsMenu
+        track={mockTrack}
+        onUnlikeTrack={mockOnUnlikeTrack}
+        onRemoveTrackData={mockOnRemoveTrackData}
+      />,
     );
 
     // Check for menu items
@@ -56,16 +102,14 @@ describe("TrackActionsMenu Component", () => {
 
   it("should call window.spotify.openURL when Open in Spotify is clicked", () => {
     render(
-      <MenuWrapper>
-        <TrackActionsMenu
-          track={mockTrack}
-          onUnlikeTrack={mockOnUnlikeTrack}
-          onRemoveTrackData={mockOnRemoveTrackData}
-        />
-      </MenuWrapper>,
+      <TrackActionsMenu
+        track={mockTrack}
+        onUnlikeTrack={mockOnUnlikeTrack}
+        onRemoveTrackData={mockOnRemoveTrackData}
+      />,
     );
 
-    // Click the Open in Spotify menu item
+    // Find and click the Open in Spotify menu item
     const openInSpotifyButton = screen.getByText("Open in Spotify");
     fireEvent.click(openInSpotifyButton);
 
@@ -78,16 +122,14 @@ describe("TrackActionsMenu Component", () => {
 
   it("should call onUnlikeTrack when Remove from library is clicked", () => {
     render(
-      <MenuWrapper>
-        <TrackActionsMenu
-          track={mockTrack}
-          onUnlikeTrack={mockOnUnlikeTrack}
-          onRemoveTrackData={mockOnRemoveTrackData}
-        />
-      </MenuWrapper>,
+      <TrackActionsMenu
+        track={mockTrack}
+        onUnlikeTrack={mockOnUnlikeTrack}
+        onRemoveTrackData={mockOnRemoveTrackData}
+      />,
     );
 
-    // Click the Remove from library menu item
+    // Find and click the Remove from library menu item
     const removeFromLibraryButton = screen.getByText("Remove from library");
     fireEvent.click(removeFromLibraryButton);
 
@@ -98,16 +140,14 @@ describe("TrackActionsMenu Component", () => {
 
   it("should call onRemoveTrackData when Remove tracking data is clicked", () => {
     render(
-      <MenuWrapper>
-        <TrackActionsMenu
-          track={mockTrack}
-          onUnlikeTrack={mockOnUnlikeTrack}
-          onRemoveTrackData={mockOnRemoveTrackData}
-        />
-      </MenuWrapper>,
+      <TrackActionsMenu
+        track={mockTrack}
+        onUnlikeTrack={mockOnUnlikeTrack}
+        onRemoveTrackData={mockOnRemoveTrackData}
+      />,
     );
 
-    // Click the Remove tracking data menu item
+    // Find and click the Remove tracking data menu item
     const removeTrackingDataButton = screen.getByText("Remove tracking data");
     fireEvent.click(removeTrackingDataButton);
 
@@ -118,29 +158,23 @@ describe("TrackActionsMenu Component", () => {
 
   it("should have the correct styling classes for menu items", () => {
     render(
-      <MenuWrapper>
-        <TrackActionsMenu
-          track={mockTrack}
-          onUnlikeTrack={mockOnUnlikeTrack}
-          onRemoveTrackData={mockOnRemoveTrackData}
-        />
-      </MenuWrapper>,
+      <TrackActionsMenu
+        track={mockTrack}
+        onUnlikeTrack={mockOnUnlikeTrack}
+        onRemoveTrackData={mockOnRemoveTrackData}
+      />,
     );
 
     // Check for styling on the menu items
-    const openInSpotifyItem = screen
-      .getByText("Open in Spotify")
-      .closest("div");
-    expect(openInSpotifyItem).toHaveClass("text-primary");
-
-    const removeFromLibraryItem = screen
-      .getByText("Remove from library")
-      .closest("div");
-    expect(removeFromLibraryItem).toHaveClass("text-rose-600");
-
-    const removeTrackingDataItem = screen
-      .getByText("Remove tracking data")
-      .closest("div");
-    expect(removeTrackingDataItem).toHaveClass("text-amber-600");
+    const menuItems = screen.getAllByTestId("dropdown-menu-item");
+    
+    // Open in Spotify item
+    expect(menuItems[0]).toHaveClass("text-primary");
+    
+    // Remove from library item
+    expect(menuItems[1]).toHaveClass("text-rose-600");
+    
+    // Remove tracking data item
+    expect(menuItems[2]).toHaveClass("text-amber-600");
   });
 });

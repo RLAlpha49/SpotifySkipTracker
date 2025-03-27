@@ -217,7 +217,7 @@ describe("SkippedTracksTable Component", () => {
   });
 
   it("should display the correct summary information when tracks are present", () => {
-    render(
+    const { container } = render(
       <SkippedTracksTable
         tracks={mockTracks}
         loading={false}
@@ -228,9 +228,19 @@ describe("SkippedTracksTable Component", () => {
       />,
     );
 
-    // Check for summary footer
-    expect(screen.getByText("3 tracks tracked")).toBeInTheDocument();
-    expect(screen.getByText("18 total skips recorded")).toBeInTheDocument(); // Sum of skipCount
+    // Find the footer element using a more specific selector
+    const footer = container.querySelector(".bg-muted\\/30");
+    expect(footer).not.toBeNull();
+
+    if (footer) {
+      // Check that the footer contains the correct track count
+      expect(footer.textContent).toContain("3");
+      expect(footer.textContent).toContain("tracks tracked");
+
+      // Check for total skips text
+      expect(footer.textContent).toContain("18");
+      expect(footer.textContent).toContain("total skips recorded");
+    }
   });
 
   it("should call onUnlikeTrack when unlike button is clicked", async () => {

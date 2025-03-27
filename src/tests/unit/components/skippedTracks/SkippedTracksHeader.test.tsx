@@ -3,6 +3,57 @@ import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { SkippedTracksHeader } from "../../../../components/skippedTracks/SkippedTracksHeader";
 
+// Mock Lucide icons
+vi.mock("lucide-react", async () => {
+  const actual = await vi.importActual("lucide-react");
+  return {
+    ...actual,
+    SkipForward: () => <div data-testid="skip-forward-icon" />,
+    Calendar: () => <div data-testid="calendar-icon" />,
+    AlertCircle: () => <div data-testid="alert-circle-icon" />,
+    FolderOpen: () => <div data-testid="folder-open-icon" />,
+    RefreshCw: () => <div data-testid="refresh-cw-icon" />,
+  };
+});
+
+// Mock UI components
+vi.mock("../../../../components/ui/button", () => ({
+  Button: ({ children, onClick, disabled, className, variant, size }) => (
+    <button
+      data-testid="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={className}
+      data-variant={variant}
+      data-size={size}
+    >
+      {children}
+    </button>
+  ),
+}));
+
+vi.mock("../../../../components/ui/badge", () => ({
+  Badge: ({ children, className, variant }) => (
+    <span data-testid="badge" className={className} data-variant={variant}>
+      {children}
+    </span>
+  ),
+}));
+
+// Mock the Tooltip component
+vi.mock("../../../../components/ui/tooltip", () => ({
+  Tooltip: ({ children }) => <div data-testid="tooltip">{children}</div>,
+  TooltipProvider: ({ children }) => (
+    <div data-testid="tooltip-provider">{children}</div>
+  ),
+  TooltipContent: ({ children }) => (
+    <div data-testid="tooltip-content">{children}</div>
+  ),
+  TooltipTrigger: ({ children, asChild }) => (
+    <div data-testid="tooltip-trigger">{children}</div>
+  ),
+}));
+
 describe("SkippedTracksHeader Component", () => {
   const defaultProps = {
     timeframeInDays: 30,
@@ -19,16 +70,22 @@ describe("SkippedTracksHeader Component", () => {
     expect(screen.getByText("Skipped Tracks")).toBeInTheDocument();
 
     // Verify description contains the timeframe
-    expect(screen.getByText("30")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Tracks you've skipped within the last/),
-    ).toBeInTheDocument();
-    expect(screen.getByText("days")).toBeInTheDocument();
+    const badges = screen.getAllByTestId("badge");
+    expect(badges[0]).toHaveTextContent("30");
+
+    // Get the parent text element for calendar info
+    const calendarInfoElement = screen.getByText((content, element) => {
+      return (
+        content.includes("Tracks you've skipped within the last") &&
+        content.includes("days")
+      );
+    });
+    expect(calendarInfoElement).toBeInTheDocument();
 
     // Verify description contains the skip threshold
-    expect(screen.getByText("3+")).toBeInTheDocument();
+    expect(badges[1]).toHaveTextContent("3+");
     expect(
-      screen.getByText(/times are highlighted for removal/),
+      screen.getByText(/times are highlighted for removal/i),
     ).toBeInTheDocument();
   });
 
@@ -36,18 +93,20 @@ describe("SkippedTracksHeader Component", () => {
     render(<SkippedTracksHeader {...defaultProps} />);
 
     // Verify buttons are rendered
-    const openSkipsButton = screen.getByText("Open Skips");
-    expect(openSkipsButton).toBeInTheDocument();
-
-    const refreshButton = screen.getByText("Refresh");
-    expect(refreshButton).toBeInTheDocument();
+    expect(screen.getByText("Open Skips")).toBeInTheDocument();
+    expect(screen.getByText("Refresh")).toBeInTheDocument();
   });
 
   it("should call onRefresh when refresh button is clicked", () => {
     render(<SkippedTracksHeader {...defaultProps} />);
 
+    // Find buttons by their text content
+    const buttons = screen.getAllByTestId("button");
+    const refreshButton = buttons.find((btn) =>
+      btn.textContent.includes("Refresh"),
+    );
+
     // Click the refresh button
-    const refreshButton = screen.getByText("Refresh");
     fireEvent.click(refreshButton);
 
     // Verify onRefresh was called
@@ -57,8 +116,13 @@ describe("SkippedTracksHeader Component", () => {
   it("should call onOpenSkipsDirectory when open skips button is clicked", () => {
     render(<SkippedTracksHeader {...defaultProps} />);
 
+    // Find buttons by their text content
+    const buttons = screen.getAllByTestId("button");
+    const openSkipsButton = buttons.find((btn) =>
+      btn.textContent.includes("Open Skips"),
+    );
+
     // Click the open skips button
-    const openSkipsButton = screen.getByText("Open Skips");
     fireEvent.click(openSkipsButton);
 
     // Verify onOpenSkipsDirectory was called
@@ -71,34 +135,44 @@ describe("SkippedTracksHeader Component", () => {
     // Verify loading text is displayed
     expect(screen.getByText("Loading...")).toBeInTheDocument();
 
+    // Get all buttons and find the disabled one
+    const buttons = screen.getAllByTestId("button");
+    const loadingButton = buttons.find((btn) =>
+      btn.textContent.includes("Loading"),
+    );
+
     // Verify refresh button is disabled
-    const loadingButton = screen.getByText("Loading...");
-    expect(loadingButton.closest("button")).toBeDisabled();
+    expect(loadingButton).toBeDisabled();
   });
 
   it("should display different timeframeInDays values", () => {
     render(<SkippedTracksHeader {...defaultProps} timeframeInDays={14} />);
 
-    // Verify the updated timeframe is shown
-    expect(screen.getByText("14")).toBeInTheDocument();
+    // Verify the updated timeframe is shown in the first badge
+    const badges = screen.getAllByTestId("badge");
+    expect(badges[0]).toHaveTextContent("14");
   });
 
   it("should display different skipThreshold values", () => {
     render(<SkippedTracksHeader {...defaultProps} skipThreshold={5} />);
 
-    // Verify the updated threshold is shown
-    expect(screen.getByText("5+")).toBeInTheDocument();
+    // Verify the updated threshold is shown in the second badge
+    const badges = screen.getAllByTestId("badge");
+    expect(badges[1]).toHaveTextContent("5+");
   });
 
   it("should have tooltips for buttons", () => {
     render(<SkippedTracksHeader {...defaultProps} />);
 
-    // Find the tooltip contents by their text
-    expect(
-      screen.getByText("Open the folder containing skip tracking data files"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Reload skip data to get the latest skip statistics"),
-    ).toBeInTheDocument();
+    // Check for tooltips
+    const tooltipContents = screen.getAllByTestId("tooltip-content");
+
+    // Check for tooltip text
+    expect(tooltipContents[0]).toHaveTextContent(
+      "Open the folder containing skip tracking data files",
+    );
+    expect(tooltipContents[1]).toHaveTextContent(
+      "Reload skip data to get the latest skip statistics",
+    );
   });
 });
