@@ -6,12 +6,12 @@
 
 import { AuthTokens } from "@/types/auth";
 import { saveLog } from "../../../helpers/storage/logs-store";
-import * as spotifyApi from "../../spotify";
-import * as tokenStorage from "../../token-storage";
+import * as tokenStorage from "../../../helpers/storage/token-store";
 import {
   clearTokens as clearEncryptedTokens,
   saveTokens as saveEncryptedTokens,
-} from "../../token-storage";
+} from "../../../helpers/storage/token-store";
+import * as spotifyApi from "../../spotify";
 import {
   clearTokenState,
   getAccessTokenState,

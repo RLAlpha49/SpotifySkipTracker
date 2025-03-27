@@ -29,6 +29,11 @@ import {
 
 // Spotify service imports
 import axios from "axios";
+import {
+  clearTokens as clearStoredTokens,
+  loadTokens,
+  saveTokens,
+} from "../../helpers/storage/token-store";
 import { clearSpotifyAuthData, startAuthFlow } from "../../services/auth";
 import {
   isMonitoringActive,
@@ -54,11 +59,6 @@ import {
   refreshAccessToken as refreshSpotifyToken,
   setTokens as setSpotifyApiTokens,
 } from "../../services/spotify/token";
-import {
-  clearTokens as clearStoredTokens,
-  loadTokens,
-  saveTokens,
-} from "../../services/token-storage";
 
 /**
  * Configures IPC handlers for Spotify functionality

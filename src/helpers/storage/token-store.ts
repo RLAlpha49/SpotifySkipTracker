@@ -18,7 +18,7 @@ import * as crypto from "crypto";
 import { app } from "electron";
 import * as fs from "fs";
 import * as path from "path";
-import { saveLog } from "../helpers/storage/logs-store";
+import { saveLog } from "./logs-store";
 
 // Storage configuration constants
 const TOKEN_FILE = "spotify-tokens.json";

@@ -1,5 +1,5 @@
+import { BarChart, Info, LineChart, PieChart } from "lucide-react";
 import React from "react";
-import { Info, BarChart, LineChart, PieChart } from "lucide-react";
 
 interface NoDataMessageProps {
   message: string;
@@ -16,8 +16,14 @@ export function NoDataMessage({ message }: NoDataMessageProps) {
   const randomIcon = icons[Math.floor(Math.random() * icons.length)];
 
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-amber-200 bg-amber-50/50 px-6 py-8 text-center shadow-sm transition-all duration-200 dark:border-amber-800/30 dark:bg-amber-950/20">
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
+    <div
+      data-testid="no-data-container"
+      className="flex flex-col items-center justify-center rounded-lg border border-amber-200 bg-amber-50/50 px-6 py-8 text-center shadow-sm transition-all duration-200 dark:border-amber-800/30 dark:bg-amber-950/20"
+    >
+      <div
+        data-testid="icon-container"
+        className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30"
+      >
         {randomIcon}
       </div>
       <div className="max-w-md space-y-2">
