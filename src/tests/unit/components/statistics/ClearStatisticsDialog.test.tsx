@@ -19,10 +19,17 @@ describe("ClearStatisticsDialog Component", () => {
 
     // Verify the title and content are rendered
     expect(screen.getByText("Clear Statistics")).toBeInTheDocument();
-    expect(screen.getByText(/This action is PERMANENT/i)).toBeInTheDocument();
+
+    // Use flexible text matcher for text that is split across elements
     expect(
-      screen.getByText(
-        /All of the following data will be permanently deleted:/i,
+      screen.getByText((content) => content.includes("PERMANENT")),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText((content) =>
+        content.includes(
+          "All of the following data will be permanently deleted",
+        ),
       ),
     ).toBeInTheDocument();
 

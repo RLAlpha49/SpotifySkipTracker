@@ -50,7 +50,11 @@ export const getDayName = (day: number) => {
  * @returns Time label in 12-hour format (e.g., "12 AM", "1 PM")
  */
 export function getHourLabel(hour: number): string {
-  const period = hour >= 12 ? "PM" : "AM";
-  const displayHour = hour % 12 || 12; // Convert 0 to 12 for 12 AM
+  // Handle negative hours and hours > 23 properly by applying modulo 24
+  // JavaScript modulo doesn't work with negative numbers the way we need
+  // so we add 24 first for negative numbers
+  const normalizedHour = ((hour % 24) + 24) % 24;
+  const period = normalizedHour >= 12 ? "PM" : "AM";
+  const displayHour = normalizedHour % 12 || 12; // Convert 0 to 12 for 12 AM
   return `${displayHour} ${period}`;
 }

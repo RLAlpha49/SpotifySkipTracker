@@ -110,8 +110,8 @@ describe("Statistics Utility Functions", () => {
 
     it("should handle out-of-range values", () => {
       // These tests will help identify if the function needs boundary checking
-      expect(getHourLabel(24)).toBe("12 PM"); // Should wrap around or handle edge cases
-      expect(getHourLabel(25)).toBe("1 PM");
+      expect(getHourLabel(24)).toBe("12 AM"); // Hour 24 is midnight (0), which is 12 AM
+      expect(getHourLabel(25)).toBe("1 AM");
       expect(getHourLabel(-1)).toBe("11 PM");
     });
   });

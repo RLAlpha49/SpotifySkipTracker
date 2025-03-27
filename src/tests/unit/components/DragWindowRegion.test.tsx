@@ -17,10 +17,10 @@ describe("DragWindowRegion Component", () => {
   });
 
   it("should render without a title", () => {
-    render(<DragWindowRegion />);
+    const { container } = render(<DragWindowRegion />);
 
-    // Verify draggable region exists
-    const dragLayer = screen.getByRole("none", { hidden: true }); // The div with draglayer class
+    // Verify draggable region exists using container query
+    const dragLayer = container.querySelector(".draglayer");
     expect(dragLayer).toBeInTheDocument();
 
     // Verify window buttons exist

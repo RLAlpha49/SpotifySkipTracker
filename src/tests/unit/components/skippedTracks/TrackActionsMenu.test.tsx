@@ -7,12 +7,18 @@ import TrackActionsMenu from "../../../../components/skippedTracks/TrackActionsM
 vi.mock("@radix-ui/react-dropdown-menu", () => {
   return {
     Root: ({ children }) => <div data-testid="dropdown-root">{children}</div>,
-    Trigger: ({ children }) => <div data-testid="dropdown-trigger">{children}</div>,
-    Portal: ({ children }) => <div data-testid="dropdown-portal">{children}</div>,
-    Content: ({ children }) => <div data-testid="dropdown-content">{children}</div>,
+    Trigger: ({ children }) => (
+      <div data-testid="dropdown-trigger">{children}</div>
+    ),
+    Portal: ({ children }) => (
+      <div data-testid="dropdown-portal">{children}</div>
+    ),
+    Content: ({ children }) => (
+      <div data-testid="dropdown-content">{children}</div>
+    ),
     Item: ({ children, className, onSelect, onClick }) => (
-      <div 
-        data-testid="dropdown-item" 
+      <div
+        data-testid="dropdown-item"
         className={className}
         onClick={(e) => {
           if (onClick) onClick(e);
@@ -40,7 +46,9 @@ vi.mock("lucide-react", async () => {
   const actual = await vi.importActual("lucide-react");
   return {
     ...actual,
-    ExternalLink: () => <span data-testid="external-link-icon">External Link Icon</span>,
+    ExternalLink: () => (
+      <span data-testid="external-link-icon">External Link Icon</span>
+    ),
     Trash2: () => <span data-testid="trash-icon">Trash Icon</span>,
     XCircle: () => <span data-testid="xcircle-icon">XCircle Icon</span>,
   };
@@ -54,8 +62,8 @@ vi.mock("../../../../components/ui/dropdown-menu", () => ({
     </div>
   ),
   DropdownMenuItem: ({ children, className, onClick }) => (
-    <button 
-      data-testid="dropdown-menu-item" 
+    <button
+      data-testid="dropdown-menu-item"
       className={className}
       onClick={onClick}
     >
@@ -167,13 +175,13 @@ describe("TrackActionsMenu Component", () => {
 
     // Check for styling on the menu items
     const menuItems = screen.getAllByTestId("dropdown-menu-item");
-    
+
     // Open in Spotify item
     expect(menuItems[0]).toHaveClass("text-primary");
-    
+
     // Remove from library item
     expect(menuItems[1]).toHaveClass("text-rose-600");
-    
+
     // Remove tracking data item
     expect(menuItems[2]).toHaveClass("text-amber-600");
   });

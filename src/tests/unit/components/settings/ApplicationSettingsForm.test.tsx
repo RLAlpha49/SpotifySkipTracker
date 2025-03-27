@@ -1,5 +1,5 @@
+import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ApplicationSettingsForm } from "../../../../components/settings/ApplicationSettingsForm";
 
@@ -22,7 +22,7 @@ describe("ApplicationSettingsForm Component", () => {
       <ApplicationSettingsForm
         form={mockControl as any}
         setSettingsChanged={mockSetSettingsChanged}
-      />
+      />,
     );
   };
 
@@ -39,7 +39,7 @@ describe("ApplicationSettingsForm Component", () => {
 
   it("renders polling interval field", () => {
     setupTest();
-    
+
     // Check for polling interval field
     expect(screen.getByLabelText(/polling interval/i)).toBeInTheDocument();
   });
@@ -50,9 +50,11 @@ describe("ApplicationSettingsForm Component", () => {
     // Find switch by its label
     const autoStartLabel = screen.getByText(/auto-start monitoring/i);
     expect(autoStartLabel).toBeInTheDocument();
-    
+
     // Get the switch and toggle it
-    const autoStartSwitch = autoStartLabel.closest("div")?.querySelector("button");
+    const autoStartSwitch = autoStartLabel
+      .closest("div")
+      ?.querySelector("button");
     if (autoStartSwitch) {
       fireEvent.click(autoStartSwitch);
       expect(mockSetSettingsChanged).toHaveBeenCalledWith(true);
@@ -68,7 +70,7 @@ describe("ApplicationSettingsForm Component", () => {
 
     // Change the input value
     fireEvent.change(pollingIntervalInput, { target: { value: "60" } });
-    
+
     // Check if callback was called
     expect(mockSetSettingsChanged).toHaveBeenCalledWith(true);
   });
