@@ -2,6 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as playbackStateModule from "../../../../services/playback/state";
 import { PlaybackState } from "../../../../types/playback";
 
+// Mock Electron's app to avoid the error with app.getPath
+vi.mock("electron", () => ({
+  app: {
+    getPath: vi.fn().mockReturnValue("/mock/user/data"),
+  },
+}));
+
 describe("Playback State Management", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -168,8 +175,8 @@ describe("Playback State Management", () => {
 
   describe("getCredentials", () => {
     it("should return an object with empty strings when no credentials are set", () => {
-      // Reset credentials
-      playbackStateModule.resetPlaybackState();
+      // Explicitly set empty credentials since resetPlaybackState doesn't reset them
+      playbackStateModule.setCredentials("", "");
 
       // Check credentials
       const credentials = playbackStateModule.getCredentials();

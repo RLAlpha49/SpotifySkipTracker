@@ -149,10 +149,17 @@ export async function recordSkippedTrack(
   skippedAt: number = Date.now(),
   progress?: number,
 ): Promise<void> {
+  // Get existing skipped tracks data - placing outside of try/catch to handle this error differently
+  let skippedTracks;
   try {
-    // Get existing skipped tracks data
-    const skippedTracks = await getSkippedTracks();
+    skippedTracks = await getSkippedTracks();
+  } catch (error) {
+    // If getSkippedTracks fails, log the error and exit early without saving
+    store.saveLog(`Failed to get skipped tracks: ${error}`, "ERROR");
+    return; // Critical: Exit the function here to prevent proceeding with save
+  }
 
+  try {
     // Handle both parameter styles
     let trackId: string;
     let skipEvent: {

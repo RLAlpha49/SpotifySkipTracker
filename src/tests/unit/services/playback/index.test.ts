@@ -1,5 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import * as playbackModule from "../../../../services/playback";
+
+// Mock Electron's app
+vi.mock("electron", () => ({
+  app: {
+    getPath: vi.fn().mockReturnValue("/mock/user/data"),
+  },
+}));
 
 describe("Playback Service Index", () => {
   describe("exports", () => {
