@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
 import { Form } from "@/components/ui/form";
 import { SettingsSchema } from "@/types/settings";
-import { SpotifySettings } from "@/types/spotify";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Save } from "lucide-react";
 import React, { useEffect, useState } from "react";
@@ -112,7 +111,7 @@ export default function SettingsPage() {
    * @param newSettings - The modified settings to evaluate
    * @returns Boolean indicating if restart is needed
    */
-  const requiresRestart = (newSettings: SpotifySettings): boolean => {
+  const requiresRestart = (newSettings: SettingsSchema): boolean => {
     const currentValues = form.getValues();
 
     return (
@@ -169,7 +168,7 @@ export default function SettingsPage() {
           description: "Your settings have been saved successfully.",
         });
 
-        if (requiresRestart(settings as SpotifySettings)) {
+        if (requiresRestart(settings as SettingsSchema)) {
           setShowRestartDialog(true);
         }
 
@@ -238,7 +237,7 @@ export default function SettingsPage() {
         setSettingsChanged(false);
 
         // Check if restart is needed
-        if (requiresRestart(importedSettings as SpotifySettings)) {
+        if (requiresRestart(importedSettings as SettingsSchema)) {
           setShowRestartDialog(true);
         }
       } else {

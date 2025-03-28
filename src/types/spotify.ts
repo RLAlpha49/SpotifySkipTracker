@@ -15,8 +15,12 @@ export interface PlaybackInfo {
   progress: number;
   duration: number;
   currentTimeSeconds?: number;
+  currentTimeMs?: number;
   isPlaying: boolean;
   isInPlaylist?: boolean;
+  monitoringStopped?: boolean;
+  artistName?: string;
+  albumName?: string;
 }
 
 /**
@@ -25,35 +29,6 @@ export interface PlaybackInfo {
 export interface LogSettings {
   displayLogLevel: LogLevel;
   logAutoRefresh: boolean;
-}
-
-/**
- * Application settings type definition
- * Includes all application configuration parameters
- */
-export interface SpotifySettings {
-  // Spotify API credentials
-  clientId: string;
-  clientSecret: string;
-  redirectUri: string;
-
-  // App settings
-  fileLogLevel: LogLevel;
-  logLineCount: number;
-  maxLogFiles: number;
-  logRetentionDays: number;
-  skipThreshold: number;
-  timeframeInDays: number;
-  skipProgress: number;
-  autoStartMonitoring: boolean;
-  autoUnlike: boolean;
-
-  // Home page settings
-  displayLogLevel?: LogLevel;
-  logAutoRefresh?: boolean;
-
-  // Legacy format support
-  logLevel?: LogLevel;
 }
 
 /**
@@ -70,6 +45,7 @@ export interface SkippedTrack {
   skipTypes?: Record<string, number>;
   manualSkipCount?: number;
   autoSkipCount?: number;
+  autoProcessed?: boolean;
   lastSkipped?: string;
   timeOfDay?: Record<string, number>;
   averagePlayPercentage?: number;

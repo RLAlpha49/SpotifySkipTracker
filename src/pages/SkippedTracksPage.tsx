@@ -11,11 +11,13 @@
  * based on skip frequency within specified timeframes.
  */
 
-import React, { useState, useEffect, Suspense, lazy } from "react";
-import { toast } from "sonner";
-import { SpotifySettings, SkippedTrack } from "@/types/spotify";
 import { shouldSuggestRemoval } from "@/components/skippedTracks/utils";
 import { LoadingSpinner } from "@/components/ui/spinner";
+import { SkippedTracksLayout } from "@/layouts/SkippedTracksLayout";
+import { SettingsSchema } from "@/types/settings";
+import { SkippedTrack } from "@/types/spotify";
+import React, { Suspense, lazy, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 // Lazy load heavy components
 const SkippedTracksHeader = lazy(() =>
@@ -54,7 +56,7 @@ export default function SkippedTracksPage() {
     try {
       const tracks = await window.spotify.getSkippedTracks();
 
-      const settings = (await window.spotify.getSettings()) as SpotifySettings;
+      const settings = (await window.spotify.getSettings()) as SettingsSchema;
       setTimeframeInDays(settings.timeframeInDays || 30);
       setSkipThreshold(settings.skipThreshold || 3);
       setAutoUnlike(settings.autoUnlike !== false);
@@ -434,48 +436,53 @@ export default function SkippedTracksPage() {
   };
 
   return (
-    <div className="container mx-auto py-4">
-      <Suspense
-        fallback={<LoadingSpinner size="md" text="Loading header..." />}
-      >
-        <SkippedTracksHeader
-          timeframeInDays={timeframeInDays}
-          skipThreshold={skipThreshold}
-          loading={loading}
-          onRefresh={refreshSkippedData}
-          onOpenSkipsDirectory={handleOpenSkipsDirectory}
-        />
-      </Suspense>
-
-      <Suspense
-        fallback={<LoadingSpinner size="md" text="Loading actions..." />}
-      >
-        <SkippedTracksBulkActions
-          loading={loading}
-          tracks={skippedTracks}
-          skipThreshold={skipThreshold}
-          timeframeInDays={timeframeInDays}
-          showClearDataDialog={showClearDataDialog}
-          setShowClearDataDialog={setShowClearDataDialog}
-          showRemoveHighlightedDialog={showRemoveHighlightedDialog}
-          setShowRemoveHighlightedDialog={setShowRemoveHighlightedDialog}
-          onClearSkippedData={handleClearSkippedData}
-          onRemoveAllHighlighted={handleRemoveAllHighlighted}
-        />
-      </Suspense>
-
-      <Suspense
-        fallback={<LoadingSpinner size="lg" text="Loading track data..." />}
-      >
-        <SkippedTracksTable
-          tracks={skippedTracks}
-          loading={loading}
-          skipThreshold={skipThreshold}
-          timeframeInDays={timeframeInDays}
-          onUnlikeTrack={handleUnlikeTrack}
-          onRemoveTrackData={handleRemoveTrackData}
-        />
-      </Suspense>
-    </div>
+    <SkippedTracksLayout
+      isLoading={loading}
+      header={
+        <Suspense
+          fallback={<LoadingSpinner size="md" text="Loading header..." />}
+        >
+          <SkippedTracksHeader
+            timeframeInDays={timeframeInDays}
+            skipThreshold={skipThreshold}
+            loading={loading}
+            onRefresh={refreshSkippedData}
+            onOpenSkipsDirectory={handleOpenSkipsDirectory}
+          />
+        </Suspense>
+      }
+      bulkActions={
+        <Suspense
+          fallback={<LoadingSpinner size="md" text="Loading actions..." />}
+        >
+          <SkippedTracksBulkActions
+            loading={loading}
+            tracks={skippedTracks}
+            skipThreshold={skipThreshold}
+            timeframeInDays={timeframeInDays}
+            showClearDataDialog={showClearDataDialog}
+            setShowClearDataDialog={setShowClearDataDialog}
+            showRemoveHighlightedDialog={showRemoveHighlightedDialog}
+            setShowRemoveHighlightedDialog={setShowRemoveHighlightedDialog}
+            onClearSkippedData={handleClearSkippedData}
+            onRemoveAllHighlighted={handleRemoveAllHighlighted}
+          />
+        </Suspense>
+      }
+      tracksTable={
+        <Suspense
+          fallback={<LoadingSpinner size="lg" text="Loading track data..." />}
+        >
+          <SkippedTracksTable
+            tracks={skippedTracks}
+            loading={loading}
+            skipThreshold={skipThreshold}
+            timeframeInDays={timeframeInDays}
+            onUnlikeTrack={handleUnlikeTrack}
+            onRemoveTrackData={handleRemoveTrackData}
+          />
+        </Suspense>
+      }
+    />
   );
 }
