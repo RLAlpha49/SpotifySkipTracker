@@ -1,11 +1,41 @@
 import "@testing-library/jest-dom";
 import { cleanup } from "@testing-library/react";
-import { afterEach, vi } from "vitest";
+import { afterEach, describe, test, vi } from "vitest";
 
 // Automatically clean up after each test
 afterEach(() => {
   cleanup();
 });
+
+// Helper function to conditionally skip tests in CI environment
+export const skipInCI = {
+  // Use this to skip individual tests in CI
+  // Usage: skipInCI.test("test name", () => { ... })
+  test: (name: string, fn: () => void) => {
+    const isCI =
+      process.env.CI === "true" ||
+      process.env.GITHUB_ACTIONS === "true" ||
+      process.env.SKIP_PROBLEMATIC_TESTS === "true";
+    return isCI ? test.skip(name, fn) : test(name, fn);
+  },
+
+  // Use this to skip entire describe blocks in CI
+  // Usage: skipInCI.describe("describe name", () => { ... })
+  describe: (name: string, fn: () => void) => {
+    const isCI =
+      process.env.CI === "true" ||
+      process.env.GITHUB_ACTIONS === "true" ||
+      process.env.SKIP_PROBLEMATIC_TESTS === "true";
+    return isCI ? describe.skip(name, fn) : describe(name, fn);
+  },
+
+  // Use this as a conditional to skip logic inside tests
+  // Usage: if (skipInCI.enabled) return;
+  enabled:
+    process.env.CI === "true" ||
+    process.env.GITHUB_ACTIONS === "true" ||
+    process.env.SKIP_PROBLEMATIC_TESTS === "true",
+};
 
 // Define type for window.electron
 declare global {
@@ -144,7 +174,7 @@ vi.mock("react-hook-form", async () => {
       setValue: vi.fn(),
       reset: vi.fn(),
     }),
-    FormProvider: ({ children }) => children,
+    FormProvider: ({ children }: { children: React.ReactNode }) => children,
     useController: vi.fn().mockReturnValue({
       field: {
         onChange: vi.fn(),
@@ -155,7 +185,7 @@ vi.mock("react-hook-form", async () => {
       },
       formState: { errors: {} },
     }),
-    Controller: ({ render }) =>
+    Controller: ({ render }: { render: any }) =>
       render({
         field: {
           onChange: vi.fn(),
