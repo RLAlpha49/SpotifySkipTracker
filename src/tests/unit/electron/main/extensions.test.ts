@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as extensionsModule from "../../../../electron/main/extensions";
-import { skipInCI } from "../../../unit/setup";
 
 // Mock Electron first before any imports use it
 vi.mock("electron", () => ({
@@ -9,8 +8,46 @@ vi.mock("electron", () => ({
   },
 }));
 
-// Skip the entire test suite in CI environment due to file system permission issues
-skipInCI.describe("Development Extensions Module", () => {
+// Mock fs-extra to prevent file system permission errors
+vi.mock("fs-extra", () => ({
+  existsSync: vi.fn().mockReturnValue(true),
+  mkdirSync: vi.fn(),
+  writeFileSync: vi.fn(),
+  readFileSync: vi.fn().mockReturnValue(Buffer.from("{}")),
+  unlinkSync: vi.fn(),
+  ensureDirSync: vi.fn(),
+  default: {
+    existsSync: vi.fn().mockReturnValue(true),
+    mkdirSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    readFileSync: vi.fn().mockReturnValue(Buffer.from("{}")),
+    unlinkSync: vi.fn(),
+    ensureDirSync: vi.fn(),
+  },
+}));
+
+// Mock built-in fs module as well
+vi.mock("fs", () => ({
+  existsSync: vi.fn().mockReturnValue(true),
+  mkdirSync: vi.fn(),
+  writeFileSync: vi.fn(),
+  readFileSync: vi.fn().mockReturnValue(Buffer.from("{}")),
+  unlinkSync: vi.fn(),
+  promises: {
+    mkdir: vi.fn().mockResolvedValue(undefined),
+    writeFile: vi.fn().mockResolvedValue(undefined),
+    readFile: vi.fn().mockResolvedValue(Buffer.from("{}")),
+  },
+  default: {
+    existsSync: vi.fn().mockReturnValue(true),
+    mkdirSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    readFileSync: vi.fn().mockReturnValue(Buffer.from("{}")),
+    unlinkSync: vi.fn(),
+  },
+}));
+
+describe("Development Extensions Module", () => {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalConsoleLog = console.log;
   const originalConsoleError = console.error;

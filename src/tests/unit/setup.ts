@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { cleanup } from "@testing-library/react";
 import { afterEach, describe, test, vi } from "vitest";
+import React from "react";
 
 // Automatically clean up after each test
 afterEach(() => {
@@ -185,7 +186,21 @@ vi.mock("react-hook-form", async () => {
       },
       formState: { errors: {} },
     }),
-    Controller: ({ render }: { render: any }) =>
+    Controller: ({
+      render,
+    }: {
+      render: (props: {
+        field: {
+          onChange: ReturnType<typeof vi.fn>;
+          onBlur: ReturnType<typeof vi.fn>;
+          value: string;
+          name: string;
+          ref: ReturnType<typeof vi.fn>;
+        };
+        fieldState: { error: null };
+        formState: { errors: Record<string, unknown> };
+      }) => React.ReactElement;
+    }) =>
       render({
         field: {
           onChange: vi.fn(),

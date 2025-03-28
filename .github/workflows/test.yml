@@ -137,6 +137,6 @@ jobs:
           name: electron-test-reports
           path: reports/
           retention-days: 7
-      
+
       - name: Verify All Tests Pass
         run: npm run test

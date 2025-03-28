@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import * as playbackModule from "../../../../services/playback";
-import { skipInCI } from "../../setup";
 
 // Mock Electron's app
 vi.mock("electron", () => ({
@@ -9,8 +8,46 @@ vi.mock("electron", () => ({
   },
 }));
 
-// Skip all tests in CI environment due to file system permission issues
-skipInCI.describe("Playback Service Tests", () => {
+// Mock fs-extra to prevent file system permission errors
+vi.mock("fs-extra", () => ({
+  existsSync: vi.fn().mockReturnValue(true),
+  mkdirSync: vi.fn(),
+  writeFileSync: vi.fn(),
+  readFileSync: vi.fn().mockReturnValue(Buffer.from("{}")),
+  unlinkSync: vi.fn(),
+  ensureDirSync: vi.fn(),
+  default: {
+    existsSync: vi.fn().mockReturnValue(true),
+    mkdirSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    readFileSync: vi.fn().mockReturnValue(Buffer.from("{}")),
+    unlinkSync: vi.fn(),
+    ensureDirSync: vi.fn(),
+  },
+}));
+
+// Mock built-in fs module as well
+vi.mock("fs", () => ({
+  existsSync: vi.fn().mockReturnValue(true),
+  mkdirSync: vi.fn(),
+  writeFileSync: vi.fn(),
+  readFileSync: vi.fn().mockReturnValue(Buffer.from("{}")),
+  unlinkSync: vi.fn(),
+  promises: {
+    mkdir: vi.fn().mockResolvedValue(undefined),
+    writeFile: vi.fn().mockResolvedValue(undefined),
+    readFile: vi.fn().mockResolvedValue(Buffer.from("{}")),
+  },
+  default: {
+    existsSync: vi.fn().mockReturnValue(true),
+    mkdirSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    readFileSync: vi.fn().mockReturnValue(Buffer.from("{}")),
+    unlinkSync: vi.fn(),
+  },
+}));
+
+describe("Playback Service Tests", () => {
   describe("Playback Service Index", () => {
     describe("exports", () => {
       it("should export the correct functions", () => {
