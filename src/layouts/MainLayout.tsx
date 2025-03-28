@@ -10,16 +10,16 @@
  * in frameless window mode.
  */
 
-import React, { useState, ReactNode, lazy, Suspense } from "react";
-import { Link } from "@tanstack/react-router";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { LoadingSpinner } from "@/components/ui/spinner";
+import { Link, useMatch } from "@tanstack/react-router";
 import {
+  BarChartIcon,
   HomeIcon,
   SettingsIcon,
   SkipForwardIcon,
-  BarChartIcon,
 } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { LoadingSpinner } from "@/components/ui/spinner";
+import React, { lazy, ReactNode, Suspense } from "react";
 
 const ToggleTheme = lazy(() => import("@/components/ToggleTheme"));
 
@@ -40,23 +40,18 @@ interface MainLayoutProps {
  * @returns MainLayout component
  */
 export default function MainLayout({ children }: MainLayoutProps) {
-  // Track the active route for navigation highlighting
-  const [activeRoute, setActiveRoute] = useState("/");
-
-  /**
-   * Updates active route state when navigation occurs
-   *
-   * @param route - The route path that was navigated to
-   */
-  const handleNavigation = (route: string) => {
-    setActiveRoute(route);
-  };
-
-  // Computed states for active route highlighting
-  const isHomeActive = activeRoute === "/";
-  const isSkippedTracksActive = activeRoute === "/skipped-tracks";
-  const isStatisticsActive = activeRoute === "/statistics";
-  const isSettingsActive = activeRoute === "/settings";
+  // Use useMatch to check each route directly
+  const isHomeActive =
+    useMatch({ from: "/", strict: false, shouldThrow: false }) !== undefined;
+  const isSkippedTracksActive =
+    useMatch({ from: "/skipped-tracks", strict: false, shouldThrow: false }) !==
+    undefined;
+  const isStatisticsActive =
+    useMatch({ from: "/statistics", strict: false, shouldThrow: false }) !==
+    undefined;
+  const isSettingsActive =
+    useMatch({ from: "/settings", strict: false, shouldThrow: false }) !==
+    undefined;
 
   return (
     <div className="flex h-screen flex-col">
@@ -83,7 +78,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
             className={`flex flex-col items-center p-2 ${
               isHomeActive ? "text-primary" : "text-muted-foreground"
             }`}
-            onClick={() => handleNavigation("/")}
           >
             <HomeIcon className="h-5 w-5" />
             <span className="text-xs">Home</span>
@@ -94,7 +88,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
             className={`flex flex-col items-center p-2 ${
               isSkippedTracksActive ? "text-primary" : "text-muted-foreground"
             }`}
-            onClick={() => handleNavigation("/skipped-tracks")}
           >
             <SkipForwardIcon className="h-5 w-5" />
             <span className="text-xs">Skips</span>
@@ -105,7 +98,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
             className={`flex flex-col items-center p-2 ${
               isStatisticsActive ? "text-primary" : "text-muted-foreground"
             }`}
-            onClick={() => handleNavigation("/statistics")}
           >
             <BarChartIcon className="h-5 w-5" />
             <span className="text-xs">Stats</span>
@@ -116,7 +108,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
             className={`flex flex-col items-center p-2 ${
               isSettingsActive ? "text-primary" : "text-muted-foreground"
             }`}
-            onClick={() => handleNavigation("/settings")}
           >
             <SettingsIcon className="h-5 w-5" />
             <span className="text-xs">Settings</span>

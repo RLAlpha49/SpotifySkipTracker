@@ -1,11 +1,12 @@
+/**
+ * Global Type Definitions
+ *
+ * Centralized type declarations for cross-module interfaces,
+ * window extensions for IPC communication, and Spotify API structures.
+ */
+
 import { DetectedPattern } from "@/services/statistics/pattern-detector";
-import { SkippedTrack } from "@/types/spotify";
-import {
-  SpotifyCredentials,
-  SpotifyPlaybackInfo,
-  SpotifySettings,
-  ThemeModeContext,
-} from "./types";
+import { LogLevel } from "@/types/logging";
 import { StatisticsData } from "./types/statistics";
 
 /**
@@ -18,10 +19,144 @@ export interface ExportResponse {
 }
 
 /**
+ * Theme management interface
+ * Provides methods for controlling UI appearance modes
+ */
+interface ThemeModeContext {
+  toggle: () => Promise<boolean>;
+  dark: () => Promise<void>;
+  light: () => Promise<void>;
+  system: () => Promise<boolean>;
+  current: () => Promise<"dark" | "light" | "system">;
+}
+
+/**
+ * Electron window controls interface
+ * Encapsulates window management operations
+ */
+interface ElectronWindow {
+  minimize: () => Promise<void>;
+  maximize: () => Promise<void>;
+  close: () => Promise<void>;
+}
+
+/**
+ * Spotify authentication credentials
+ */
+interface SpotifyCredentials {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}
+
+/**
+ * Current playback state information
+ * Contains track metadata and playback progress details
+ */
+interface SpotifyPlaybackInfo {
+  isPlaying: boolean;
+  trackId: string;
+  trackName: string;
+  artistName: string;
+  albumName: string;
+  albumArt: string;
+  progress: number;
+  duration: number;
+  currentTimeSeconds?: number;
+  currentTimeMs?: number;
+  isInPlaylist?: boolean;
+  monitoringStopped?: boolean;
+}
+
+/**
+ * Information about tracks that have been skipped
+ * Includes counts and metrics for skip analysis
+ */
+interface SkippedTrack {
+  id: string;
+  name: string;
+  artist: string;
+  skipCount: number;
+  notSkippedCount: number;
+  lastSkipped: string; // ISO date string
+  skipHistory: string[]; // Array of ISO date strings for each skip event
+}
+
+/**
+ * Application settings for Spotify integration and behavior
+ */
+interface SpotifySettings {
+  autoUnlike: boolean;
+  autoStartMonitoring: boolean;
+  clientId: string;
+  clientSecret: string;
+  displayLogLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  fileLogLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  logAutoRefresh: boolean;
+  logLevel: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+  logLineCount: number;
+  logRetentionDays: number;
+  maxLogFiles: number;
+  redirectUri: string;
+  skipProgress: number;
+  skipThreshold: number;
+  timeframeInDays: number;
+}
+
+/**
+ * Dashboard summary statistics
+ */
+interface StatisticsSummary {
+  totalTracks: number;
+  totalSkips: number;
+  skipPercentage: number;
+  todaySkips: number;
+  weekSkips: number;
+  monthSkips: number;
+  avgSkipTime: number;
+}
+
+/**
+ * Dashboard track data
+ */
+interface DashboardTrackData {
+  id: string;
+  name: string;
+  artist: string;
+  album: string;
+  timestamp: string;
+  skipPercentage: number;
+  skipCount: number;
+}
+
+/**
+ * Dashboard artist data
+ */
+interface DashboardArtistData {
+  id: string;
+  name: string;
+  skipCount: number;
+  trackCount: number;
+  skipPercentage: number;
+}
+
+/**
+ * Dashboard session data
+ */
+interface DashboardSessionData {
+  id: string;
+  date: string;
+  duration: number;
+  trackCount: number;
+  skipCount: number;
+  skipPercentage: number;
+}
+
+/**
  * Centralized StatisticsAPI interface
  * Defines all methods available through the statisticsAPI global
  */
-export interface StatisticsAPI {
+interface StatisticsAPI {
   // Collection service controls
   isCollectionActive: () => Promise<boolean>;
   startCollection: () => Promise<{ success: boolean; message?: string }>;
@@ -90,11 +225,7 @@ export interface StatisticsAPI {
 declare global {
   interface Window {
     themeMode: ThemeModeContext;
-    electronWindow: {
-      minimize: () => Promise<void>;
-      maximize: () => Promise<void>;
-      close: () => Promise<void>;
-    };
+    electronWindow: ElectronWindow;
     theme: {
       setTheme: (theme: string) => void;
       getTheme: () => string;
@@ -140,11 +271,16 @@ declare global {
       getStatistics: () => Promise<StatisticsData>;
       clearStatistics: () => Promise<boolean>;
 
+      // Dashboard statistics
+      getStatisticsSummary: () => Promise<StatisticsSummary>;
+      getRecentSkippedTracks: (limit?: number) => Promise<DashboardTrackData[]>;
+      getTopSkippedArtists: (limit?: number) => Promise<DashboardArtistData[]>;
+      getRecentSessions: (limit?: number) => Promise<DashboardSessionData[]>;
+      exportStatistics: () => Promise<boolean>;
+      clearAllStatistics: () => Promise<boolean>;
+
       // Logs
-      saveLog: (
-        message: string,
-        level?: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL",
-      ) => Promise<boolean | void>;
+      saveLog: (message: string, level?: LogLevel) => Promise<boolean | void>;
       getLogs: (count?: number) => Promise<string[]>;
       getLogsFromFile: (selectedLogFile: string) => Promise<string[]>;
       getAvailableLogFiles: () => Promise<
@@ -165,6 +301,12 @@ declare global {
       startMonitoring: () => Promise<boolean>;
       stopMonitoring: () => Promise<boolean>;
       isMonitoringActive: () => Promise<boolean>;
+      getMonitoringStatus: () => Promise<{
+        active: boolean;
+        status: string;
+        message?: string;
+        details?: string;
+      }>;
 
       // Playback Controls
       pausePlayback: () => Promise<boolean>;
@@ -175,6 +317,13 @@ declare global {
       // Events
       onPlaybackUpdate: (
         callback: (data: SpotifyPlaybackInfo) => void,
+      ) => () => void;
+      onMonitoringStatusChange: (
+        callback: (status: {
+          status: string;
+          message?: string;
+          details?: string;
+        }) => void,
       ) => () => void;
     };
   }

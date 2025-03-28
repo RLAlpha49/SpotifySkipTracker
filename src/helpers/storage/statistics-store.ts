@@ -1807,3 +1807,327 @@ function getDefaultTimeOfDayResult() {
     },
   };
 }
+
+/**
+ * Retrieves a summary of statistics for the dashboard
+ *
+ * @returns Summary statistics for the dashboard
+ */
+export const getStatisticsSummary = async (): Promise<{
+  totalTracks: number;
+  totalSkips: number;
+  skipPercentage: number;
+  todaySkips: number;
+  weekSkips: number;
+  monthSkips: number;
+  avgSkipTime: number;
+}> => {
+  try {
+    const statistics = await getStatistics();
+
+    // Calculate total tracks and skips
+    const totalTracks = statistics.totalUniqueTracks || 0;
+
+    // Calculate skip percentage
+    let totalSkips = 0;
+    let totalPlays = 0;
+
+    // Count skips from track metrics
+    Object.values(statistics.trackMetrics).forEach((track) => {
+      totalSkips += track.skipCount || 0;
+      totalPlays += track.playCount || 0;
+    });
+
+    // Calculate skip percentage (avoid divide by zero)
+    const skipPercentage =
+      totalPlays > 0 ? Math.round((totalSkips / totalPlays) * 100) : 0;
+
+    // Calculate today's skips
+    const today = new Date().toISOString().split("T")[0];
+    const todayMetrics = statistics.dailyMetrics[today];
+    const todaySkips = todayMetrics ? todayMetrics.tracksSkipped : 0;
+
+    // Calculate this week's skips
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Set to beginning of week (Sunday)
+    let weekSkips = 0;
+
+    // Sum up skips for each day in the current week
+    Object.entries(statistics.dailyMetrics).forEach(([dateStr, metrics]) => {
+      const date = new Date(dateStr);
+      if (date >= startOfWeek && date <= now) {
+        weekSkips += metrics.tracksSkipped;
+      }
+    });
+
+    // Calculate this month's skips
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    let monthSkips = 0;
+
+    // Sum up skips for each day in the current month
+    Object.entries(statistics.dailyMetrics).forEach(([dateStr, metrics]) => {
+      const date = new Date(dateStr);
+      if (date >= startOfMonth && date <= now) {
+        monthSkips += metrics.tracksSkipped;
+      }
+    });
+
+    // Calculate average skip time (in seconds)
+    let totalSkipTimeMs = 0;
+    let skipCount = 0;
+
+    Object.values(statistics.trackMetrics).forEach((track) => {
+      if (track.skipCount > 0 && track.avgCompletionPercent !== undefined) {
+        // Only count tracks that have been skipped
+        const trackDuration = 180000; // Default to 3 minutes if we don't have actual duration
+        const avgSkipTimeForTrack =
+          (track.avgCompletionPercent / 100) * trackDuration;
+        totalSkipTimeMs += avgSkipTimeForTrack * track.skipCount;
+        skipCount += track.skipCount;
+      }
+    });
+
+    const avgSkipTime =
+      skipCount > 0
+        ? Math.round(totalSkipTimeMs / skipCount / 1000) // Convert to seconds
+        : 60; // Default to 60 seconds if no data
+
+    return {
+      totalTracks,
+      totalSkips,
+      skipPercentage,
+      todaySkips,
+      weekSkips,
+      monthSkips,
+      avgSkipTime,
+    };
+  } catch (error) {
+    console.error("Error getting statistics summary:", error);
+    // Return default values if there's an error
+    return {
+      totalTracks: 0,
+      totalSkips: 0,
+      skipPercentage: 0,
+      todaySkips: 0,
+      weekSkips: 0,
+      monthSkips: 0,
+      avgSkipTime: 0,
+    };
+  }
+};
+
+/**
+ * Retrieves recent skipped tracks
+ *
+ * @param limit Maximum number of tracks to return
+ * @returns Array of recent skipped tracks
+ */
+export const getRecentSkippedTracks = async (
+  limit: number = 10,
+): Promise<
+  Array<{
+    id: string;
+    name: string;
+    artist: string;
+    album: string;
+    timestamp: string;
+    skipPercentage: number;
+    skipCount: number;
+  }>
+> => {
+  try {
+    const statistics = await getStatistics();
+
+    // Convert track metrics to array and sort by last played (most recent first)
+    const tracks = Object.entries(statistics.trackMetrics)
+      .map(([id, metrics]) => ({
+        id,
+        name: metrics.name || "Unknown Track",
+        artist: metrics.artistName || "Unknown Artist",
+        album: "Unknown Album", // We don't have album info in the metrics
+        timestamp: metrics.lastPlayed || new Date().toISOString(),
+        skipPercentage:
+          metrics.skipCount > 0
+            ? Math.round(
+                (metrics.skipCount / Math.max(metrics.playCount, 1)) * 100,
+              )
+            : 0,
+        skipCount: metrics.skipCount || 0,
+      }))
+      .filter((track) => track.skipCount > 0) // Only include tracks that have been skipped
+      .sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      ) // Sort by most recent
+      .slice(0, limit); // Take only the specified number of tracks
+
+    return tracks;
+  } catch (error) {
+    console.error("Error getting recent skipped tracks:", error);
+    return [];
+  }
+};
+
+/**
+ * Retrieves the top skipped artists
+ *
+ * @param limit Maximum number of artists to return
+ * @returns Array of most skipped artists
+ */
+export const getTopSkippedArtists = async (
+  limit: number = 5,
+): Promise<
+  Array<{
+    id: string;
+    name: string;
+    skipCount: number;
+    trackCount: number;
+    skipPercentage: number;
+  }>
+> => {
+  try {
+    const statistics = await getStatistics();
+
+    // Group tracks by artist and calculate aggregate statistics
+    const artistStats: Record<
+      string,
+      {
+        id: string;
+        name: string;
+        skipCount: number;
+        trackCount: number;
+        totalTracks: number;
+      }
+    > = {};
+
+    // Process track metrics to aggregate by artist
+    Object.values(statistics.trackMetrics).forEach((track) => {
+      const artistId = track.id.split(":")[0] || "unknown"; // Generate an ID if we don't have one
+      const artistName = track.artistName || "Unknown Artist";
+
+      if (!artistStats[artistId]) {
+        artistStats[artistId] = {
+          id: artistId,
+          name: artistName,
+          skipCount: 0,
+          trackCount: 0,
+          totalTracks: 0,
+        };
+      }
+
+      artistStats[artistId].skipCount += track.skipCount || 0;
+      artistStats[artistId].trackCount += track.playCount || 0;
+      artistStats[artistId].totalTracks += 1;
+    });
+
+    // Convert to array, calculate skip percentage, and sort by skipCount
+    const artists = Object.values(artistStats)
+      .map((artist) => ({
+        id: artist.id,
+        name: artist.name,
+        skipCount: artist.skipCount,
+        trackCount: artist.trackCount,
+        skipPercentage:
+          artist.trackCount > 0
+            ? Math.round((artist.skipCount / artist.trackCount) * 100)
+            : 0,
+      }))
+      .filter((artist) => artist.skipCount > 0) // Only include artists with skips
+      .sort(
+        (a, b) =>
+          b.skipCount - a.skipCount || b.skipPercentage - a.skipPercentage,
+      ) // Sort by skip count, then percentage
+      .slice(0, limit); // Take only the specified number of artists
+
+    return artists;
+  } catch (error) {
+    console.error("Error getting top skipped artists:", error);
+    return [];
+  }
+};
+
+/**
+ * Retrieves recent listening sessions
+ *
+ * @param limit Maximum number of sessions to return
+ * @returns Array of recent listening sessions
+ */
+export const getRecentSessions = async (
+  limit: number = 3,
+): Promise<
+  Array<{
+    id: string;
+    date: string;
+    duration: number;
+    trackCount: number;
+    skipCount: number;
+    skipPercentage: number;
+  }>
+> => {
+  try {
+    const statistics = await getStatistics();
+
+    // Convert sessions to the format needed for the dashboard
+    const sessions = statistics.sessions
+      .map((session) => ({
+        id: session.id,
+        date: session.startTime,
+        duration: Math.round(session.durationMs / 60000), // Convert to minutes
+        trackCount: session.trackIds.length,
+        skipCount: session.skippedTracks,
+        skipPercentage:
+          session.trackIds.length > 0
+            ? Math.round(
+                (session.skippedTracks / session.trackIds.length) * 100,
+              )
+            : 0,
+      }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // Sort by most recent
+      .slice(0, limit);
+
+    return sessions;
+  } catch (error) {
+    console.error("Error getting recent sessions:", error);
+    return [];
+  }
+};
+
+/**
+ * Exports all statistics data to a JSON file
+ *
+ * @returns Boolean indicating success or failure
+ */
+export const exportStatistics = async (): Promise<boolean> => {
+  try {
+    const statistics = await getStatistics();
+    const userDownloadsFolder = app.getPath("downloads");
+    const timestamp = new Date().toISOString().replace(/:/g, "-").split(".")[0];
+    const exportFilePath = join(
+      userDownloadsFolder,
+      `spotify-statistics-${timestamp}.json`,
+    );
+
+    // Prepare statistics for export
+    const exportData = prepareStatisticsForSave(statistics);
+
+    // Write to file
+    writeJsonSync(exportFilePath, exportData, { spaces: 2 });
+
+    return true;
+  } catch (error) {
+    console.error("Error exporting statistics:", error);
+    return false;
+  }
+};
+
+/**
+ * Clears all statistics data
+ * This is a wrapper around the existing clearStatistics function
+ * but with a more consistent name for the IPC interface
+ *
+ * @returns Boolean indicating success or failure
+ */
+export const clearAllStatistics = async (): Promise<boolean> => {
+  return await clearStatistics();
+};

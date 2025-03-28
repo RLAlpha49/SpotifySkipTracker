@@ -8,15 +8,21 @@
 
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import {
+  clearAllStatistics,
   clearLogs,
   clearStatistics,
+  exportStatistics,
   filterSkippedTracksByTimeframe,
   getAvailableLogFiles,
   getLogs,
   getLogsFromFile,
+  getRecentSessions,
+  getRecentSkippedTracks,
   getSettings,
   getSkippedTracks,
   getStatistics,
+  getStatisticsSummary,
+  getTopSkippedArtists,
   logsPath,
   removeSkippedTrack,
   resetSettings,
@@ -794,6 +800,82 @@ export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
     } catch (error) {
       console.error("Failed to show item in folder:", error);
       saveLog(`Failed to show item in folder: ${error}`, "ERROR");
+      return false;
+    }
+  });
+
+  // Add new IPC handlers for dashboard statistics functions
+
+  // Get statistics summary for dashboard
+  ipcMain.handle("spotify:getStatisticsSummary", async () => {
+    try {
+      const summary = await getStatisticsSummary();
+      return summary;
+    } catch (error) {
+      saveLog(`Error getting statistics summary: ${error}`, "ERROR");
+      return {
+        totalTracks: 0,
+        totalSkips: 0,
+        skipPercentage: 0,
+        todaySkips: 0,
+        weekSkips: 0,
+        monthSkips: 0,
+        avgSkipTime: 0,
+      };
+    }
+  });
+
+  // Get recent skipped tracks for dashboard
+  ipcMain.handle("spotify:getRecentSkippedTracks", async (_, limit = 10) => {
+    try {
+      const tracks = await getRecentSkippedTracks(limit);
+      return tracks;
+    } catch (error) {
+      saveLog(`Error getting recent skipped tracks: ${error}`, "ERROR");
+      return [];
+    }
+  });
+
+  // Get top skipped artists for dashboard
+  ipcMain.handle("spotify:getTopSkippedArtists", async (_, limit = 5) => {
+    try {
+      const artists = await getTopSkippedArtists(limit);
+      return artists;
+    } catch (error) {
+      saveLog(`Error getting top skipped artists: ${error}`, "ERROR");
+      return [];
+    }
+  });
+
+  // Get recent sessions for dashboard
+  ipcMain.handle("spotify:getRecentSessions", async (_, limit = 3) => {
+    try {
+      const sessions = await getRecentSessions(limit);
+      return sessions;
+    } catch (error) {
+      saveLog(`Error getting recent sessions: ${error}`, "ERROR");
+      return [];
+    }
+  });
+
+  // Export statistics data
+  ipcMain.handle("spotify:exportStatistics", async () => {
+    try {
+      const success = await exportStatistics();
+      return success;
+    } catch (error) {
+      saveLog(`Error exporting statistics: ${error}`, "ERROR");
+      return false;
+    }
+  });
+
+  // Clear all statistics data
+  ipcMain.handle("spotify:clearAllStatistics", async () => {
+    try {
+      const success = await clearAllStatistics();
+      return success;
+    } catch (error) {
+      saveLog(`Error clearing all statistics: ${error}`, "ERROR");
       return false;
     }
   });

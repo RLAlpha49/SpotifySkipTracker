@@ -262,6 +262,18 @@ export default function exposeContexts(): void {
     getStatistics: () => ipcRenderer.invoke("spotify:getStatistics"),
     clearStatistics: () => ipcRenderer.invoke("spotify:clearStatistics"),
 
+    // Dashboard statistics
+    getStatisticsSummary: () =>
+      ipcRenderer.invoke("spotify:getStatisticsSummary"),
+    getRecentSkippedTracks: (limit?: number) =>
+      ipcRenderer.invoke("spotify:getRecentSkippedTracks", limit),
+    getTopSkippedArtists: (limit?: number) =>
+      ipcRenderer.invoke("spotify:getTopSkippedArtists", limit),
+    getRecentSessions: (limit?: number) =>
+      ipcRenderer.invoke("spotify:getRecentSessions", limit),
+    exportStatistics: () => ipcRenderer.invoke("spotify:exportStatistics"),
+    clearAllStatistics: () => ipcRenderer.invoke("spotify:clearAllStatistics"),
+
     // App control
     exitApp: () => ipcRenderer.invoke("window:close"),
     minimizeApp: () => ipcRenderer.invoke("window:minimize"),

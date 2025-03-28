@@ -6,16 +6,57 @@
  * - Authentication and connection management
  * - Application logging with configurable filtering
  * - Playback monitoring controls
+ * - Statistics dashboard with key metrics
  */
 
 import { MonitoringStatus } from "@/components/spotify/PlaybackMonitoringCard";
 import { LoadingSpinner } from "@/components/ui/spinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LogLevel } from "@/types/logging";
 import { LogSettings, PlaybackInfo } from "@/types/spotify";
 import { MusicIcon } from "lucide-react";
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import type {
+  DashboardArtistData,
+  DashboardSessionData,
+  DashboardTrackData,
+  StatisticsSummary,
+} from "../types";
 
+// Dashboard components
+const DashboardLayout = lazy(() =>
+  import("@/layouts/DashboardLayout").then((module) => ({
+    default: module.DashboardLayout,
+  })),
+);
+const StatisticsSummary = lazy(() =>
+  import("@/components/dashboard/StatisticsSummary").then((module) => ({
+    default: module.StatisticsSummary,
+  })),
+);
+const RecentTracks = lazy(() =>
+  import("@/components/dashboard/RecentTracks").then((module) => ({
+    default: module.RecentTracks,
+  })),
+);
+const ArtistSummary = lazy(() =>
+  import("@/components/dashboard/ArtistSummary").then((module) => ({
+    default: module.ArtistSummary,
+  })),
+);
+const SessionOverview = lazy(() =>
+  import("@/components/dashboard/SessionOverview").then((module) => ({
+    default: module.SessionOverview,
+  })),
+);
+const DashboardActions = lazy(() =>
+  import("@/components/dashboard/DashboardActions").then((module) => ({
+    default: module.DashboardActions,
+  })),
+);
+
+// Spotify components with lazy loading and error fallbacks
 const AuthenticationCard = lazy(() => {
   return import("@/components/spotify/AuthenticationCard")
     .then((module) => ({ default: module.AuthenticationCard }))
@@ -110,6 +151,30 @@ export default function HomePage() {
     undefined,
   );
 
+  // Dashboard state
+  const [activeView, setActiveView] = useState<"dashboard" | "monitoring">(
+    "dashboard",
+  );
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  // Initialize stats with default values to prevent undefined errors
+  const [stats, setStats] = useState<StatisticsSummary>({
+    totalTracks: 0,
+    totalSkips: 0,
+    skipPercentage: 0,
+    todaySkips: 0,
+    weekSkips: 0,
+    monthSkips: 0,
+    avgSkipTime: 0,
+  });
+
+  // Initialize empty arrays for dashboard components
+  const [recentTracks, setRecentTracks] = useState<DashboardTrackData[]>([]);
+  const [topArtists, setTopArtists] = useState<DashboardArtistData[]>([]);
+  const [recentSessions, setRecentSessions] = useState<DashboardSessionData[]>(
+    [],
+  );
+
   /**
    * Fetches current playback information from Spotify API
    *
@@ -139,14 +204,129 @@ export default function HomePage() {
   };
 
   /**
+   * Fetches statistics data for the dashboard
+   */
+  const fetchDashboardData = async () => {
+    if (!isAuthenticated) {
+      console.log("fetchDashboardData: Not authenticated, skipping data fetch");
+      return;
+    }
+
+    console.log("fetchDashboardData: Starting data fetch");
+    setIsLoadingStats(true);
+
+    try {
+      console.log("fetchDashboardData: Fetching statistics summary");
+      // Fetch summary stats
+      const statsSummary = await window.spotify.getStatisticsSummary();
+      console.log(
+        "fetchDashboardData: Statistics summary received",
+        statsSummary,
+      );
+      setStats(statsSummary);
+
+      console.log("fetchDashboardData: Fetching recent tracks");
+      // Fetch recent tracks
+      const skippedTracks = await window.spotify.getRecentSkippedTracks(10);
+      console.log("fetchDashboardData: Recent tracks received", skippedTracks);
+      setRecentTracks(skippedTracks);
+
+      console.log("fetchDashboardData: Fetching top artists");
+      // Fetch top artists
+      const artists = await window.spotify.getTopSkippedArtists(5);
+      console.log("fetchDashboardData: Top artists received", artists);
+      setTopArtists(artists);
+
+      console.log("fetchDashboardData: Fetching recent sessions");
+      // Fetch recent sessions
+      const sessions = await window.spotify.getRecentSessions(3);
+      console.log("fetchDashboardData: Recent sessions received", sessions);
+      setRecentSessions(sessions);
+
+      console.log("fetchDashboardData: All data fetched successfully");
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      toast.error("Failed to load dashboard data. Please try again later.");
+    } finally {
+      console.log("fetchDashboardData: Setting isLoadingStats to false");
+      setIsLoadingStats(false);
+    }
+  };
+
+  /**
+   * Effect to fetch dashboard data when authenticated status changes
+   */
+  useEffect(() => {
+    // Only fetch data when authentication state changes to true
+    if (isAuthenticated) {
+      console.log("Authentication changed to true, fetching dashboard data");
+      fetchDashboardData();
+    }
+  }, [isAuthenticated]);
+
+  /**
+   * Effect to auto-refresh dashboard statistics every second
+   */
+  useEffect(() => {
+    // Only set up auto-refresh when authenticated and on dashboard view
+    if (isAuthenticated && activeView === "dashboard") {
+      console.log("Setting up auto-refresh for dashboard statistics");
+
+      // Create interval to refresh stats every second
+      const statsRefreshInterval = setInterval(() => {
+        console.log("Auto-refreshing dashboard statistics");
+        // Use the non-loading version to avoid UI flicker
+        fetchDashboardDataSilent();
+      }, 1000);
+
+      // Clean up interval on unmount or when conditions change
+      return () => {
+        console.log("Cleaning up dashboard statistics auto-refresh");
+        clearInterval(statsRefreshInterval);
+      };
+    }
+  }, [isAuthenticated, activeView]);
+
+  /**
+   * Fetches dashboard data without changing loading state
+   * Used for silent auto-refresh to prevent UI flicker
+   */
+  const fetchDashboardDataSilent = async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      // Fetch all data without showing loading indicators
+      const statsSummary = await window.spotify.getStatisticsSummary();
+      setStats(statsSummary);
+
+      const skippedTracks = await window.spotify.getRecentSkippedTracks(10);
+      setRecentTracks(skippedTracks);
+
+      const artists = await window.spotify.getTopSkippedArtists(5);
+      setTopArtists(artists);
+
+      const sessions = await window.spotify.getRecentSessions(3);
+      setRecentSessions(sessions);
+    } catch (error) {
+      console.error("Silent dashboard refresh error:", error);
+      // No toast notifications for silent refresh errors
+    }
+  };
+
+  /**
    * Initializes component on mount
    * - Loads application settings
    * - Checks authentication status
    * - Starts log refresh if enabled
+   * - Loads dashboard data
    */
   useEffect(() => {
     const loadSettingsAndLogs = async () => {
       try {
+        console.log("HomePage: Initial loading started");
+        // First set a loading state so UI shows appropriate loaders
+        setIsLoadingStats(true);
+
         const savedSettings = await window.spotify.getSettings();
         setSettings((prevSettings) => ({
           ...prevSettings,
@@ -157,7 +337,10 @@ export default function HomePage() {
         const savedLogs = await window.spotify.getLogs();
         setLogs(savedLogs);
 
+        // Check authentication state
+        console.log("HomePage: Checking authentication status");
         const authStatus = await window.spotify.isAuthenticated();
+        console.log("HomePage: Authentication status is", authStatus);
         setIsAuthenticated(authStatus);
         setNeedsReauthentication(!authStatus);
 
@@ -175,7 +358,14 @@ export default function HomePage() {
               addLog("Failed to auto-start monitoring", "ERROR");
             }
           }
+
+          // Load dashboard data - now that we know we're authenticated
+          // This is handled by the useEffect that watches isAuthenticated
         } else {
+          console.log("HomePage: Not authenticated, skipping data fetch");
+          // Reset loading stats since we're not going to fetch anything
+          setIsLoadingStats(false);
+
           // Set default playback info when not authenticated
           setPlaybackInfo({
             albumArt: "",
@@ -192,6 +382,8 @@ export default function HomePage() {
       } catch (error) {
         console.error("Error loading initial data:", error);
         addLog(`Error loading initial data: ${error}`, "ERROR");
+        // Make sure we're not stuck in loading state
+        setIsLoadingStats(false);
       }
     };
 
@@ -750,8 +942,20 @@ export default function HomePage() {
     }
   };
 
+  // Add this at the top of the component to log the imported components
+  useEffect(() => {
+    console.log("Dashboard components loaded:", {
+      DashboardLayout: !!DashboardLayout,
+      StatisticsSummary: !!StatisticsSummary,
+      RecentTracks: !!RecentTracks,
+      ArtistSummary: !!ArtistSummary,
+      SessionOverview: !!SessionOverview,
+      DashboardActions: !!DashboardActions,
+    });
+  }, []);
+
   return (
-    <div className="container mx-auto max-w-5xl py-8">
+    <div className="container mx-auto p-4">
       <div className="mb-8 border-b pb-4">
         <h1 className="flex items-center text-3xl font-bold tracking-tight">
           <MusicIcon className="text-primary mr-3 h-8 w-8" />
@@ -762,80 +966,154 @@ export default function HomePage() {
         </p>
       </div>
 
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <Suspense
-            fallback={
-              <div className="bg-muted/30 flex h-40 animate-pulse items-center justify-center rounded-lg border p-6 shadow-sm">
-                <LoadingSpinner size="md" text="Loading authentication..." />
-              </div>
+      <Suspense
+        fallback={
+          <div className="flex h-40 items-center justify-center">
+            <LoadingSpinner size="md" text="Loading authentication..." />
+          </div>
+        }
+      >
+        <AuthenticationCard
+          isAuthenticated={isAuthenticated}
+          needsReauthentication={needsReauthentication}
+          onLogin={handleAuthenticate}
+          onLogout={handleLogout}
+        />
+      </Suspense>
+
+      {isAuthenticated && (
+        <>
+          <Tabs
+            defaultValue="dashboard"
+            className="mt-6 w-full"
+            onValueChange={(value) =>
+              setActiveView(value as "dashboard" | "monitoring")
             }
           >
-            <AuthenticationCard
-              isAuthenticated={isAuthenticated}
-              needsReauthentication={needsReauthentication}
-              onLogin={handleAuthenticate}
-              onLogout={handleLogout}
-            />
-          </Suspense>
+            <div className="mb-4 flex items-center justify-between">
+              <TabsList>
+                <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+                <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
+              </TabsList>
 
-          <Suspense
-            fallback={
-              <div className="bg-muted/30 flex h-40 animate-pulse items-center justify-center rounded-lg border p-6 shadow-sm">
-                <LoadingSpinner size="md" text="Loading playback controls..." />
+              <div className="text-muted-foreground text-sm">
+                {isMonitoring ? (
+                  <span className="flex items-center">
+                    <span className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-green-500"></span>
+                    Monitoring active
+                  </span>
+                ) : (
+                  <span className="flex items-center">
+                    <span className="mr-2 inline-block h-2 w-2 rounded-full bg-gray-400"></span>
+                    Monitoring inactive
+                  </span>
+                )}
               </div>
-            }
-          >
-            <PlaybackMonitoringCard
-              isAuthenticated={isAuthenticated}
-              isMonitoring={isMonitoring}
-              monitoringStatus={monitoringStatus}
-              statusMessage={statusMessage}
-              errorDetails={errorDetails}
-              onStartMonitoring={handleStartMonitoring}
-              onStopMonitoring={handleStopMonitoring}
-            />
-          </Suspense>
-        </div>
-
-        {(isAuthenticated || playbackInfo) && (
-          <Suspense
-            fallback={
-              <div className="bg-muted/30 flex h-52 animate-pulse items-center justify-center rounded-lg border p-6 shadow-sm">
-                <LoadingSpinner size="md" text="Loading now playing..." />
-              </div>
-            }
-          >
-            <NowPlayingCard
-              isAuthenticated={isAuthenticated}
-              isMonitoring={isMonitoring}
-              playbackInfo={playbackInfo}
-              onPlayPause={handlePlayPause}
-              onPreviousTrack={handlePreviousTrack}
-              onNextTrack={handleNextTrack}
-            />
-          </Suspense>
-        )}
-
-        <Suspense
-          fallback={
-            <div className="bg-muted/30 flex h-96 animate-pulse items-center justify-center rounded-lg border p-6 shadow-sm">
-              <LoadingSpinner size="md" text="Loading logs..." />
             </div>
-          }
-        >
-          <LogsCard
-            logs={logs}
-            settings={settings}
-            logSearchTerm={logSearchTerm}
-            onDisplayLogLevelChange={handleDisplayLogLevelChange}
-            onToggleLogAutoRefresh={handleToggleLogAutoRefresh}
-            onLogSearch={handleLogSearch}
-            onClearLogs={handleClearLogs}
-            onOpenLogsDirectory={handleOpenLogsDirectory}
-          />
-        </Suspense>
-      </div>
+
+            <TabsContent value="dashboard" className="mt-0">
+              <Suspense
+                fallback={
+                  <div className="flex h-64 items-center justify-center">
+                    <LoadingSpinner
+                      size="lg"
+                      text="Loading dashboard components..."
+                    />
+                  </div>
+                }
+              >
+                {isLoadingStats ? (
+                  <div className="flex h-64 items-center justify-center">
+                    <LoadingSpinner
+                      size="lg"
+                      text="Loading dashboard data..."
+                    />
+                  </div>
+                ) : (
+                  <DashboardLayout
+                    isLoading={isLoadingStats}
+                    statisticsSummary={
+                      <StatisticsSummary
+                        isLoading={isLoadingStats}
+                        totalTracks={stats.totalTracks}
+                        totalSkips={stats.totalSkips}
+                        skipPercentage={stats.skipPercentage}
+                        todaySkips={stats.todaySkips}
+                        weekSkips={stats.weekSkips}
+                        monthSkips={stats.monthSkips}
+                        avgSkipTime={stats.avgSkipTime}
+                      />
+                    }
+                    recentTracks={
+                      <RecentTracks
+                        isLoading={isLoadingStats}
+                        tracks={recentTracks}
+                        maxItems={5}
+                      />
+                    }
+                    artistSummary={
+                      <ArtistSummary
+                        isLoading={isLoadingStats}
+                        artists={topArtists}
+                        maxItems={5}
+                      />
+                    }
+                    sessionOverview={
+                      <SessionOverview
+                        isLoading={isLoadingStats}
+                        sessions={recentSessions}
+                        maxItems={3}
+                      />
+                    }
+                  />
+                )}
+              </Suspense>
+            </TabsContent>
+
+            <TabsContent value="monitoring" className="mt-0">
+              <div className="grid gap-4 md:grid-cols-2">
+                <Suspense fallback={<LoadingSpinner />}>
+                  <NowPlayingCard
+                    isAuthenticated={isAuthenticated}
+                    isMonitoring={isMonitoring}
+                    playbackInfo={playbackInfo}
+                    onPlayPause={handlePlayPause}
+                    onPreviousTrack={handlePreviousTrack}
+                    onNextTrack={handleNextTrack}
+                  />
+                </Suspense>
+
+                <Suspense fallback={<LoadingSpinner />}>
+                  <PlaybackMonitoringCard
+                    isAuthenticated={isAuthenticated}
+                    isMonitoring={isMonitoring}
+                    onStartMonitoring={handleStartMonitoring}
+                    onStopMonitoring={handleStopMonitoring}
+                    monitoringStatus={monitoringStatus}
+                    statusMessage={statusMessage}
+                    errorDetails={errorDetails}
+                  />
+                </Suspense>
+              </div>
+
+              <div className="mt-4">
+                <Suspense fallback={<LoadingSpinner />}>
+                  <LogsCard
+                    logs={logs}
+                    settings={settings}
+                    logSearchTerm={logSearchTerm}
+                    onDisplayLogLevelChange={handleDisplayLogLevelChange}
+                    onToggleLogAutoRefresh={handleToggleLogAutoRefresh}
+                    onLogSearch={handleLogSearch}
+                    onClearLogs={handleClearLogs}
+                    onOpenLogsDirectory={handleOpenLogsDirectory}
+                  />
+                </Suspense>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
     </div>
   );
 }
