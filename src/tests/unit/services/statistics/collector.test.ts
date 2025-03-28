@@ -45,10 +45,23 @@ describe("Statistics Collector", () => {
   });
 
   afterEach(() => {
-    vi.restoreAllTimers();
+    // Use restoreAllMocks instead of restoreAllTimers
+    vi.restoreAllMocks();
+    // Restore timers
+    vi.useRealTimers();
   });
 
   it("should start metrics collection with default interval", async () => {
+    // Mock the aggregation functions to return some data
+    vi.mocked(aggregateDailySkipMetrics).mockResolvedValueOnce({
+      day1: {},
+      day2: {},
+    });
+    vi.mocked(aggregateWeeklySkipMetrics).mockResolvedValueOnce({ week1: {} });
+    vi.mocked(aggregateArtistSkipMetrics).mockResolvedValueOnce({
+      artist1: {},
+    });
+
     // Start collection
     await startSkipMetricsCollection();
 
@@ -88,22 +101,66 @@ describe("Statistics Collector", () => {
     expect(saveLog).not.toHaveBeenCalled();
   });
 
+  // Using a separate implementation for setInterval
   it("should run aggregation on the specified interval", async () => {
-    // Start with a 10-minute interval
-    await startSkipMetricsCollection(10);
+    // Create a mock implementation of the setInterval function
+    const originalSetInterval = global.setInterval;
 
-    // Reset the mocks after the initial aggregation
-    vi.resetAllMocks();
+    let intervalCallback: Function | null = null;
+    global.setInterval = vi.fn((callback: Function, ms: number) => {
+      intervalCallback = callback;
+      return 123 as unknown as NodeJS.Timeout; // Return a mock timer ID
+    });
 
-    // Advance timer by 10 minutes (600,000 ms)
-    vi.advanceTimersByTime(600000);
+    try {
+      // Mock functions to return data for first call (initial aggregation)
+      vi.mocked(aggregateDailySkipMetrics).mockResolvedValueOnce({
+        day1: {},
+        day2: {},
+      });
+      vi.mocked(aggregateWeeklySkipMetrics).mockResolvedValueOnce({
+        week1: {},
+      });
+      vi.mocked(aggregateArtistSkipMetrics).mockResolvedValueOnce({
+        artist1: {},
+      });
 
-    // Verify aggregation functions were called again
-    expect(aggregateDailySkipMetrics).toHaveBeenCalledTimes(1);
-    expect(aggregateWeeklySkipMetrics).toHaveBeenCalledTimes(1);
-    expect(aggregateArtistSkipMetrics).toHaveBeenCalledTimes(1);
-    expect(calculateLibrarySkipStatistics).toHaveBeenCalledTimes(1);
-    expect(analyzeTimeBasedPatterns).toHaveBeenCalledTimes(1);
+      // Start with a 10-minute interval
+      await startSkipMetricsCollection(10);
+
+      // Verify setInterval was called with the correct interval
+      expect(global.setInterval).toHaveBeenCalledWith(
+        expect.any(Function),
+        10 * 60 * 1000,
+      );
+
+      // Reset the mocks after the initial aggregation
+      vi.resetAllMocks();
+
+      // Setup mocks for second run (scheduled aggregation)
+      vi.mocked(aggregateDailySkipMetrics).mockResolvedValueOnce({ day3: {} });
+      vi.mocked(aggregateWeeklySkipMetrics).mockResolvedValueOnce({
+        week2: {},
+      });
+      vi.mocked(aggregateArtistSkipMetrics).mockResolvedValueOnce({
+        artist2: {},
+      });
+
+      // Manually trigger the interval callback to simulate timer execution
+      if (intervalCallback) {
+        await intervalCallback();
+      }
+
+      // Verify aggregation functions were called again
+      expect(aggregateDailySkipMetrics).toHaveBeenCalledTimes(1);
+      expect(aggregateWeeklySkipMetrics).toHaveBeenCalledTimes(1);
+      expect(aggregateArtistSkipMetrics).toHaveBeenCalledTimes(1);
+      expect(calculateLibrarySkipStatistics).toHaveBeenCalledTimes(1);
+      expect(analyzeTimeBasedPatterns).toHaveBeenCalledTimes(1);
+    } finally {
+      // Restore the original setInterval
+      global.setInterval = originalSetInterval;
+    }
   });
 
   it("should stop metrics collection", async () => {
@@ -133,10 +190,12 @@ describe("Statistics Collector", () => {
   });
 
   it("should handle errors during scheduled aggregation", async () => {
-    // Mock an error in one of the aggregation functions
-    vi.mocked(aggregateDailySkipMetrics).mockRejectedValueOnce(
-      new Error("Test error"),
-    );
+    // Mock initial aggregation to succeed
+    vi.mocked(aggregateDailySkipMetrics).mockResolvedValueOnce({ day1: {} });
+    vi.mocked(aggregateWeeklySkipMetrics).mockResolvedValueOnce({ week1: {} });
+    vi.mocked(aggregateArtistSkipMetrics).mockResolvedValueOnce({
+      artist1: {},
+    });
 
     // Start collection
     await startSkipMetricsCollection();
@@ -144,24 +203,42 @@ describe("Statistics Collector", () => {
     // Reset mocks after initial aggregation
     vi.resetAllMocks();
 
+    // Set up the saveLog mock to capture all calls
+    const saveLogMock = vi.mocked(saveLog);
+
     // Mock error for next run
     vi.mocked(aggregateDailySkipMetrics).mockRejectedValueOnce(
       new Error("Scheduled error"),
     );
 
-    // Advance timer to trigger scheduled aggregation
-    vi.advanceTimersByTime(3600000); // Default 1 hour
+    // Run the timer and allow the Promise to resolve
+    await vi.runOnlyPendingTimersAsync();
 
-    // Verify error was logged
-    expect(saveLog).toHaveBeenCalledWith(
-      expect.stringContaining(
-        "Error during scheduled skip metrics aggregation",
-      ),
-      "ERROR",
+    // Verify error was logged - we need to check all calls to saveLog
+    const errorLogCall = saveLogMock.mock.calls.find(
+      (call) =>
+        call[0].includes("Error during scheduled skip metrics aggregation") &&
+        call[1] === "ERROR",
     );
+
+    expect(errorLogCall).toBeDefined();
+    expect(errorLogCall?.[0]).toContain(
+      "Error during scheduled skip metrics aggregation",
+    );
+    expect(errorLogCall?.[1]).toBe("ERROR");
   });
 
   it("should allow manual aggregation trigger", async () => {
+    // Mock the aggregation functions to return some data
+    vi.mocked(aggregateDailySkipMetrics).mockResolvedValueOnce({
+      day1: {},
+      day2: {},
+    });
+    vi.mocked(aggregateWeeklySkipMetrics).mockResolvedValueOnce({ week1: {} });
+    vi.mocked(aggregateArtistSkipMetrics).mockResolvedValueOnce({
+      artist1: {},
+    });
+
     // Trigger manual aggregation
     await triggerManualAggregation();
 
