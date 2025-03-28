@@ -4,6 +4,14 @@
  * Creates and configures the main application window
  * with appropriate security settings, platform-specific behaviors,
  * and event handlers.
+ *
+ * Responsibilities:
+ * - Window creation and configuration
+ * - Security settings management
+ * - Development vs production environment handling
+ * - Main window event handling
+ * - Content loading and error handling
+ * - IPC setup for main window communication
  */
 
 import { app, BrowserWindow, Menu } from "electron";
@@ -24,7 +32,11 @@ const inDevelopment = process.env.NODE_ENV === "development";
 /**
  * Creates and configures the main application window
  *
- * @returns {BrowserWindow} Configured Electron browser window instance
+ * Handles the creation and setup of the main application window with
+ * appropriate security settings, development tools, and content loading.
+ * Sets up event handlers and IPC channels for window communication.
+ *
+ * @returns {BrowserWindow} Configured Electron browser window instance ready for use
  */
 export function createWindow(): BrowserWindow {
   // Configure menu based on environment

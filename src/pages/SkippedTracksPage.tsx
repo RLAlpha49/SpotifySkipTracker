@@ -1,14 +1,29 @@
 /**
- * SkippedTracksPage Component
+ * Skipped Music Track Analysis & Management System
  *
- * Analyzes and manages frequently skipped tracks with features including:
- * - Statistical analysis of skip patterns
- * - Library management actions for skipped tracks
- * - Bulk operations for filtered content
- * - Automatic removal of frequently skipped tracks
+ * Comprehensive interface for analyzing, managing, and acting on skip behavior patterns.
+ * Identifies problematic tracks based on user-configurable thresholds and provides
+ * tools for library optimization.
  *
- * Uses configurable thresholds to identify candidates for library cleanup
- * based on skip frequency within specified timeframes.
+ * Key capabilities:
+ * - Track skip frequency analysis with sorting and filtering
+ * - Automatic library cleanup recommendations based on skip patterns
+ * - Manual and automatic track removal with configurable thresholds
+ * - Batch operations for efficient library management
+ * - Historical skip data visualization with temporal context
+ *
+ * Technical implementation:
+ * - Dynamic data loading with async/await patterns
+ * - Optimistic UI updates for immediate feedback
+ * - Configurable timeframe analysis (7/30/90 days)
+ * - Cross-component state management
+ * - Lazy loading for performance optimization
+ * - Confirmation workflows for destructive operations
+ *
+ * Data handling:
+ * - Skip timestamp tracking for historical analysis
+ * - Skip/listen ratio calculation for engagement metrics
+ * - Persistence with error handling and recovery
  */
 
 import { shouldSuggestRemoval } from "@/components/skippedTracks/utils";
@@ -49,7 +64,16 @@ export default function SkippedTracksPage() {
     useState(false);
 
   /**
-   * Fetches skipped tracks and initializes component state with user settings
+   * Initializes component with skip data and user preferences
+   *
+   * Performs multi-stage initialization by:
+   * 1. Loading skipped track history from persistent storage
+   * 2. Retrieving user configuration settings for thresholds and timeframes
+   * 3. Synchronizing component state with application preferences
+   * 4. Ensuring proper error handling with user feedback
+   *
+   * Sets the foundation for all skip analysis functionality by establishing
+   * data context and user preferences for analysis parameters.
    */
   const loadSkippedData = async () => {
     setLoading(true);
@@ -102,8 +126,17 @@ export default function SkippedTracksPage() {
   };
 
   /**
-   * Processes tracks for automatic removal based on skip threshold
-   * Only runs when autoUnlike setting is enabled
+   * Evaluates tracks for automatic removal based on user preferences
+   *
+   * Implements intelligent library management by:
+   * 1. Filtering tracks that meet removal criteria based on skip threshold
+   * 2. Processing eligible tracks individually while respecting rate limits
+   * 3. Removing tracks from both Spotify library and local tracking data
+   * 4. Providing user feedback with grouped notifications to prevent overwhelming
+   * 5. Logging detailed removal information for audit and troubleshooting
+   *
+   * Only executes when autoUnlike setting is enabled, respecting user preference
+   * for automated library management.
    */
   const checkForAutoUnlike = async () => {
     if (!autoUnlike) return;
@@ -219,9 +252,16 @@ export default function SkippedTracksPage() {
   };
 
   /**
-   * Handles removal of track from both library and tracking database
+   * Removes a track from Spotify library with optimistic UI updates
    *
-   * @param track - Track to remove from library and tracking
+   * Handles the complete unlike workflow:
+   * 1. Initiates Spotify API call to remove track from user's library
+   * 2. Updates local skip tracking data to reflect removal
+   * 3. Optimistically updates UI before API completion for responsive feel
+   * 4. Provides appropriate user feedback based on operation result
+   * 5. Handles errors gracefully with clear error messaging
+   *
+   * @param track - Track object containing ID and metadata for removal
    */
   const handleUnlikeTrack = async (track: SkippedTrack) => {
     try {

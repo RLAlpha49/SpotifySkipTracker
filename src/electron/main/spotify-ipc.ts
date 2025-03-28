@@ -4,6 +4,17 @@
  * Establishes communication channels between renderer and main processes
  * for all Spotify-related operations including authentication, playback,
  * and library management.
+ *
+ * Core functionality:
+ * - Authentication flow management (login, token refresh, logout)
+ * - Playback controls (play, pause, skip)
+ * - Token management and persistent storage
+ * - Current playback information retrieval
+ * - Skip tracking data management
+ * - Statistics collection and retrieval
+ *
+ * This module creates a bridge between the UI and the Spotify API services,
+ * handling all IPC communication for Spotify-related functionality.
  */
 
 import { app, BrowserWindow, ipcMain, shell } from "electron";
@@ -69,7 +80,8 @@ import {
 /**
  * Configures IPC handlers for Spotify functionality
  *
- * @param mainWindow - Main application window instance
+ * @param mainWindow - Main application window instance used for authentication flows
+ * @returns {void}
  */
 export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
   // Authentication handlers

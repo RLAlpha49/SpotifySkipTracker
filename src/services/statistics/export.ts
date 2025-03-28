@@ -1,7 +1,47 @@
 /**
  * Statistics Export Service
  *
- * Provides functions for exporting statistics data in various formats
+ * This module provides a comprehensive set of functions for exporting statistics
+ * data in various formats to enable data sharing, backup, and external analysis.
+ * It handles file format conversion, user interface interactions, and ensures
+ * data integrity throughout the export process.
+ *
+ * Features:
+ * - Multiple export format support (CSV, JSON, clipboard)
+ * - Complete dataset exports and targeted metric subsets
+ * - User-friendly file selection dialogs
+ * - Error handling and validation of export operations
+ * - Data formatting and transformation for analysis-ready outputs
+ * - Intelligent path management and file naming
+ * - Progress tracking for large exports
+ * - Structure preservation for complex nested data
+ *
+ * Export capabilities include:
+ *
+ * 1. Track-level exports:
+ *    - Skipped tracks with detailed metadata
+ *    - Skip event timelines with contextual information
+ *    - Skip classification and categorization
+ *
+ * 2. Aggregated statistics:
+ *    - Artist metrics and insights
+ *    - Daily and weekly listening summaries
+ *    - Library-wide statistical analyses
+ *    - Time-based patterns and distributions
+ *
+ * 3. Pattern analysis:
+ *    - Detected skip patterns with confidence scores
+ *    - Behavioral insights and preferences
+ *    - Trend data for temporal changes
+ *
+ * All export functions follow a consistent pattern:
+ * 1. Data retrieval and validation
+ * 2. Format conversion with appropriate transformations
+ * 3. User interface for destination selection
+ * 4. File writing with error handling
+ * 5. Success/failure reporting
+ *
+ * @module StatisticsExport
  */
 
 import { StatisticsData } from "@/types/statistics";

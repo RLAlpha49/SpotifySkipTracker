@@ -1,11 +1,27 @@
 /**
- * Main monitoring layout component
+ * Playback Monitoring Control Center
  *
- * Provides a responsive layout for the Monitoring tab including:
- * - Current playback information
- * - Monitoring status and controls
- * - Application logs
- * - Optional settings panel
+ * Provides a comprehensive interface for real-time Spotify playback monitoring
+ * and application diagnostics. This layout organizes critical monitoring tools
+ * into a logical arrangement for both desktop and mobile form factors.
+ *
+ * Core monitoring components:
+ * - Live playback card showing current track, artist and progress
+ * - Monitoring control panel with service status and toggle switches
+ * - Application logs console with real-time event streaming
+ * - Optional settings panel for monitoring configuration
+ *
+ * Responsive architecture:
+ * - Desktop: Two-column layout with side-by-side cards and full-width logs
+ * - Mobile: Tab-based navigation with dedicated sections for each function
+ * - Progressive loading with skeleton placeholders for visual stability
+ *
+ * Technical features:
+ * - Flexible prop-based content injection for each panel
+ * - Conditional rendering for optional components
+ * - Consistent error and empty states with informative messages
+ * - Iconography with Lucide components for visual semantics
+ * - Optimized layout transitions between viewport sizes
  */
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +35,20 @@ import {
 } from "lucide-react";
 import React from "react";
 
+/**
+ * Props interface for MonitoringLayout component
+ *
+ * @property isLoading - Optional boolean flag to control loading state display.
+ *                       When true, shows skeleton placeholder instead of content.
+ * @property nowPlayingCard - Optional React node for currently playing track display.
+ *                           Shows song title, artist, album, and playback progress.
+ * @property monitoringCard - Optional React node for monitoring service controls.
+ *                           Contains status indicators and start/stop functionality.
+ * @property logsCard - Optional React node for application log display.
+ *                     Shows scrollable real-time application event logs.
+ * @property settingsCard - Optional React node for monitoring settings.
+ *                         Provides configuration options for monitoring behavior.
+ */
 interface MonitoringLayoutProps {
   isLoading?: boolean;
   nowPlayingCard?: React.ReactNode;
@@ -28,10 +58,19 @@ interface MonitoringLayoutProps {
 }
 
 /**
- * Main layout component for Monitoring tab on homepage
+ * Playback monitoring control layout component
  *
- * @param props - Component props
- * @returns MonitoringLayout component
+ * Creates a responsive layout for monitoring Spotify playback and viewing
+ * application diagnostic information. Provides different arrangements
+ * for desktop and mobile viewports to optimize information density.
+ *
+ * @param props - Component properties
+ * @param props.isLoading - Whether to display skeleton loading state
+ * @param props.nowPlayingCard - Content for currently playing track display
+ * @param props.monitoringCard - Content for monitoring service controls
+ * @param props.logsCard - Content for application log display
+ * @param props.settingsCard - Optional content for monitoring settings
+ * @returns MonitoringLayout component with responsive panel arrangement
  */
 export function MonitoringLayout({
   isLoading = false,

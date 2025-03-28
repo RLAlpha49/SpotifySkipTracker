@@ -1,3 +1,24 @@
+/**
+ * Statistics Data Export Interface Component
+ *
+ * Provides a comprehensive interface for exporting listening statistics
+ * in various formats and granularities. This component offers users multiple
+ * ways to extract their listening data for external analysis, backup,
+ * or sharing purposes.
+ *
+ * Features:
+ * - Multiple export format options (CSV, JSON)
+ * - Clipboard export for quick sharing
+ * - Categorized export options (tracks, artists, time periods)
+ * - Granular data selection by metric type
+ * - Loading and success/error states with visual feedback
+ * - Toast notifications for operation feedback
+ *
+ * This component serves as the primary data extraction tool, allowing users
+ * to leverage their listening data outside the application for personalized
+ * analysis or integration with other tools and platforms.
+ */
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,11 +46,33 @@ import React, { useState } from "react";
 import { toast } from "sonner";
 import { NoDataMessage } from "./NoDataMessage";
 
+/**
+ * Props for the ExportDataTab component
+ *
+ * @property loading - Whether statistics data is currently being loaded
+ * @property statistics - Raw statistics data object or null if unavailable
+ */
 interface ExportDataTabProps {
   loading: boolean;
   statistics: StatisticsData | null;
 }
 
+/**
+ * Statistics data export interface
+ *
+ * Renders a tabbed interface with various options for exporting
+ * listening statistics in different formats and granularities.
+ * Provides buttons for exporting specific metrics as CSV files,
+ * complete data as JSON, and quick clipboard access.
+ *
+ * The component manages loading states during export operations
+ * and provides toast notifications for operation feedback.
+ *
+ * @param props - Component properties
+ * @param props.loading - Whether data is being loaded
+ * @param props.statistics - Complete statistics data object
+ * @returns React component with data export options
+ */
 export function ExportDataTab({ loading, statistics }: ExportDataTabProps) {
   const [exporting, setExporting] = useState<{
     csv: boolean;
@@ -41,6 +84,16 @@ export function ExportDataTab({ loading, statistics }: ExportDataTabProps) {
     clipboard: false,
   });
 
+  /**
+   * Handles API responses from export operations
+   *
+   * Displays appropriate toast notifications based on the success
+   * or failure of export operations. Uses the response message
+   * when available, or falls back to generic success/failure messages.
+   *
+   * @param response - Response object from export operation
+   * @param operation - Description of the export operation
+   */
   const handleExportResponse = (
     response: ExportResponse,
     operation: string,
@@ -58,6 +111,13 @@ export function ExportDataTab({ loading, statistics }: ExportDataTabProps) {
     }
   };
 
+  /**
+   * Exports skipped tracks data to CSV format
+   *
+   * Initiates an API call to export detailed skipped tracks data
+   * to a CSV file. Manages loading state and displays operation
+   * feedback via toast notifications.
+   */
   const exportSkippedTracks = async () => {
     setExporting((prev) => ({ ...prev, csv: true }));
     try {
@@ -72,6 +132,13 @@ export function ExportDataTab({ loading, statistics }: ExportDataTabProps) {
     }
   };
 
+  /**
+   * Exports artist metrics data to CSV format
+   *
+   * Initiates an API call to export artist-specific listening metrics
+   * to a CSV file. Manages loading state and displays operation
+   * feedback via toast notifications.
+   */
   const exportArtistMetrics = async () => {
     setExporting((prev) => ({ ...prev, csv: true }));
     try {
@@ -86,6 +153,13 @@ export function ExportDataTab({ loading, statistics }: ExportDataTabProps) {
     }
   };
 
+  /**
+   * Exports daily listening metrics to CSV format
+   *
+   * Initiates an API call to export daily listening activity data
+   * to a CSV file. Manages loading state and displays operation
+   * feedback via toast notifications.
+   */
   const exportDailyMetrics = async () => {
     setExporting((prev) => ({ ...prev, csv: true }));
     try {
@@ -100,6 +174,13 @@ export function ExportDataTab({ loading, statistics }: ExportDataTabProps) {
     }
   };
 
+  /**
+   * Exports all statistics data to JSON format
+   *
+   * Initiates an API call to export the complete statistics dataset
+   * to a JSON file for comprehensive backup or advanced analysis.
+   * Manages loading state and displays operation feedback.
+   */
   const exportAllToJSON = async () => {
     setExporting((prev) => ({ ...prev, json: true }));
     try {

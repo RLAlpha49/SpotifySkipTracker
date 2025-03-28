@@ -1,14 +1,35 @@
 /**
- * StatisticsPage Component
+ * Advanced Music Listening Analytics Dashboard
  *
- * Visualizes detailed listening statistics and metrics including:
- * - Listening patterns and skip rates
- * - Time-based analytics
- * - Artist and genre preferences
- * - Historical trends and session data
+ * Visualizes and analyzes user's Spotify listening patterns with multi-dimensional
+ * data exploration capabilities. Transforms raw listening data into actionable
+ * insights through interactive visualizations and statistical analysis.
  *
- * Uses React with dynamic charts to provide visual representation of user's
- * music listening habits, preferences, and patterns.
+ * Analytical dimensions:
+ * - Temporal analysis (hourly, daily, weekly patterns)
+ * - Artist and genre preference distribution
+ * - Skip behavior correlation with track attributes
+ * - Listening session length and engagement metrics
+ * - Device usage patterns and context awareness
+ *
+ * Visualization components:
+ * - Interactive time-series charts for trend analysis
+ * - Heat maps for temporal pattern recognition
+ * - Distribution graphs for statistical analysis
+ * - Sortable data tables with metric filtering
+ * - Summary cards with key performance indicators
+ *
+ * Data management features:
+ * - Export capabilities in multiple formats (CSV, JSON)
+ * - Data clearing with confirmation safeguards
+ * - On-demand refresh for real-time insights
+ * - Progressive disclosure of complex metrics
+ *
+ * Implementation architecture:
+ * - Tab-based UI for logical data categorization
+ * - Memoized calculations for performance optimization
+ * - Modular chart components with consistent styling
+ * - Clear loading states with graceful transitions
  */
 
 import {
@@ -59,6 +80,21 @@ export default function StatisticsPage() {
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
 
+  /**
+   * Retrieves comprehensive listening statistics data
+   *
+   * Fetches the complete statistical dataset from the main process via IPC,
+   * including temporal patterns, artist metrics, and session analytics.
+   * Manages loading state for UI feedback and implements error handling
+   * with appropriate user notifications. This is the primary data source
+   * for all visualization components and statistical displays.
+   *
+   * The retrieved data includes:
+   * - Global listening metrics and aggregated statistics
+   * - Time-based distribution patterns (hourly, daily)
+   * - Artist and track frequency analysis
+   * - Detailed session history with metadata
+   */
   const fetchStatistics = async () => {
     setLoading(true);
     try {
@@ -138,6 +174,22 @@ export default function StatisticsPage() {
       }));
   }, [statistics]);
 
+  /**
+   * Permanently erases all collected statistics data
+   *
+   * Implements a protected operation for removing all statistical data
+   * from persistent storage. Includes safety measures like confirmation
+   * dialog and loading states to prevent accidental data loss. After
+   * successful data removal, refreshes the statistics view to reflect
+   * the cleared state.
+   *
+   * This operation:
+   * 1. Shows confirmation UI before proceeding
+   * 2. Displays loading state during the operation
+   * 3. Communicates with main process to perform actual data removal
+   * 4. Provides clear success/failure feedback to the user
+   * 5. Refreshes UI state to reflect the data removal
+   */
   const handleClearStatistics = async () => {
     try {
       setClearing(true);

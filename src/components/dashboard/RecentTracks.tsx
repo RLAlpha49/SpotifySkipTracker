@@ -1,7 +1,20 @@
 /**
- * Recent Skipped Tracks component
+ * Recent Skipped Tracks Dashboard Module
  *
- * Displays a list of recently skipped tracks with basic information and metrics.
+ * Visualizes the most recently skipped tracks with contextual information and metrics.
+ * Presents skip patterns with time context, skip frequency, and track details in
+ * a responsive table layout optimized for dashboard integration.
+ *
+ * Features:
+ * - Chronological list of recently skipped tracks with metadata
+ * - Skip frequency visualization with progress bars
+ * - Relative timestamp display showing recency of skips
+ * - Responsive design with appropriate column hiding for mobile
+ * - Empty state and loading skeleton for optimal UX
+ *
+ * This component serves as a real-time activity feed for the dashboard,
+ * allowing users to see their most recent skip behavior and identify
+ * potential patterns without navigating to the detailed statistics view.
  */
 
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +39,17 @@ import { Link } from "@tanstack/react-router";
 import { Music, SkipForward } from "lucide-react";
 import React from "react";
 
+/**
+ * Track data structure for recent skips display
+ *
+ * @property id - Unique track identifier for React keys and linking
+ * @property name - Track title
+ * @property artist - Artist or group name
+ * @property album - Album title the track belongs to
+ * @property timestamp - ISO date string when the track was skipped
+ * @property skipPercentage - Skip frequency as a percentage (0-100)
+ * @property skipCount - Total number of times this track was skipped
+ */
 interface TrackData {
   id: string;
   name: string;
@@ -36,6 +60,13 @@ interface TrackData {
   skipCount: number;
 }
 
+/**
+ * Props for the RecentTracks component
+ *
+ * @property isLoading - Optional flag indicating whether data is being loaded
+ * @property tracks - Array of track data objects to display
+ * @property maxItems - Maximum number of tracks to display, default is 5
+ */
 interface RecentTracksProps {
   isLoading?: boolean;
   tracks?: TrackData[];
@@ -43,17 +74,33 @@ interface RecentTracksProps {
 }
 
 /**
- * Component to display recently skipped tracks in a table format
+ * Recent skipped tracks tabular display component
  *
- * @param props - Component props
- * @returns Recent tracks component
+ * Renders a card with table of recently skipped tracks, showing
+ * track metadata, skip metrics, and relative time information.
+ * Handles loading states and empty data scenarios gracefully.
+ *
+ * Display features:
+ * - Card-based container with header and description
+ * - Tabular layout with responsive column behavior
+ * - Progress bars for visual representation of skip frequency
+ * - Human-readable relative timestamps
+ * - Graceful empty state with helpful messaging
+ *
+ * @param props - Component properties
+ * @param props.isLoading - Whether skeleton loading state should be shown
+ * @param props.tracks - Array of track data to display
+ * @param props.maxItems - Maximum number of tracks to show in the list
+ * @returns React component displaying recent skipped tracks
  */
 export function RecentTracks({
   isLoading = false,
   tracks = [],
   maxItems = 5,
 }: RecentTracksProps) {
-  // Generate skeleton rows for loading state
+  /**
+   * Generates skeleton rows for loading state visualization
+   */
   const skeletonRows = Array(maxItems)
     .fill(0)
     .map((_, index) => (
@@ -82,7 +129,22 @@ export function RecentTracks({
       </TableRow>
     ));
 
-  // Format timestamp to relative time (e.g., "2 hours ago")
+  /**
+   * Converts ISO timestamps to human-friendly relative time strings
+   *
+   * Calculates the time difference between now and when the track was skipped,
+   * then formats it as a natural language string (e.g., "2 hours ago").
+   * Includes comprehensive error handling for invalid dates.
+   *
+   * Time brackets:
+   * - Just now: Less than a minute ago
+   * - X minutes ago: Less than an hour ago
+   * - X hours ago: Less than a day ago
+   * - X days ago: More than a day ago
+   *
+   * @param dateString - ISO date string to format
+   * @returns Human-readable relative time string
+   */
   const formatRelativeTime = (dateString: string) => {
     if (!dateString) return "Unknown";
 

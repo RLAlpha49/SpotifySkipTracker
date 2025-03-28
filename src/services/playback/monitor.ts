@@ -1,8 +1,46 @@
 /**
- * Core playback monitoring functionality
+ * Spotify Playback Monitoring Core Service
  *
- * Handles polling the Spotify API for playback state changes,
- * updating the UI, and coordinating playback event processing.
+ * This module forms the heart of the application's playback tracking system, providing
+ * real-time monitoring of Spotify playback state with sophisticated error handling,
+ * adaptive polling, and skip detection. It orchestrates the entire playback monitoring
+ * pipeline and coordinates the various specialized components.
+ *
+ * Features:
+ * - Real-time playback state monitoring with configurable polling intervals
+ * - Adaptive polling with intelligent battery optimization
+ * - Exponential backoff strategy for handling API errors
+ * - Sophisticated track change detection and skip analysis
+ * - Smooth progress interpolation between API polls
+ * - Comprehensive error recovery and resilience
+ * - User interface synchronization and updates
+ * - Session management with play/pause tracking
+ * - Device status monitoring and reporting
+ * - Library status checking and persistence
+ *
+ * The monitoring service implements several advanced features to enhance reliability:
+ *
+ * 1. Dynamic Polling: Automatically adjusts polling frequency based on:
+ *    - API health (exponential backoff during outages)
+ *    - Battery status (reduced polling on low battery)
+ *    - User configuration preferences
+ *
+ * 2. Progress Interpolation: Provides smooth progress updates by:
+ *    - Estimating track position between API polls
+ *    - Synchronizing with actual API responses when received
+ *    - Accounting for pauses and resumptions
+ *
+ * 3. State Management: Maintains comprehensive playback state including:
+ *    - Current track details and metadata
+ *    - Playback status and progress
+ *    - Device information
+ *    - Session metrics for analytics
+ *
+ * This module serves as the central coordinator for the playback monitoring system,
+ * integrating with track change detection, history tracking, and skip analytics
+ * to provide comprehensive playback monitoring capabilities.
+ *
+ * @module SpotifyPlaybackMonitor
  */
 
 import { LogLevel } from "@/types/logging";
@@ -46,7 +84,31 @@ let isInBackoffMode = false;
 /**
  * Sets monitoring configuration options
  *
- * @param config Configuration options to override defaults
+ * Configures the playback monitoring service by updating the polling intervals,
+ * backoff strategy parameters, and other monitoring behavior settings. If monitoring
+ * is already active, it automatically restarts the service with the new configuration.
+ *
+ * The configuration allows fine-tuning the monitoring behavior for different scenarios:
+ * - Adjust polling frequency to balance responsiveness vs battery/network usage
+ * - Configure error handling behavior during API outages
+ * - Customize UI update frequency for progress interpolation
+ * - Set backoff parameters for network resilience
+ *
+ * @param config - Configuration options to override defaults:
+ *   - pollingInterval: Milliseconds between API polls (default: 1000ms)
+ *   - progressUpdateInterval: Milliseconds between UI updates (default: 250ms)
+ *   - maxBackoffInterval: Maximum delay during backoff (default: 15000ms)
+ *   - initialBackoffDelay: Starting delay for backoff (default: 2000ms)
+ *   - backoffMultiplier: Factor to increase backoff delay (default: 1.5)
+ *   - errorThreshold: Errors required to trigger backoff (default: 3)
+ *   - lowBatteryPollingInterval: Polling interval on low battery (default: 5000ms)
+ *
+ * @example
+ * // Increase polling interval to reduce battery usage
+ * setMonitoringConfig({
+ *   pollingInterval: 3000,
+ *   progressUpdateInterval: 500
+ * });
  */
 export function setMonitoringConfig(
   config: Partial<PlaybackMonitorConfig>,
@@ -80,14 +142,45 @@ export function setMonitoringConfig(
 /**
  * Gets the current monitoring configuration
  *
- * @returns The current monitoring configuration
+ * Retrieves a copy of the current monitoring configuration settings. This includes
+ * all polling intervals, backoff parameters, and other monitoring behavior settings.
+ * The returned object is a deep copy to prevent external modifications of internal state.
+ *
+ * This function is useful for:
+ * - Inspecting current monitoring settings
+ * - Modifying specific parameters while preserving others
+ * - Persisting configurations for user preferences
+ * - Debugging monitoring behavior issues
+ *
+ * @returns A complete copy of the current monitoring configuration
+ *
+ * @example
+ * // Get current config and modify only one parameter
+ * const config = getMonitoringConfig();
+ * setMonitoringConfig({
+ *   ...config,
+ *   pollingInterval: 2000
+ * });
  */
 export function getMonitoringConfig(): PlaybackMonitorConfig {
   return { ...currentConfig };
 }
 
 /**
- * Resets the backoff strategy
+ * Resets the exponential backoff strategy
+ *
+ * Clears the error tracking state and returns the monitoring system to normal
+ * polling frequency. This is called automatically when:
+ * - The monitoring service successfully reconnects after errors
+ * - Monitoring is manually stopped and restarted
+ * - The configuration is updated while monitoring is active
+ *
+ * Backoff is an important feature that prevents the application from:
+ * - Overwhelming the Spotify API during outages or rate limiting
+ * - Draining device battery during extended API issues
+ * - Creating unnecessary network traffic during connectivity problems
+ *
+ * @private Internal function not exported from the module
  */
 function resetBackoff(): void {
   consecutiveErrors = 0;
@@ -98,7 +191,25 @@ function resetBackoff(): void {
 /**
  * Implements exponential backoff strategy for API errors
  *
- * @returns The next polling interval in milliseconds
+ * Calculates the appropriate delay between API requests when errors occur,
+ * using an exponential backoff algorithm that progressively increases
+ * the wait time between retries to prevent overwhelming the API.
+ *
+ * The strategy works as follows:
+ * 1. Tracks consecutive error count against a configurable threshold
+ * 2. Once threshold is exceeded, enters "backoff mode"
+ * 3. Initial backoff delay starts at `initialBackoffDelay` (default: 2000ms)
+ * 4. Each subsequent error multiplies delay by `backoffMultiplier` (default: 1.5)
+ * 5. Maximum delay is capped at `maxBackoffInterval` (default: 15000ms)
+ * 6. System automatically exits backoff mode once successful connections resume
+ *
+ * This creates a graceful degradation pattern during API issues that:
+ * - Minimizes battery and network usage during prolonged outages
+ * - Automatically recovers with appropriate timing
+ * - Provides detailed logging for monitoring system health
+ *
+ * @returns The calculated polling interval in milliseconds
+ * @private Internal function not exported from the module
  */
 function applyBackoffStrategy(): number {
   // If we haven't hit the error threshold, use normal interval
@@ -137,11 +248,43 @@ function applyBackoffStrategy(): number {
 /**
  * Starts the Spotify playback monitoring process
  *
- * @param mainWindow Electron BrowserWindow for sending UI updates
- * @param spotifyClientId Spotify API client ID
- * @param spotifyClientSecret Spotify API client secret
- * @param config Optional monitoring configuration
- * @returns Success status of the monitoring initialization
+ * Initializes and launches the core monitoring service that continuously polls
+ * the Spotify API for playback state changes. This is the main entry point for
+ * activating the playback monitoring functionality and begins tracking the user's
+ * listening activity.
+ *
+ * The monitoring process performs these key functions:
+ * - Polls the Spotify API at configured intervals (adjustable for battery life)
+ * - Detects track changes and skips using sophisticated heuristics
+ * - Updates UI with real-time playback information
+ * - Tracks listening history and skip patterns
+ * - Manages error handling with exponential backoff
+ * - Provides interpolated progress updates between API calls
+ *
+ * The function handles all initialization tasks including:
+ * - Setting Spotify API credentials
+ * - Applying user configuration preferences
+ * - Establishing polling schedules
+ * - Initializing state tracking
+ * - Setting up event handlers
+ * - Logging monitoring activity
+ *
+ * @param mainWindow - Electron BrowserWindow that will receive playback updates
+ * @param spotifyClientId - Spotify API client ID for authentication
+ * @param spotifyClientSecret - Spotify API client secret for authentication
+ * @param config - Optional monitoring configuration to override defaults
+ * @returns Boolean indicating whether monitoring was successfully started
+ *
+ * @example
+ * // Start monitoring with default settings
+ * if (startPlaybackMonitoring(mainWindow, clientId, clientSecret)) {
+ *   console.log("Monitoring started successfully");
+ * }
+ *
+ * // Start with custom polling interval
+ * startPlaybackMonitoring(mainWindow, clientId, clientSecret, {
+ *   pollingInterval: 2000 // Poll every 2 seconds
+ * });
  */
 export function startPlaybackMonitoring(
   mainWindow: BrowserWindow,
@@ -279,7 +422,36 @@ export function startPlaybackMonitoring(
 /**
  * Stops the playback monitoring process
  *
- * @returns Success status of the monitoring termination
+ * Terminates all active monitoring activities including API polling,
+ * progress interpolation, and event handling. This function performs
+ * a complete and clean shutdown of the monitoring service.
+ *
+ * The function handles several important cleanup tasks:
+ * - Cancels all active polling intervals
+ * - Terminates progress update timers
+ * - Resets backoff strategy state
+ * - Logs the monitoring termination
+ * - Preserves accumulated listening data
+ *
+ * Typical usage scenarios include:
+ * - User-requested monitoring pause/stop
+ * - Application shutdown
+ * - Reconfiguration of monitoring parameters
+ * - Error recovery requiring service restart
+ * - Authentication changes
+ *
+ * @returns Boolean indicating whether monitoring was successfully stopped
+ *
+ * @example
+ * // Stop monitoring during application shutdown
+ * app.on('before-quit', () => {
+ *   stopPlaybackMonitoring();
+ * });
+ *
+ * // Stop, reconfigure, and restart monitoring
+ * stopPlaybackMonitoring();
+ * setMonitoringConfig({ pollingInterval: 5000 });
+ * startPlaybackMonitoring(mainWindow, clientId, clientSecret);
  */
 export function stopPlaybackMonitoring(): boolean {
   try {
@@ -310,7 +482,29 @@ export function stopPlaybackMonitoring(): boolean {
 /**
  * Checks if playback monitoring is currently active
  *
- * @returns Status of monitoring service
+ * Determines whether the playback monitoring service is currently running.
+ * This function is used to check the monitoring state before performing
+ * operations that depend on active monitoring, such as:
+ *
+ * - Preventing duplicate monitoring sessions
+ * - Conditionally displaying monitoring status in the UI
+ * - Determining whether manual polling is needed
+ * - Checking service health during application state changes
+ * - Coordinating with other application components
+ *
+ * The function checks the internal interval timer state to determine
+ * if monitoring is active, providing a reliable status indicator.
+ *
+ * @returns Boolean indicating whether the monitoring service is currently active
+ *
+ * @example
+ * // Only start monitoring if not already active
+ * if (!isMonitoringActive()) {
+ *   startPlaybackMonitoring(mainWindow, clientId, clientSecret);
+ * }
+ *
+ * // Update UI based on monitoring status
+ * updateMonitoringStatusButton(isMonitoringActive());
  */
 export function isMonitoringActive(): boolean {
   return monitoringInterval !== null;
@@ -319,7 +513,28 @@ export function isMonitoringActive(): boolean {
 /**
  * Starts interval for smooth progress updates between API polls
  *
- * @param mainWindow Electron BrowserWindow for sending UI updates
+ * Establishes a high-frequency timer that interpolates playback progress
+ * between actual API polling events. This creates a smooth visual experience
+ * for users by:
+ *
+ * - Providing near real-time progress updates to the UI
+ * - Estimating current track position based on elapsed time
+ * - Synchronizing estimates with actual progress when API data arrives
+ * - Ensuring responsive UI even with longer API polling intervals
+ *
+ * The function implements intelligent interpolation that:
+ * - Tracks time elapsed since last API response
+ * - Calculates expected progress position
+ * - Caps progress at song duration
+ * - Handles play/pause state changes
+ * - Formats data consistently for UI consumption
+ * - Sends round numbers for smoother visual experience
+ *
+ * This functionality allows the application to maintain responsive UI
+ * while minimizing API calls, optimizing both user experience and battery life.
+ *
+ * @param mainWindow - Electron BrowserWindow that will receive progress updates
+ * @private Internal function not exported from the module
  */
 function startProgressUpdateInterval(mainWindow: BrowserWindow): void {
   // Clear any existing interval
@@ -396,7 +611,33 @@ function startProgressUpdateInterval(mainWindow: BrowserWindow): void {
 /**
  * Core playback monitoring function
  *
- * @param mainWindow Electron BrowserWindow for sending UI updates
+ * This function performs the central polling operation that retrieves
+ * current playback state from Spotify's API and processes it. It is
+ * the heart of the monitoring system, responsible for:
+ *
+ * - Fetching current playback state from the Spotify API
+ * - Detecting track changes and transitions
+ * - Identifying pauses and resumptions
+ * - Recording play durations and listening patterns
+ * - Updating internal state with track metadata
+ * - Sending UI updates for the current playback state
+ * - Logging play/pause events and track changes
+ * - Checking library status for currently playing tracks
+ *
+ * The function implements sophisticated state management to:
+ * - Track progress between polling cycles
+ * - Detect and process track changes
+ * - Maintain playback history and timeline
+ * - Synchronize progress interpolation with actual values
+ * - Handle edge cases like track completion vs. manual skips
+ *
+ * This function is called periodically by the monitoring interval
+ * scheduler, with adaptive timing based on error conditions and
+ * backoff strategy.
+ *
+ * @param mainWindow - Electron BrowserWindow that will receive state updates
+ * @returns Promise that resolves when polling cycle completes
+ * @private Internal function not exported from the module
  */
 async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
   try {

@@ -1,12 +1,24 @@
 /**
- * Dashboard component for Spotify playback monitoring
+ * Spotify Playback Monitoring and Analytics Hub
  *
- * Provides interfaces for:
- * - Real-time Spotify playback monitoring and metadata display
- * - Authentication and connection management
- * - Application logging with configurable filtering
- * - Playback monitoring controls
- * - Statistics dashboard with key metrics
+ * Central command center for real-time Spotify integration with dual-function interface:
+ * - Live monitoring dashboard with playback controls and system status
+ * - Statistics overview with aggregated listening insights
+ *
+ * Core features:
+ * - Real-time playback tracking with metadata display and control buttons
+ * - Authentication management with secure credential handling
+ * - Interactive monitoring controls with status indicators and toggles
+ * - Live application logging with filtering and search capabilities
+ * - Aggregated listening statistics with visual representations
+ * - Lazy-loaded component architecture for optimized performance
+ *
+ * Implementation highlights:
+ * - Responsive layout adapting to different device viewports
+ * - Tab-based navigation between monitoring and statistics views
+ * - IPC communication with Electron main process for native functionality
+ * - WebSocket-like playback information with update listeners
+ * - Error boundary implementation with graceful fallbacks
  */
 
 import { MonitoringStatus } from "@/components/spotify/PlaybackMonitoringCard";
@@ -178,9 +190,13 @@ export default function HomePage() {
   );
 
   /**
-   * Fetches current playback information from Spotify API
+   * Retrieves current Spotify playback state and metadata
    *
-   * @returns Promise<void>
+   * Queries the Spotify API via IPC bridge to fetch the currently playing track,
+   * playback progress, and player state. Updates component state with retrieved data
+   * or handles errors gracefully with appropriate messaging.
+   *
+   * @returns Promise that resolves when playback state is updated
    */
   const getInitialPlayback = async () => {
     if (!isAuthenticated) return;
@@ -206,7 +222,16 @@ export default function HomePage() {
   };
 
   /**
-   * Fetches statistics data for the dashboard
+   * Loads comprehensive dashboard statistics and visualization data
+   *
+   * Retrieves multiple data sources to populate dashboard components:
+   * - Overall listening statistics and KPIs
+   * - Recent skipped tracks with metadata
+   * - Artist frequency analysis with skip patterns
+   * - Session history with duration and engagement metrics
+   *
+   * Groups related API calls for efficiency and maintains loading state
+   * for optimized UI feedback during data retrieval.
    */
   const fetchDashboardData = async () => {
     if (!isAuthenticated) {
@@ -618,9 +643,17 @@ export default function HomePage() {
   };
 
   /**
-   * Authenticates with Spotify API
+   * Initiates Spotify API authentication process
    *
-   * @returns Promise<void>
+   * Orchestrates the OAuth flow by:
+   * 1. Retrieving stored credentials if available
+   * 2. Launching authentication window with proper parameters
+   * 3. Handling authentication success or failure states
+   * 4. Updating application state based on authentication result
+   * 5. Triggering dependent data loading when authentication succeeds
+   *
+   * Provides user feedback throughout the process with toast notifications
+   * and appropriate error handling.
    */
   const handleAuthenticate = async () => {
     try {

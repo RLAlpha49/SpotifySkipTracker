@@ -1,9 +1,24 @@
-import React from "react";
+/**
+ * Skip Detection Configuration Component
+ *
+ * Provides a specialized interface for configuring how the application
+ * detects and handles skipped tracks in Spotify playback. This component
+ * allows fine-tuning of the core skip tracking functionality that defines
+ * the application's primary purpose.
+ *
+ * Features:
+ * - Skip count threshold adjustment for track removal suggestions
+ * - Analysis timeframe configuration to focus on recent or historical data
+ * - Skip progress percentage threshold with visual slider
+ * - Auto-unlike toggle for automatic Spotify library management
+ * - Detailed explanatory tooltips for each setting
+ *
+ * This component controls the algorithmic aspects of skip detection, allowing
+ * users to customize the sensitivity and behavior of the skip tracking system
+ * to match their listening preferences and habits.
+ */
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
 import {
   FormControl,
   FormDescription,
@@ -12,9 +27,10 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { UseFormReturn } from "react-hook-form";
-import * as z from "zod";
-import { settingsFormSchema } from "./settingsFormSchema";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
   TooltipContent,
@@ -22,13 +38,25 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  HelpCircle,
-  SkipForward,
   Calendar,
+  HelpCircle,
   Percent,
+  SkipForward,
   Trash2,
 } from "lucide-react";
+import React from "react";
+import { UseFormReturn } from "react-hook-form";
+import * as z from "zod";
+import { settingsFormSchema } from "./settingsFormSchema";
 
+/**
+ * Props for the SkipDetectionForm component
+ *
+ * @property form - React Hook Form instance with Zod schema typing
+ * @property skipProgress - Current skip progress threshold percentage
+ * @property setSkipProgress - Function to update skip progress threshold
+ * @property setSettingsChanged - Callback to notify parent component of changes
+ */
 interface SkipDetectionFormProps {
   form: UseFormReturn<z.infer<typeof settingsFormSchema>>;
   skipProgress: number;
@@ -36,6 +64,24 @@ interface SkipDetectionFormProps {
   setSettingsChanged: (changed: boolean) => void;
 }
 
+/**
+ * Skip detection configuration form
+ *
+ * Renders a specialized settings form for configuring how the application
+ * detects and processes skipped tracks. Controls key parameters that
+ * determine when a track is considered skipped and how skips are counted.
+ *
+ * The component combines various input types including number inputs,
+ * a slider for percentage selection, and a toggle switch to provide an
+ * intuitive configuration experience for the skip detection algorithm.
+ *
+ * @param props - Component properties
+ * @param props.form - React Hook Form instance for form state management
+ * @param props.skipProgress - Current percentage threshold for skip detection
+ * @param props.setSkipProgress - Function to update skip progress threshold
+ * @param props.setSettingsChanged - Function to notify parent of form changes
+ * @returns React component for configuring skip detection parameters
+ */
 export function SkipDetectionForm({
   form,
   skipProgress,

@@ -1,7 +1,22 @@
 /**
- * Settings storage module
+ * Application Settings Management System
  *
- * Handles saving and retrieving application settings.
+ * Provides persistence and retrieval of user preferences and application
+ * configuration with smart defaults and validation handling.
+ *
+ * Features:
+ * - Type-safe settings schema with TypeScript interfaces
+ * - Default values for first-time application use
+ * - Persistent storage across application restarts
+ * - Settings reset capability for troubleshooting
+ * - Validation of loaded settings against defaults
+ *
+ * Settings include critical configuration parameters:
+ * - Spotify API credentials and authentication endpoints
+ * - Logging verbosity and retention policies
+ * - Skip detection thresholds and metrics
+ * - Data filtering and display timeframes
+ * - Monitoring behavior and performance settings
  */
 
 import { SettingsSchema } from "@/types/settings";

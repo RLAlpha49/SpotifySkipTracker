@@ -1,7 +1,31 @@
 /**
- * Axios interceptors for Spotify API requests
+ * Spotify API Request Interceptor Service
  *
- * Handles automatic token refresh on 401 responses and other common API scenarios.
+ * This module provides a configured Axios instance with request and response interceptors
+ * specifically designed for Spotify API communication. It handles common API scenarios such as
+ * authentication token management, error handling, request retries, and performance monitoring.
+ *
+ * Features:
+ * - Automatic token refresh on 401 Unauthorized responses
+ * - Request queueing during token refresh
+ * - Intelligent retry with exponential backoff for failed requests
+ * - Request duration tracking for performance monitoring
+ * - Comprehensive error handling and logging
+ * - Timeout management for API requests
+ * - Rate-limiting detection and handling
+ *
+ * This module serves as the foundation for all Spotify API communication,
+ * enhancing reliability and reducing boilerplate code throughout the application.
+ *
+ * Usage:
+ * ```typescript
+ * import spotifyAxios from '@/services/spotify/interceptors';
+ *
+ * // Make API requests using the pre-configured instance
+ * const response = await spotifyAxios.get('/me/player/currently-playing');
+ * ```
+ *
+ * @module SpotifyInterceptors
  */
 
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";

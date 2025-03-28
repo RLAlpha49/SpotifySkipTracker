@@ -1,42 +1,86 @@
-import React, { useState } from "react";
+/**
+ * Track Statistics Analysis Component
+ *
+ * Provides detailed visualization and analysis of track-level listening statistics,
+ * focusing on play counts, completion rates, and skip patterns. This component
+ * offers users insights into their most-played tracks and listening behaviors.
+ *
+ * Features:
+ * - Most played tracks with completion percentage visualization
+ * - Toggle between list and bar chart visualization modes
+ * - Skip rate analysis for frequently skipped tracks
+ * - Play count metrics with artist attribution
+ * - Completion percentage with color-coded indicators
+ * - Loading skeleton state during data retrieval
+ * - Empty state handling for new users
+ *
+ * This component helps users understand their track-specific listening patterns,
+ * including which tracks they listen to most frequently and which they tend
+ * to skip or listen to partially.
+ */
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-  SkipForward,
-  Clock,
-  PlayCircle,
-  Repeat,
-  Check,
-  BarChart,
-  Disc,
-  BarChart3,
-  List,
-} from "lucide-react";
-import { StatisticsData } from "@/types/statistics";
-import { NoDataMessage } from "./NoDataMessage";
-import { formatPercent } from "./utils";
-import {
-  BarChart as RechartsBarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-} from "recharts";
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { StatisticsData } from "@/types/statistics";
+import {
+  BarChart,
+  BarChart3,
+  Check,
+  Clock,
+  Disc,
+  List,
+  PlayCircle,
+  Repeat,
+  SkipForward,
+} from "lucide-react";
+import React, { useState } from "react";
+import {
+  Bar,
+  CartesianGrid,
+  BarChart as RechartsBarChart,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { NoDataMessage } from "./NoDataMessage";
+import { formatPercent } from "./utils";
 
+/**
+ * Props for the TracksTab component
+ *
+ * @property loading - Whether statistics data is currently being loaded
+ * @property statistics - Raw statistics data object or null if unavailable
+ */
 interface TracksTabProps {
   loading: boolean;
   statistics: StatisticsData | null;
 }
 
+/**
+ * Track listening statistics analysis component
+ *
+ * Renders visualizations of track-level listening data, including most played
+ * tracks, completion rates, and skip patterns. Supports both list and chart
+ * visualization modes for different analysis perspectives.
+ *
+ * The component handles three main states:
+ * - Loading state with skeleton placeholders
+ * - Empty state with guidance for new users
+ * - Populated state with track statistics visualizations
+ *
+ * @param props - Component properties
+ * @param props.loading - Whether data is being loaded
+ * @param props.statistics - Complete statistics data object
+ * @returns React component with track statistics visualizations
+ */
 export function TracksTab({ loading, statistics }: TracksTabProps) {
   // Add state for chart types
   const [mostPlayedChartType, setMostPlayedChartType] = useState<
@@ -125,14 +169,34 @@ export function TracksTab({ loading, statistics }: TracksTabProps) {
     );
   }
 
-  // Function to determine progress bar color based on completion percentage
+  /**
+   * Determines progress bar color based on track completion percentage
+   *
+   * Maps completion percentage to appropriate colors to provide visual feedback:
+   * - High values (> 90%): Green for complete listening
+   * - Medium values (70-90%): Amber for substantial listening
+   * - Lower values (< 70%): Primary theme color for partial listening
+   *
+   * @param completion - Track completion percentage (0-100)
+   * @returns CSS class string for the progress bar color
+   */
   const getCompletionColor = (completion: number) => {
     if (completion > 90) return "bg-emerald-500";
     if (completion > 70) return "bg-amber-500";
     return "bg-primary";
   };
 
-  // Function to determine text color based on skip rate
+  /**
+   * Determines text color based on track skip rate
+   *
+   * Maps skip rate values to appropriate colors to provide visual feedback:
+   * - Low values (< 20%): Green for rarely skipped tracks
+   * - Medium values (20-50%): Amber for occasionally skipped tracks
+   * - High values (> 50%): Red for frequently skipped tracks
+   *
+   * @param skipRate - Skip rate as a decimal (0-1)
+   * @returns CSS class string for the text color
+   */
   const getSkipRateColor = (skipRate: number) => {
     if (skipRate < 0.2) return "text-emerald-500";
     if (skipRate < 0.5) return "text-amber-500";

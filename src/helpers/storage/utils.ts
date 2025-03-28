@@ -1,12 +1,33 @@
 /**
- * Storage utilities shared across different storage modules
+ * Storage Infrastructure Foundation Module
  *
- * Provides common functionality and path definitions for storage operations.
+ * Provides core storage functionality and utilities that power the entire
+ * application's data persistence layer. This module establishes fundamental
+ * storage infrastructure including:
+ *
+ * - File system path management and standardization
+ * - Directory initialization and structure creation
+ * - Log rotation and archiving mechanisms
+ * - File cleanup and retention policies
+ * - Storage integrity and maintenance operations
+ *
+ * This module is automatically initialized when imported, ensuring that
+ * all required storage directories exist and are properly configured before
+ * any storage operations are performed. It maintains a structured data
+ * directory organization with separate spaces for:
+ *
+ * - Application settings
+ * - Track skip history
+ * - Current and archived logs
+ * - Statistical aggregation data
+ *
+ * The utility functions optimize storage usage by implementing cleanup
+ * strategies that balance data retention with disk space management.
  */
 
 import { app } from "electron";
-import path from "path";
 import fs from "fs";
+import path from "path";
 
 // Initialize application data directories
 export const appDataPath = path.join(app.getPath("userData"), "data");

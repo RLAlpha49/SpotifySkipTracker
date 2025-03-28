@@ -1,16 +1,23 @@
 /**
- * Theme context bridge module
+ * Theme Management Context Bridge
  *
- * Exposes theme-related functionality to the renderer process through Electron's
- * contextBridge API. Creates a 'themeMode' object in the window global scope with
- * methods for theme management.
+ * Securely exposes theme control functionality to the renderer process through
+ * Electron's contextBridge API, maintaining proper process isolation.
  *
- * Available methods:
- * - current: Gets the current theme setting
- * - toggle: Toggles between light and dark mode
- * - dark: Sets dark mode
- * - light: Sets light mode
- * - system: Sets system-dependent theme mode
+ * This module creates a controlled, secure API surface that allows the web-based
+ * renderer to access theme capabilities without compromising security. The exposed
+ * 'themeMode' global object provides a comprehensive interface for theme management
+ * while preventing direct access to Node.js APIs.
+ *
+ * The exposed API enables the renderer to:
+ * - Detect the current theme setting (dark/light/system)
+ * - Toggle between light and dark modes directly
+ * - Force specific theme modes regardless of system settings
+ * - Synchronize with the system's theme preference
+ *
+ * Each method communicates through predefined IPC channels, creating a
+ * secure boundary between renderer and main processes while enabling
+ * seamless theme integration.
  */
 
 import {

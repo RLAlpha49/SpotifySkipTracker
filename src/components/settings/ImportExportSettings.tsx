@@ -1,3 +1,23 @@
+/**
+ * Settings Import/Export Management Component
+ *
+ * Provides functionality for backing up and restoring application settings
+ * through JSON file export and import. This component enables users to save
+ * their configuration, transfer it between devices, or restore from backups.
+ *
+ * Features:
+ * - Export current settings to a timestamped JSON file
+ * - Import settings from previously exported JSON files
+ * - Validation of imported settings data structure
+ * - User feedback through toast notifications
+ * - Descriptive tooltips explaining each action's purpose
+ *
+ * This component serves as a data management utility, allowing users to
+ * preserve their configuration across devices or application reinstalls.
+ * It handles file operations safely with appropriate error handling and
+ * user feedback.
+ */
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -11,11 +31,33 @@ import { Download, FileJson, HelpCircle, Upload } from "lucide-react";
 import React from "react";
 import { toast } from "sonner";
 
+/**
+ * Props for the ImportExportSettings component
+ *
+ * @property currentSettings - Current application settings object to export
+ * @property onImport - Callback triggered when settings are successfully imported
+ */
 interface ImportExportSettingsProps {
   currentSettings: SettingsSchema;
   onImport: (settings: SettingsSchema) => void;
 }
 
+/**
+ * Settings backup and restore component
+ *
+ * Renders a card with two main actions: exporting current settings to a file
+ * and importing settings from a previously exported file. Handles all the file
+ * operations, validation, and user feedback for these processes.
+ *
+ * The export function creates a timestamped JSON file with properly formatted
+ * settings data. The import function validates incoming settings before applying
+ * them to ensure data integrity.
+ *
+ * @param props - Component properties
+ * @param props.currentSettings - Current settings configuration to export
+ * @param props.onImport - Callback function invoked when settings are imported
+ * @returns React component for settings backup and restore
+ */
 export function ImportExportSettings({
   currentSettings,
   onImport,
@@ -25,6 +67,10 @@ export function ImportExportSettings({
 
   /**
    * Exports current settings to a JSON file
+   *
+   * Creates a formatted JSON file with the current settings and initiates
+   * a download through the browser. The file includes a timestamp to prevent
+   * accidental overwrites when exporting multiple times.
    */
   const handleExport = () => {
     try {
@@ -64,6 +110,13 @@ export function ImportExportSettings({
 
   /**
    * Handles the file selection for import
+   *
+   * Processes the selected JSON file, validates its structure as valid
+   * settings data, and passes it to the parent component if valid.
+   * Provides user feedback via toast notifications for both success
+   * and failure cases.
+   *
+   * @param event - File input change event containing the selected file
    */
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -110,6 +163,9 @@ export function ImportExportSettings({
 
   /**
    * Triggers file selection dialog
+   *
+   * Programmatically clicks the hidden file input element to open
+   * the system file browser for selecting a settings file to import.
    */
   const handleImportClick = () => {
     fileInputRef.current?.click();
@@ -129,7 +185,7 @@ export function ImportExportSettings({
 
       <Card className="border-muted-foreground/20 shadow-sm">
         <CardContent className="p-6">
-          <div className="flex flex-col space-y-4 sm:flex-row sm:space-x-4 sm:space-y-0">
+          <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
             <div className="flex-1">
               <div className="flex items-center space-x-2">
                 <h3 className="text-base font-medium">Export Settings</h3>

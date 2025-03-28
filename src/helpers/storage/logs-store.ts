@@ -1,17 +1,26 @@
 /**
- * Logs storage module
+ * Application Logging System
  *
- * Manages application logs with features for:
- * - Log persistence with level filtering
- * - Log rotation to prevent file size issues
- * - Log retrieval with filtering options
+ * Provides a comprehensive logging infrastructure for tracking application events,
+ * debugging issues, and maintaining audit trails of system activity.
+ *
+ * Key features:
+ * - Hierarchical log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+ * - Configurable log filtering based on user preferences
+ * - Automatic log rotation to prevent excessive file growth
+ * - Log file management with archiving and cleanup
+ * - Log deduplication to reduce storage requirements
+ * - Log retrieval with filtering and pagination options
+ *
+ * The module creates and maintains log files in the user's application data directory,
+ * with the current logs in 'latest.log' and archived logs in date-stamped files.
  */
 
+import { LogLevel } from "@/types/logging";
 import fs from "fs";
 import path from "path";
-import { LogLevel } from "@/types/logging";
-import { logsPath, cleanupOldLogs } from "./utils";
 import { getSettings } from "./settings-store";
+import { cleanupOldLogs, logsPath } from "./utils";
 
 // Latest log file location
 const latestLogPath = path.join(logsPath, "latest.log");

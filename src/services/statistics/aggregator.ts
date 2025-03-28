@@ -1,7 +1,43 @@
 /**
- * Skip data aggregation service
+ * Statistics Aggregation Service
  *
- * Handles aggregation of skip metrics across different time periods and dimensions
+ * This module provides comprehensive data aggregation and analytics functionality
+ * for processing raw listening data into meaningful statistical insights. It forms
+ * the analytical core of the application, transforming raw event data into actionable
+ * insights and visualization-ready datasets.
+ *
+ * Features:
+ * - Multi-dimensional aggregation across time periods (daily, weekly, monthly)
+ * - Artist, track, and genre-level analytics with engagement metrics
+ * - Skip pattern detection and behavior classification
+ * - Temporal analysis of listening habits (time of day, day of week)
+ * - Device usage and context-based analytics (playlists, albums)
+ * - Data normalization and outlier handling for reliable metrics
+ * - Advanced statistical calculations (distributions, moving averages)
+ * - Persistent storage of aggregated results with efficient indexing
+ * - Incremental processing to handle large datasets efficiently
+ *
+ * This module implements several interconnected aggregation pipelines:
+ *
+ * 1. Temporal Aggregation:
+ *    - Daily metrics calculation → Weekly summaries → Monthly trends
+ *    - Time-of-day and day-of-week analysis
+ *    - Moving averages and trend identification
+ *
+ * 2. Entity Aggregation:
+ *    - Artist-level metrics with engagement scoring
+ *    - Track-specific performance analysis
+ *    - Genre and mood categorization and preferences
+ *
+ * 3. Behavioral Analysis:
+ *    - Skip pattern classification (preview, midpoint, near-end)
+ *    - Session analysis (sequential skips, listening sessions)
+ *    - Context awareness (playlist vs. album behavior differences)
+ *
+ * All aggregated data is structured for efficient retrieval by the UI
+ * visualization components and export functionality.
+ *
+ * @module StatisticsAggregation
  */
 
 import { app } from "electron";
@@ -15,7 +51,24 @@ import {
 import { DailyMetrics } from "../../types/statistics";
 
 /**
- * Helper function to safely create a Date object from various timestamp formats
+ * Creates a valid Date object from various timestamp formats
+ *
+ * Safely handles timestamp conversion from multiple possible formats
+ * to a proper Date object, with robust error handling for invalid inputs.
+ * This function manages:
+ * - String timestamps (both ISO format and numeric strings)
+ * - Numeric timestamps (milliseconds since epoch)
+ * - Validation of resulting Date objects
+ *
+ * @param timestamp - Input timestamp in string or number format
+ * @returns Valid Date object or null if parsing fails
+ *
+ * @example
+ * // Create date from ISO string
+ * const date1 = createSafeDate("2023-01-15T14:30:00Z");
+ *
+ * // Create date from numeric timestamp
+ * const date2 = createSafeDate(1673793000000);
  */
 function createSafeDate(timestamp: string | number): Date | null {
   try {
@@ -44,7 +97,13 @@ function createSafeDate(timestamp: string | number): Date | null {
 }
 
 /**
- * Ensures the statistics directory exists
+ * Ensures the statistics storage directory exists
+ *
+ * Creates the required directory structure for storing statistics data
+ * if it doesn't already exist. Uses the application's user data path
+ * to determine the appropriate location following platform conventions.
+ *
+ * @returns Path to the statistics directory
  */
 function ensureStatisticsDir() {
   const statsDir = join(app.getPath("userData"), "data", "statistics");
@@ -53,7 +112,23 @@ function ensureStatisticsDir() {
 }
 
 /**
- * Aggregates daily skip metrics from skipped tracks data
+ * Aggregates daily listening metrics from track skip data
+ *
+ * Processes raw skip events to generate comprehensive daily listening statistics:
+ * 1. Analyzes each track skip event by timestamp
+ * 2. Groups events by calendar day (YYYY-MM-DD)
+ * 3. Categorizes skip types (preview, standard, near-end)
+ * 4. Tracks manual vs. automatic skips
+ * 5. Counts unique tracks and artists per day
+ * 6. Identifies listening patterns like sequential skips
+ * 7. Calculates listening times and peak hours
+ *
+ * The resulting metrics are stored both as a standalone file and
+ * integrated into the main statistics object for dashboard display.
+ *
+ * @example
+ * // Process and update daily metrics
+ * await aggregateDailySkipMetrics();
  */
 export async function aggregateDailySkipMetrics() {
   try {

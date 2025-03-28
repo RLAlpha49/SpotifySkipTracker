@@ -1,7 +1,20 @@
 /**
- * Dashboard Actions component
+ * Dashboard Quick Actions Panel
  *
- * Provides quick action buttons for common tasks on the dashboard.
+ * Provides a centralized interface for performing common operations related to
+ * data management and navigation throughout the application. This component serves
+ * as a command center for user-initiated actions in a consistent card layout.
+ *
+ * Features:
+ * - Data management actions (refresh, export, clear)
+ * - Quick navigation to related sections
+ * - Loading state indicators for asynchronous operations
+ * - Destructive action highlighting for dangerous operations
+ * - Consistent button styling and iconography
+ *
+ * This component is typically displayed in the sidebar of the dashboard layout
+ * and provides context-specific actions related to the user's data and application
+ * workflow.
  */
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +36,16 @@ import {
 } from "lucide-react";
 import React from "react";
 
+/**
+ * Props for the DashboardActions component
+ *
+ * @property onRefreshData - Optional callback for data refresh action
+ * @property onExportData - Optional callback for data export action
+ * @property onClearAll - Optional callback for data clearing action
+ * @property isRefreshing - Whether data refresh operation is in progress
+ * @property isExporting - Whether data export operation is in progress
+ * @property isClearing - Whether data clearing operation is in progress
+ */
 interface DashboardActionsProps {
   onRefreshData?: () => void;
   onExportData?: () => void;
@@ -33,10 +56,28 @@ interface DashboardActionsProps {
 }
 
 /**
- * Component that provides quick action buttons for the dashboard
+ * Dashboard actions component with quick access buttons
  *
- * @param props - Component props
- * @returns Dashboard actions component
+ * Renders a card containing buttons for common dashboard operations
+ * including data management and navigation to related sections.
+ * Each button features an appropriate icon and loading state when
+ * relevant.
+ *
+ * The component handles five primary actions:
+ * 1. Refresh data - Updates dashboard data from the backend
+ * 2. Export statistics - Downloads user statistics in a file
+ * 3. View detailed statistics - Navigates to statistics page
+ * 4. Manage skipped tracks - Navigates to skipped tracks page
+ * 5. Clear all data - Destructive action to reset user data
+ *
+ * @param props - Component properties
+ * @param props.onRefreshData - Handler for data refresh
+ * @param props.onExportData - Handler for data export
+ * @param props.onClearAll - Handler for data clearing
+ * @param props.isRefreshing - Whether refresh operation is running
+ * @param props.isExporting - Whether export operation is running
+ * @param props.isClearing - Whether clear operation is running
+ * @returns React component with action buttons in a card layout
  */
 export function DashboardActions({
   onRefreshData,

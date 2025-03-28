@@ -1,15 +1,42 @@
-import React from "react";
+/**
+ * Spotify Authentication Management Component
+ *
+ * Provides a user interface for handling Spotify API authentication status
+ * and actions. This card visually communicates the current authentication
+ * state and offers appropriate login/logout functionality.
+ *
+ * Features:
+ * - Visual status indicator with color-coding and icons
+ * - Context-aware messaging based on authentication state
+ * - Authentication badge for quick status recognition
+ * - Login button with Spotify branding for OAuth flow initiation
+ * - Logout functionality for session termination
+ * - Responsive design with consistent styling
+ *
+ * The component adapts its display and messaging based on whether
+ * the user is currently authenticated or requires re-authentication,
+ * providing appropriate guidance and actions for each state.
+ */
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  LucideLogIn,
-  LogOut,
-  CheckCircle,
   AlertCircle,
+  CheckCircle,
+  LogOut,
+  LucideLogIn,
   UserCheck,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import React from "react";
 
+/**
+ * Props for the AuthenticationCard component
+ *
+ * @property isAuthenticated - Whether the user is currently authenticated with Spotify
+ * @property needsReauthentication - Whether the user needs to reconnect after logout
+ * @property onLogin - Handler function for initiating Spotify OAuth flow
+ * @property onLogout - Handler function for terminating the Spotify session
+ */
 interface AuthenticationCardProps {
   isAuthenticated: boolean;
   needsReauthentication: boolean;
@@ -17,6 +44,27 @@ interface AuthenticationCardProps {
   onLogout: () => Promise<void>;
 }
 
+/**
+ * Spotify authentication status and control card
+ *
+ * Renders a card component that displays the current authentication
+ * status with Spotify and provides appropriate action buttons. The
+ * component has two main display states:
+ *
+ * 1. Authenticated: Shows connected status with green indicators and logout option
+ * 2. Unauthenticated: Shows disconnected status with red indicators and login button
+ *
+ * The component also adapts its messaging based on whether the user has
+ * previously logged out (needs reauthentication) or is logging in for
+ * the first time.
+ *
+ * @param props - Component properties
+ * @param props.isAuthenticated - Current authentication state
+ * @param props.needsReauthentication - Whether user previously logged out
+ * @param props.onLogin - Function to handle login request
+ * @param props.onLogout - Function to handle logout request
+ * @returns React component for authentication management
+ */
 export function AuthenticationCard({
   isAuthenticated,
   needsReauthentication,

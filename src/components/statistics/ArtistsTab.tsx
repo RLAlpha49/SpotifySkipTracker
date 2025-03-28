@@ -1,9 +1,35 @@
-import React, { useState } from "react";
+/**
+ * Artist Listening Patterns Analysis Component
+ *
+ * Provides detailed visualization and analysis of artist-specific listening patterns,
+ * including play frequency, listening time, and skip behavior. This component
+ * gives users insights into their artist preferences and listening habits.
+ *
+ * Features:
+ * - Top artists by listening time with multiple visualization options
+ * - Artists with highest skip rates and contextual analysis
+ * - Recently discovered artists with timeline information
+ * - Searchable and sortable artist metrics
+ * - Multiple chart types (progress bars, pie charts, bar charts)
+ * - Toggle between different visualization modes
+ * - Loading skeleton state during data retrieval
+ * - Empty state handling for new users
+ *
+ * This component helps users understand their artist preferences, discover
+ * patterns in their listening behavior across different artists, and identify
+ * artists they tend to skip more frequently.
+ */
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -11,48 +37,67 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { StatisticsData } from "@/types/statistics";
 import {
-  Music,
+  BarChart3,
   Clock,
-  User,
-  SkipForward,
-  ThumbsUp,
+  List,
+  Music,
+  PieChart,
+  PlayCircle,
   Search,
+  SkipForward,
   SortAsc,
   Sparkles,
-  PlayCircle,
-  BarChart3,
-  PieChart,
-  List,
+  ThumbsUp,
+  User,
 } from "lucide-react";
-import { StatisticsData } from "@/types/statistics";
-import { NoDataMessage } from "./NoDataMessage";
-import { formatPercent, formatTime } from "./utils";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import React, { useState } from "react";
 import {
-  PieChart as RechartsPieChart,
-  Pie,
-  Cell,
-  Legend as RechartsLegend,
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  LabelList,
+  Pie,
+  Legend as RechartsLegend,
+  PieChart as RechartsPieChart,
   XAxis,
   YAxis,
-  CartesianGrid,
-  LabelList,
 } from "recharts";
-import {
-  ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
+import { NoDataMessage } from "./NoDataMessage";
+import { formatPercent, formatTime } from "./utils";
 
+/**
+ * Props for the ArtistsTab component
+ *
+ * @property loading - Whether statistics data is currently being loaded
+ * @property statistics - Raw statistics data object or null if unavailable
+ */
 interface ArtistsTabProps {
   loading: boolean;
   statistics: StatisticsData | null;
 }
 
+/**
+ * Artist listening statistics analysis component
+ *
+ * Renders visualizations of artist-level listening data, including top artists,
+ * skip patterns, and discovery timelines. Supports searching, sorting, and
+ * multiple visualization modes for different analytical perspectives.
+ *
+ * The component handles three main states:
+ * - Loading state with skeleton placeholders
+ * - Empty state with guidance for new users
+ * - Populated state with artist statistics visualizations
+ *
+ * @param props - Component properties
+ * @param props.loading - Whether data is being loaded
+ * @param props.statistics - Complete statistics data object
+ * @returns React component with artist statistics visualizations
+ */
 export function ArtistsTab({ loading, statistics }: ArtistsTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState("recent");
@@ -146,14 +191,34 @@ export function ArtistsTab({ loading, statistics }: ArtistsTabProps) {
     );
   }
 
-  // Function to get the text color based on skip rate
+  /**
+   * Determines text color based on artist skip rate
+   *
+   * Maps skip rate values to appropriate colors to provide visual feedback:
+   * - Low values (< 30%): Green for artists rarely skipped
+   * - Medium values (30-50%): Amber for artists moderately skipped
+   * - High values (> 50%): Red for artists frequently skipped
+   *
+   * @param skipRate - Skip rate as a decimal (0-1)
+   * @returns CSS class string for the text color
+   */
   const getSkipRateTextColor = (skipRate: number) => {
     if (skipRate < 0.3) return "text-emerald-500";
     if (skipRate < 0.5) return "text-amber-500";
     return "text-rose-500";
   };
 
-  // Function to get the fill color based on skip rate
+  /**
+   * Determines fill color for charts based on artist skip rate
+   *
+   * Maps skip rate values to appropriate semi-transparent colors:
+   * - Low values (< 30%): Emerald green for artists rarely skipped
+   * - Medium values (30-50%): Amber yellow for artists moderately skipped
+   * - High values (> 50%): Rose red for artists frequently skipped
+   *
+   * @param skipRate - Skip rate as a decimal (0-1)
+   * @returns RGBA color string for chart elements
+   */
   const getSkipRateColor = (skipRate: number) => {
     if (skipRate < 0.3) return "rgba(16, 185, 129, 0.8)"; // emerald
     if (skipRate < 0.5) return "rgba(245, 158, 11, 0.8)"; // amber
@@ -219,6 +284,40 @@ export function ArtistsTab({ loading, statistics }: ArtistsTabProps) {
         dark: "hsl(var(--rose-500))",
       },
     },
+  };
+
+  /**
+   * Compares two numeric values based on selected sort direction
+   *
+   * Used for sorting artists by various metrics (plays, listening time, etc.)
+   * in either ascending or descending order based on user selection.
+   *
+   * @param valA - First value to compare
+   * @param valB - Second value to compare
+   * @returns Negative number if A should come before B, positive if B before A
+   */
+  const compare = (valA: number, valB: number) => {
+    const isAsc = sortDirection === "asc";
+    if (valA < valB) return isAsc ? -1 : 1;
+    if (valA > valB) return isAsc ? 1 : -1;
+    return 0;
+  };
+
+  /**
+   * Determines text color for newly discovered artists based on recency
+   *
+   * Maps discovery position to appropriate colors to highlight recency:
+   * - Recent discoveries (top 3): Emerald green for emphasis
+   * - Moderately recent (4-8): Amber yellow for some emphasis
+   * - Less recent: Default theme color
+   *
+   * @param position - Position in the discovery timeline (1 being most recent)
+   * @returns CSS class string for the text color
+   */
+  const getDiscoveryColor = (position: number) => {
+    if (position <= 3) return "border-violet-400 bg-violet-500/10";
+    if (position <= 8) return "border-violet-300/70 bg-violet-500/5";
+    return "border-violet-200/40 bg-muted/40";
   };
 
   return (
@@ -593,7 +692,7 @@ export function ArtistsTab({ loading, statistics }: ArtistsTabProps) {
             <>
               <div className="mb-4 flex flex-col gap-2 sm:flex-row">
                 <div className="relative flex-1">
-                  <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
+                  <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
                   <Input
                     placeholder="Search artists..."
                     className="flex-1 pl-9"
@@ -648,20 +747,12 @@ export function ArtistsTab({ loading, statistics }: ArtistsTabProps) {
                       discoveryIndex: index, // Higher index = more recently discovered
                     }))
                     .sort((a, b) => {
-                      const isAsc = sortDirection === "asc";
-
-                      // Helper function to handle both ascending and descending
-                      const compare = (valA: number, valB: number) => {
-                        if (valA < valB) return isAsc ? -1 : 1;
-                        if (valA > valB) return isAsc ? 1 : -1;
-                        return 0;
-                      };
-
                       switch (sortField) {
                         case "name":
-                          return isAsc
-                            ? a.artist.name.localeCompare(b.artist.name)
-                            : b.artist.name.localeCompare(a.artist.name);
+                          return compare(
+                            a.artist.name.localeCompare(b.artist.name),
+                            b.artist.name.localeCompare(a.artist.name),
+                          );
                         case "plays":
                           return compare(
                             a.artist.tracksPlayed,
@@ -678,15 +769,6 @@ export function ArtistsTab({ loading, statistics }: ArtistsTabProps) {
                     .map(({ id, artist, discoveryIndex }, index, array) => {
                       // Create a consistent discovery indicator (higher = more recent)
                       const discoveryPosition = discoveryIndex + 1;
-
-                      // Get color based on how recent the discovery is
-                      const getDiscoveryColor = (position: number) => {
-                        if (position >= array.length - 2)
-                          return "border-violet-400 bg-violet-500/10";
-                        if (position >= array.length - 7)
-                          return "border-violet-300/70 bg-violet-500/5";
-                        return "border-violet-200/40 bg-muted/40";
-                      };
 
                       return (
                         <div

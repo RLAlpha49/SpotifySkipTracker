@@ -1,20 +1,47 @@
-import React from "react";
-import { Button } from "@/components/ui/button";
+/**
+ * Skipped Tracks Page Header Component
+ *
+ * Provides the main header section for the Skipped Tracks page with
+ * contextual information about the current analysis parameters and
+ * action buttons for data management and refresh operations.
+ *
+ * Visual elements:
+ * - Page title with distinctive icon
+ * - Analysis timeframe indicator with badge
+ * - Threshold explanation for highlighted tracks
+ * - Utility buttons with tooltips for data operations
+ * - Loading state feedback during refresh operations
+ *
+ * This component serves as both the visual anchor for the page and
+ * the primary interaction point for data operations, providing users
+ * with context about the displayed data and actions they can take.
+ */
 import { Badge } from "@/components/ui/badge";
-import {
-  FolderOpen,
-  RefreshCw,
-  SkipForward,
-  AlertCircle,
-  Calendar,
-} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  AlertCircle,
+  Calendar,
+  FolderOpen,
+  RefreshCw,
+  SkipForward,
+} from "lucide-react";
+import React from "react";
 
+/**
+ * Props for the SkippedTracksHeader component
+ *
+ * @property timeframeInDays - Number of days to consider for skip analysis
+ * @property skipThreshold - Minimum number of skips to highlight tracks for removal
+ * @property loading - Whether data is currently being loaded
+ * @property onRefresh - Handler function to refresh skip data
+ * @property onOpenSkipsDirectory - Handler function to open data directory
+ */
 interface SkippedTracksHeaderProps {
   timeframeInDays: number;
   skipThreshold: number;
@@ -23,6 +50,30 @@ interface SkippedTracksHeaderProps {
   onOpenSkipsDirectory: () => Promise<void>;
 }
 
+/**
+ * Header component for the Skipped Tracks page
+ *
+ * Renders a comprehensive header section with title, contextual
+ * information about current analysis parameters, and action buttons.
+ * Adapts its display for both desktop and mobile viewports.
+ *
+ * Key sections:
+ * - Title area with page heading and skip icon
+ * - Analysis parameters display (timeframe and threshold)
+ * - Action buttons with tooltips for data operations
+ * - Loading state indication during refresh
+ *
+ * The component communicates the current analysis configuration to users
+ * while providing clear actions for data management.
+ *
+ * @param props - Component properties
+ * @param props.timeframeInDays - Analysis window in days
+ * @param props.skipThreshold - Skip count threshold for highlighting
+ * @param props.loading - Whether data refresh is in progress
+ * @param props.onRefresh - Function to handle data refresh
+ * @param props.onOpenSkipsDirectory - Function to open data folder
+ * @returns React component for page header
+ */
 export function SkippedTracksHeader({
   timeframeInDays,
   skipThreshold,
@@ -42,7 +93,7 @@ export function SkippedTracksHeader({
             <Calendar className="h-4 w-4" />
             <span>
               Tracks you&apos;ve skipped within the last{" "}
-              <Badge variant="outline" className="ml-0.5 mr-0.5 font-mono">
+              <Badge variant="outline" className="mr-0.5 ml-0.5 font-mono">
                 {timeframeInDays}
               </Badge>{" "}
               days
@@ -54,7 +105,7 @@ export function SkippedTracksHeader({
               Tracks skipped{" "}
               <Badge
                 variant="outline"
-                className="ml-0.5 mr-0.5 font-mono text-xs"
+                className="mr-0.5 ml-0.5 font-mono text-xs"
               >
                 {skipThreshold}+
               </Badge>{" "}

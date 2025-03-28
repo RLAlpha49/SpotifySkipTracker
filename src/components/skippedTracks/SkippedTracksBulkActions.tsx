@@ -1,15 +1,35 @@
-import React, { lazy, Suspense } from "react";
+/**
+ * Skipped Tracks Bulk Action Controls Component
+ *
+ * Provides centralized controls for performing batch operations on skipped tracks,
+ * including options to clear tracking data or remove multiple tracks at once.
+ * This component serves as the command center for efficient library maintenance.
+ *
+ * Features:
+ * - Summary counts of tracked tracks and highlighted tracks
+ * - Bulk clear data functionality with confirmation dialog
+ * - Bulk remove functionality for tracks exceeding skip thresholds
+ * - Contextual button styling and state management
+ * - Lazy-loaded confirmation dialogs for destructive actions
+ * - Detailed tooltips explaining each action's consequences
+ *
+ * This component enables efficient library management by providing batch operations
+ * for frequently skipped tracks, improving workflow efficiency compared to
+ * individual track operations.
+ */
+
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, XCircle } from "lucide-react";
-import { SkippedTrack } from "@/types/spotify";
-import { shouldSuggestRemoval } from "./utils";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Card, CardContent } from "@/components/ui/card";
+import { SkippedTrack } from "@/types/spotify";
+import { AlertTriangle, XCircle } from "lucide-react";
+import React, { lazy, Suspense } from "react";
+import { shouldSuggestRemoval } from "./utils";
 
 // Lazy load the dialogs
 const ClearDataDialog = lazy(() => import("./dialogs/ClearDataDialog"));
@@ -17,6 +37,20 @@ const RemoveHighlightedDialog = lazy(
   () => import("./dialogs/RemoveHighlightedDialog"),
 );
 
+/**
+ * Props for the SkippedTracksBulkActions component
+ *
+ * @property loading - Whether data operations are currently in progress
+ * @property tracks - Array of skipped track data objects to analyze
+ * @property skipThreshold - Minimum number of skips to highlight tracks for removal
+ * @property timeframeInDays - Number of days to consider for skip analysis
+ * @property showClearDataDialog - Whether the clear data confirmation dialog is visible
+ * @property setShowClearDataDialog - Callback to control clear data dialog visibility
+ * @property showRemoveHighlightedDialog - Whether the remove dialog is visible
+ * @property setShowRemoveHighlightedDialog - Callback to control remove dialog visibility
+ * @property onClearSkippedData - Callback function to execute data clearing
+ * @property onRemoveAllHighlighted - Callback function to execute highlighted track removal
+ */
 interface SkippedTracksBulkActionsProps {
   loading: boolean;
   tracks: SkippedTrack[];
@@ -30,6 +64,33 @@ interface SkippedTracksBulkActionsProps {
   onRemoveAllHighlighted: () => Promise<void>;
 }
 
+/**
+ * Bulk action controls for skipped tracks management
+ *
+ * Renders a card with summary information about tracked tracks and provides
+ * action buttons for bulk operations. Includes dynamically-loaded confirmation
+ * dialogs for destructive operations with appropriate safety mechanisms.
+ *
+ * The component displays:
+ * - Summary of total tracks being tracked
+ * - Count of tracks highlighted for removal
+ * - Button to clear all skip statistics while keeping tracks
+ * - Button to remove all highlighted tracks from library
+ * - Confirmation dialogs for destructive actions
+ *
+ * @param props - Component properties
+ * @param props.loading - Whether operations are in progress
+ * @param props.tracks - Array of tracked tracks
+ * @param props.skipThreshold - Skip threshold for highlighting
+ * @param props.timeframeInDays - Analysis window in days
+ * @param props.showClearDataDialog - Clear data dialog visibility state
+ * @param props.setShowClearDataDialog - Function to toggle clear data dialog
+ * @param props.showRemoveHighlightedDialog - Remove dialog visibility state
+ * @param props.setShowRemoveHighlightedDialog - Function to toggle remove dialog
+ * @param props.onClearSkippedData - Function to handle clearing all data
+ * @param props.onRemoveAllHighlighted - Function to handle removing all highlighted tracks
+ * @returns React component for bulk action controls
+ */
 export function SkippedTracksBulkActions({
   loading,
   tracks,

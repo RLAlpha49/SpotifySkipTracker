@@ -1,7 +1,33 @@
 /**
- * OAuth session management
+ * OAuth Session Management Module
  *
- * Handles browser session data, cookies, and storage for Spotify authentication.
+ * This module handles browser session data related to Spotify authentication,
+ * providing specialized functionality for managing cookies, local storage, and
+ * other persistence mechanisms that affect the authentication state and user
+ * identity within the application.
+ *
+ * Features:
+ * - Targeted cookie management across all Spotify authentication domains
+ * - Comprehensive browser storage cleanup (localStorage, indexedDB, etc.)
+ * - Forced account selection support for multi-user environments
+ * - Granular control over specific authentication persistence artifacts
+ * - Complete session isolation between authentication attempts
+ * - Secure handling of sensitive authentication identifiers
+ * - Detailed logging of session management operations
+ *
+ * The session management functionality is particularly important for:
+ * 1. Supporting multiple Spotify accounts on a single device
+ * 2. Implementing "switch account" functionality without full application restart
+ * 3. Troubleshooting authentication-related issues
+ * 4. Ensuring clean logout for security purposes
+ * 5. Clearing stale authentication data that may cause login problems
+ *
+ * This module works with Electron's session API to provide precise control
+ * over the browser environment used during the OAuth authentication process,
+ * ensuring consistent and predictable authentication behavior regardless of
+ * previous session state.
+ *
+ * @module AuthenticationSessionManager
  */
 
 import { session } from "electron";
@@ -30,7 +56,26 @@ const SPOTIFY_COOKIES = [
 /**
  * Clears all cookies and storage data related to Spotify authentication
  *
- * @returns Promise that resolves when cookies and storage are cleared
+ * Performs a thorough cleaning of browser session data by:
+ * 1. Removing all Spotify-specific cookies across relevant domains
+ * 2. Clearing all storage types (localStorage, indexedDB, etc.)
+ * 3. Ensuring complete session state reset
+ *
+ * This function is particularly important when:
+ * - Implementing "Log in with a different account" functionality
+ * - Ensuring complete logout for security purposes
+ * - Resolving authentication issues caused by stale session data
+ * - Forcing the Spotify account selection screen to appear
+ *
+ * The function handles errors gracefully and logs all actions
+ * for debugging purposes.
+ *
+ * @returns Promise that resolves when all cookies and storage are cleared
+ *
+ * @example
+ * // Force account selection by clearing existing auth data
+ * await clearSpotifyAuthData();
+ * startAuthFlow(mainWindow, clientId, clientSecret, redirectUri, true);
  */
 export async function clearSpotifyAuthData(): Promise<void> {
   try {

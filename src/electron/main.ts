@@ -2,7 +2,15 @@
  * Spotify Skip Tracker - Main Process Entry Point
  *
  * Core module controlling the Electron application lifecycle and coordinating modules.
- * Delegates specific functionality to specialized modules.
+ * Delegates specific functionality to specialized modules for better maintainability.
+ *
+ * Functionality:
+ * - Handles application initialization and shutdown
+ * - Manages window lifecycle events
+ * - Coordinates with Windows installer events
+ * - Initializes extension installation
+ * - Sets up statistics services
+ * - Ensures proper cleanup on application exit
  */
 
 import { app, BrowserWindow } from "electron";

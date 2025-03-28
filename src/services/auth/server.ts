@@ -1,15 +1,40 @@
 /**
- * OAuth callback server implementation
+ * OAuth Callback Server Module
  *
- * Creates a local HTTP server to handle the OAuth callback from Spotify.
- * This server captures the authorization code and exchanges it for access and refresh tokens.
+ * This module implements a specialized HTTP server for handling OAuth 2.0 redirects
+ * from Spotify's authorization service. It captures the authorization code, performs
+ * the token exchange, and provides visual feedback to the user during the authentication
+ * process.
+ *
+ * Features:
+ * - Lightweight, temporary HTTP server with configurable port binding
+ * - Secure validation of OAuth parameters and state verification
+ * - Complete error handling for all authentication failure scenarios
+ * - Automatic code-to-token exchange with Spotify's token endpoint
+ * - User-friendly HTML response pages with intuitive messaging
+ * - Self-cleaning server lifecycle with automatic shutdown
+ * - Proper HTTP protocol compliance with appropriate status codes
+ * - Detailed logging of the authentication process for debugging
+ *
+ * The server plays a critical role in the OAuth flow by:
+ * 1. Providing a redirect target for Spotify's authorization service
+ * 2. Securely capturing and validating the authorization code
+ * 3. Performing the final token exchange to obtain access credentials
+ * 4. Communicating the result back to the main application
+ * 5. Displaying appropriate visual feedback to the user
+ *
+ * This implementation follows OAuth 2.0 best practices for desktop applications,
+ * using the authorization code flow with a local redirect URI to maximize security
+ * while providing a seamless authentication experience.
+ *
+ * @module OAuthCallbackServer
  */
 
+import { AuthTokens, CallbackHandlerOptions } from "@/types/auth";
 import { createServer, Server } from "http";
 import { URL } from "url";
 import { saveLog } from "../../helpers/storage/logs-store";
 import * as spotifyApi from "../spotify";
-import { CallbackHandlerOptions, AuthTokens } from "@/types/auth";
 
 // Current server instance
 let server: Server | null = null;
@@ -17,9 +42,29 @@ let server: Server | null = null;
 /**
  * Creates an HTTP server to handle the OAuth callback
  *
- * @param options Server configuration options
- * @param onSuccess Callback function for successful authentication
- * @param onError Callback function for authentication errors
+ * Establishes a temporary HTTP server that:
+ * 1. Listens on the specified port for the OAuth redirect
+ * 2. Validates incoming requests against the expected redirect path
+ * 3. Extracts the authorization code from query parameters
+ * 4. Exchanges the code for access and refresh tokens
+ * 5. Provides appropriate visual feedback to the user
+ * 6. Notifies the application of success or failure
+ *
+ * The server implements comprehensive error handling for various
+ * failure scenarios (missing code, API errors, user denial) and
+ * automatically shuts down once the authentication process completes.
+ *
+ * @param options - Configuration options including port and redirect URI
+ * @param onSuccess - Callback function called with tokens on successful authentication
+ * @param onError - Callback function called with error details on authentication failure
+ *
+ * @example
+ * // Create a callback server for authentication
+ * createCallbackServer(
+ *   { port: 8888, redirectUri: 'http://localhost:8888/callback' },
+ *   (tokens) => handleSuccessfulAuth(tokens),
+ *   (error) => handleAuthError(error)
+ * );
  */
 export function createCallbackServer(
   options: CallbackHandlerOptions,
@@ -128,6 +173,18 @@ export function createCallbackServer(
 
 /**
  * Shuts down the callback server if it's running
+ *
+ * Safely terminates the HTTP server that was handling OAuth callbacks.
+ * This function is idempotent and can be safely called multiple times,
+ * even if the server is already closed or wasn't started.
+ *
+ * The server is automatically shut down after successful authentication,
+ * but this function can also be called manually to cancel the authentication
+ * process or clean up resources.
+ *
+ * @example
+ * // Close the server when canceling authentication
+ * shutdownServer();
  */
 export function shutdownServer(): void {
   if (server) {
@@ -140,6 +197,17 @@ export function shutdownServer(): void {
 
 /**
  * Generates HTML for the success page shown after successful authentication
+ *
+ * Creates a user-friendly HTML page with Spotify-themed styling that:
+ * - Confirms the authentication was successful
+ * - Instructs the user they can return to the application
+ * - Provides visual feedback with appropriate colors and layout
+ *
+ * This HTML is shown briefly in the browser before the window
+ * is automatically closed by the application.
+ *
+ * @returns Formatted HTML string for the success page
+ * @private Internal function not exported from the module
  */
 function getSuccessHtml(): string {
   return `
@@ -185,6 +253,19 @@ function getSuccessHtml(): string {
 
 /**
  * Generates HTML for the error page shown after failed authentication
+ *
+ * Creates a user-friendly HTML error page that:
+ * - Clearly indicates authentication failure
+ * - Displays the specific error message for troubleshooting
+ * - Provides instructions on how to proceed
+ * - Uses appropriate error styling and visual cues
+ *
+ * This HTML is displayed when any part of the authentication
+ * process fails, giving users visual feedback and next steps.
+ *
+ * @param errorMessage - The specific error message to display
+ * @returns Formatted HTML string for the error page
+ * @private Internal function not exported from the module
  */
 function getErrorHtml(errorMessage: string): string {
   return `

@@ -1,8 +1,21 @@
 /**
- * Artist Summary component
+ * Artist Skip Pattern Analysis Component
  *
- * Displays statistics about artists with the most skipped tracks,
- * including a ranking and skip percentages.
+ * Provides insight into which artists are most frequently skipped during
+ * listening sessions, visualizing skip patterns by artist to help identify
+ * potential music preferences and library optimization opportunities.
+ *
+ * Features:
+ * - Ranked list of most-skipped artists with numeric position
+ * - Visual skip percentage representation with progress bars
+ * - Skip count and track count for quantitative context
+ * - Responsive design for various dashboard positions
+ * - Empty state handling for new users
+ * - Loading skeleton for progressive content display
+ *
+ * This component helps users understand their listening preferences by
+ * artist, highlighting which artists they tend to skip more frequently
+ * and might be candidates for library cleanup or playlist exclusion.
  */
 
 import {
@@ -17,6 +30,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Users } from "lucide-react";
 import React from "react";
 
+/**
+ * Artist skip pattern data structure
+ *
+ * @property id - Unique identifier for the artist
+ * @property name - Artist or group name
+ * @property skipCount - Total number of tracks skipped for this artist
+ * @property trackCount - Total number of tracks played for this artist
+ * @property skipPercentage - Percentage of tracks skipped (0-100)
+ */
 interface ArtistData {
   id: string;
   name: string;
@@ -25,6 +47,13 @@ interface ArtistData {
   skipPercentage: number;
 }
 
+/**
+ * Props for the ArtistSummary component
+ *
+ * @property isLoading - Optional flag indicating if artist data is being loaded
+ * @property artists - Array of artist data objects with skip statistics
+ * @property maxItems - Maximum number of artists to display (default: 5)
+ */
 interface ArtistSummaryProps {
   isLoading?: boolean;
   artists?: ArtistData[];
@@ -32,10 +61,26 @@ interface ArtistSummaryProps {
 }
 
 /**
- * Component to display artist statistics with skip patterns
+ * Artist skip pattern visualization component
  *
- * @param props - Component props
- * @returns Artist summary component
+ * Displays a ranked list of artists whose tracks are most frequently
+ * skipped, with visual representation of skip percentages and counts.
+ * The component provides insights into which artists might be less
+ * preferred in the user's music library.
+ *
+ * The display includes:
+ * - Ranking position (1-N) for quick reference
+ * - Artist name with truncation for long names
+ * - Skip count relative to total play count
+ * - Visual progress bar representing skip percentage
+ * - Numeric skip percentage for precise comparison
+ * - Link to full artist statistics when applicable
+ *
+ * @param props - Component properties
+ * @param props.isLoading - Whether skeleton loading state should display
+ * @param props.artists - Array of artist data to visualize
+ * @param props.maxItems - Maximum number of artists to show
+ * @returns React component with artist skip pattern analysis
  */
 export function ArtistSummary({
   isLoading = false,

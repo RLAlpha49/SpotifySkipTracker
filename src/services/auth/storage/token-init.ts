@@ -1,22 +1,40 @@
 /**
- * Token store initialization
+ * Authentication Token System Initialization Module
  *
- * Handles loading tokens from startup and initializing the token store.
+ * Handles the initial bootstrap process for the authentication token system,
+ * ensuring proper loading of existing tokens and coordination between
+ * various token-related modules.
+ *
+ * Features:
+ * - One-time initialization of the token management system
+ * - Automatic loading of persisted tokens during application startup
+ * - Circular dependency resolution through dynamic imports
+ * - Automatic token refresh for tokens near expiration
+ * - Token expiry validation during initialization
+ * - Automatic refresh scheduling for valid tokens
+ * - Proper token state synchronization across modules
+ * - Comprehensive error handling during initialization
+ *
+ * This module serves as the bootstrap mechanism for the token system,
+ * ensuring that all token-related modules are properly initialized and
+ * configured, and that any existing tokens are loaded and validated.
+ * It also handles the initial token refresh scheduling based on the
+ * loaded token state.
  */
 
+import { AuthTokens } from "@/types/auth";
 import { saveLog } from "../../../helpers/storage/logs-store";
 import * as spotifyApi from "../../spotify";
-import { AuthTokens } from "@/types/auth";
+import { initTokenRefresh } from "./token-refresh";
 import {
   getAccessTokenState,
   getRefreshTokenState,
   getTokenExpiryState,
+  REFRESH_MARGIN,
   setAccessTokenState,
   setRefreshTokenState,
   setTokenExpiryState,
-  REFRESH_MARGIN,
 } from "./token-state";
-import { initTokenRefresh } from "./token-refresh";
 
 // Import setTokens directly to avoid circular dependency
 let setTokens: (tokens: AuthTokens) => void = null as unknown as (
@@ -26,6 +44,34 @@ let setTokens: (tokens: AuthTokens) => void = null as unknown as (
 /**
  * Initializes the token store, loading tokens from persistent storage
  * and scheduling refresh if needed
+ *
+ * Performs the complete token system bootstrap process by:
+ * 1. Dynamically importing token-related modules to resolve circular dependencies
+ * 2. Initializing the token refresh system with proper setTokens reference
+ * 3. Loading existing tokens from storage into memory
+ * 4. Validating token expiration status and determining appropriate action
+ * 5. Refreshing tokens immediately if expired or near expiration
+ * 6. Scheduling future refresh for valid tokens
+ * 7. Synchronizing token state with the Spotify API module
+ *
+ * This function should be called during application startup to ensure
+ * the authentication system is properly initialized before use.
+ *
+ * @returns Promise that resolves when initialization is complete
+ *
+ * @example
+ * // During application startup
+ * import { initTokenStore } from "./auth/storage/token-init";
+ *
+ * async function startApp() {
+ *   await initTokenStore();
+ *   // Now authentication is ready to use
+ *   if (isAuthenticated()) {
+ *     showMainUI();
+ *   } else {
+ *     showLoginScreen();
+ *   }
+ * }
  */
 export async function initTokenStore(): Promise<void> {
   try {

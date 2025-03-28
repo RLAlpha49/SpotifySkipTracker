@@ -1,20 +1,60 @@
 /**
- * Spotify Playback Control
+ * Spotify Playback Control Service
  *
- * Provides functions for controlling and monitoring playback on Spotify.
+ * This module provides comprehensive functionality for controlling and monitoring
+ * Spotify playback, enabling the application to interact with the user's active
+ * playback sessions across devices.
+ *
+ * Features:
+ * - Current playback state monitoring
+ * - Track information retrieval
+ * - Recently played tracks history
+ * - Playback control actions (play, pause, skip)
+ * - Active device management
+ * - Comprehensive error handling for all playback operations
+ * - Automatic token validation before API calls
+ * - Intelligent handling of common playback scenarios
+ *
+ * The playback control module serves as the foundation for the application's
+ * core functionality of monitoring and analyzing user listening behavior,
+ * particularly focusing on skip detection and playback patterns.
+ *
+ * Usage:
+ * ```typescript
+ * import {
+ *   getCurrentPlayback,
+ *   getRecentlyPlayedTracks,
+ *   play,
+ *   pause,
+ *   skipToNext
+ * } from '@/services/spotify/playback';
+ *
+ * // Get current playback
+ * const state = await getCurrentPlayback();
+ * if (state?.is_playing) {
+ *   // User is currently listening to something
+ *   console.log(`Now playing: ${state.item.name}`);
+ * }
+ *
+ * // Control playback
+ * await skipToNext(); // Skip to next track
+ * await pause(); // Pause playback
+ * ```
+ *
+ * @module SpotifyPlayback
  */
 
-import { saveLog } from "../../helpers/storage/logs-store";
-import { API_BASE_URL } from "./constants";
 import {
+  AxiosErrorResponse,
   SpotifyPlaybackState,
   SpotifyRecentlyPlayedResponse,
   SpotifyTrack,
-  AxiosErrorResponse,
 } from "@/types/spotify-api";
-import { ensureValidToken, getAccessToken } from "./token";
+import { saveLog } from "../../helpers/storage/logs-store";
 import { retryApiCall } from "../api-retry";
+import { API_BASE_URL } from "./constants";
 import spotifyAxios from "./interceptors";
+import { ensureValidToken, getAccessToken } from "./token";
 
 /**
  * Gets the user's current playback state

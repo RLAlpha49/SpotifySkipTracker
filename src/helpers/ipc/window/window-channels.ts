@@ -1,9 +1,21 @@
 /**
- * Window control IPC channel constants
+ * Window Control IPC Channel Constants
  *
- * Defines IPC channel names used for window control operations
- * between main and renderer processes. Used consistently in both
- * the listeners (main process) and the context bridge (preload).
+ * Defines standardized channel identifiers for window management operations
+ * in the Electron IPC communication system.
+ *
+ * These constants serve as the communication contract between the main process
+ * (which controls the actual window) and the renderer process (which requests actions).
+ * By centralizing these channel names in a shared module:
+ *
+ * - Both processes can reference identical channel names
+ * - Changes to channel naming only need to be made in one place
+ * - Channel naming follows a consistent pattern (window:action)
+ * - Type safety is maintained across the codebase
+ *
+ * These channels are used by the window-listeners.ts module (main process)
+ * and window-context.ts module (preload script) to establish a secure
+ * communication pathway.
  */
 
 /**

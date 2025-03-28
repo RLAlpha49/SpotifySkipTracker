@@ -1,17 +1,29 @@
 /**
- * Context bridge configuration module
+ * Secure IPC Communication Bridge
  *
- * Establishes secure communication channels between main and renderer processes.
- * Uses Electron's contextBridge API to safely expose main process functionality
- * to the renderer process with proper security boundaries.
+ * Establishes a robust and secure inter-process communication system between
+ * the application's main process (Node.js/Electron) and renderer process (browser).
  *
- * Exposes APIs for:
- * 1. Window management (minimize, maximize, close)
- * 2. Theme management (dark/light mode)
- * 3. Spotify API interaction
- * 4. Application settings and logs
- * 5. Playback monitoring controls
- * 6. Skip statistics services
+ * This module implements the critical security boundary that protects the application
+ * from potential security vulnerabilities while still enabling rich functionality.
+ * It uses Electron's contextBridge API to create controlled, explicit channels
+ * for safe communication across process boundaries.
+ *
+ * Security features:
+ * - Explicit API surface with defined interfaces
+ * - Process isolation with controlled data flow
+ * - No direct Node.js access from renderer
+ * - Type-safe communication contracts
+ * - Sanitized input/output handling
+ *
+ * Exposed functionality domains:
+ * - Window management (minimize, maximize, close)
+ * - Theme control (light/dark mode)
+ * - Spotify API authentication and playback
+ * - Data persistence and retrieval
+ * - Statistics collection and analysis
+ * - File system operations (within safe boundaries)
+ * - Monitoring and event notification
  */
 
 import {

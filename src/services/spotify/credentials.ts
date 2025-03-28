@@ -1,8 +1,28 @@
 /**
- * Spotify API Credentials Management
+ * Spotify API Credentials Manager
  *
- * Handles the management of Spotify API credentials (client ID and secret)
- * that are required for all API operations.
+ * This module handles the secure management of Spotify API credentials (client ID and secret)
+ * required for all API operations. It provides functions for setting, retrieving, and validating
+ * these credentials throughout the application.
+ *
+ * Features:
+ * - Secure in-memory credential storage
+ * - Validation of credential presence
+ * - Error handling for missing credentials
+ * - Protection against invalid or incomplete credentials
+ *
+ * Usage:
+ * ```typescript
+ * import { setCredentials, getCredentials } from '@/services/spotify/credentials';
+ *
+ * // Set credentials once at application startup
+ * setCredentials('your-client-id', 'your-client-secret');
+ *
+ * // Later, credentials can be retrieved when needed
+ * const { clientId, clientSecret } = getCredentials();
+ * ```
+ *
+ * @module SpotifyCredentials
  */
 
 import { saveLog } from "../../helpers/storage/logs-store";

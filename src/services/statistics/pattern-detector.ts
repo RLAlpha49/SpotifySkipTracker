@@ -1,7 +1,38 @@
 /**
  * Skip Pattern Detection Service
  *
- * Analyzes skip data to identify meaningful patterns and insights
+ * This module implements advanced pattern recognition algorithms that analyze
+ * listening and skip behavior to identify meaningful insights about user preferences
+ * and habits. It uses statistical analysis and machine learning techniques to
+ * discover patterns that may not be immediately obvious from raw data.
+ *
+ * Features:
+ * - Multi-dimensional pattern detection across various metrics
+ * - Confidence scoring for identified patterns
+ * - Artist aversion/preference detection
+ * - Temporal pattern recognition (time of day, day of week)
+ * - Context-aware analysis (playlist vs. album behavior)
+ * - Sequential behavior analysis (skip streaks, session patterns)
+ * - Immediate vs. delayed skip classification
+ * - Genre and mood preference identification
+ * - Pattern persistence for trend analysis over time
+ *
+ * The pattern detection engine uses configurable thresholds to identify
+ * statistically significant patterns while filtering out noise. Each pattern
+ * is assigned a confidence score based on:
+ *
+ * 1. Number of unique occurrences
+ * 2. Consistency of the observed behavior
+ * 3. Statistical deviation from baseline behavior
+ * 4. Recency and frequency of observations
+ *
+ * Detected patterns are categorized by type and can be used to:
+ * - Provide personalized insights to users
+ * - Power recommendation systems
+ * - Generate detailed analytics reports
+ * - Identify changing preferences over time
+ *
+ * @module PatternDetection
  */
 
 import { SkippedTrack } from "@/types/spotify";

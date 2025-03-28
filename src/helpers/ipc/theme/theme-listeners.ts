@@ -1,17 +1,25 @@
 /**
- * Theme IPC listener module
+ * Theme Management IPC Handler Implementation
  *
- * Configures IPC handlers in the main process for theme-related operations.
- * Uses Electron's nativeTheme API to control application appearance.
+ * Implements the main process side of theme control, handling requests
+ * from the renderer process to manipulate application appearance settings.
  *
- * Implements handlers for:
- * - Getting current theme mode (dark/light/system)
- * - Toggling between light and dark modes
- * - Setting specific theme modes (dark, light, system)
+ * This module integrates with Electron's nativeTheme API to provide a complete
+ * theme management solution that bridges the gap between operating system
+ * preferences and application-specific theme settings. The implementation:
+ *
+ * - Registers secure IPC handlers for all theme operations
+ * - Maps incoming requests to appropriate nativeTheme API calls
+ * - Implements intelligent theme toggling between light/dark modes
+ * - Provides OS-synchronized theme management through 'system' mode
+ * - Returns current theme states to the renderer when needed
+ *
+ * By centralizing all theme-related handling in this module, the application
+ * maintains a consistent approach to theming while ensuring the security
+ * boundary between processes remains intact.
  */
 
-import { nativeTheme } from "electron";
-import { ipcMain } from "electron";
+import { ipcMain, nativeTheme } from "electron";
 import {
   THEME_MODE_CURRENT_CHANNEL,
   THEME_MODE_DARK_CHANNEL,

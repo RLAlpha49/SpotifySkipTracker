@@ -1,7 +1,31 @@
 /**
- * Track history and recently played tracks management
+ * Playback History Management Module
  *
- * Handles fetching, storing, and processing of track history from Spotify.
+ * Manages comprehensive track history data collection, storage, and analysis
+ * with a focus on track skipping behavior and listening patterns over time.
+ *
+ * Features:
+ * - Detailed skip event recording with rich metadata
+ * - Chronological track history management
+ * - Time-based skip pattern analysis
+ * - Context-aware skip tracking (playlist, album, etc.)
+ * - Skip classification with confidence ratings
+ * - Multi-dimensional history data structures
+ * - Skip event aggregation and trend analysis
+ * - Sophisticated storage management for history data
+ * - Device and session tracking across listening periods
+ *
+ * This module serves as the persistent storage layer for the playback
+ * monitoring system, recording detailed information about skipped tracks
+ * and listening patterns over time. It maintains rich contextual data
+ * that enables sophisticated analytics and insights into user listening
+ * behavior, focusing particularly on skip patterns and preferences.
+ *
+ * The history system captures multiple dimensions of skipping behavior:
+ * - When tracks are skipped (time of day, session context)
+ * - How tracks are skipped (manual vs. automatic, progress percentage)
+ * - Where tracks are skipped (device, playlist, listening context)
+ * - Patterns in skipping (repeat skips, genre preferences, artists)
  */
 
 import { SkippedTrack } from "@/types/spotify";
@@ -18,8 +42,13 @@ interface ExtendedSkippedTrack extends SkippedTrack {
 
 /**
  * Extended SkippedTrack interface that includes skip events
+ *
+ * Comprehensive data structure for tracking detailed information
+ * about skipped tracks, including rich metadata about each skip
+ * event and contextual information about listening patterns.
  */
 interface SkippedTrackWithEvents extends ExtendedSkippedTrack {
+  /** Detailed record of individual skip events with metadata */
   skipEvents?: Array<{
     timestamp: string;
     progress: number;
@@ -32,13 +61,19 @@ interface SkippedTrackWithEvents extends ExtendedSkippedTrack {
       id?: string;
     };
   }>;
+
+  /** Album name for context and grouping */
   album?: string;
+
+  /** Most recent context the track was skipped in */
   lastContext?: {
     type: string;
     uri?: string;
     name?: string;
     id?: string;
   };
+
+  /** Aggregated statistics about contexts track was skipped in */
   contextStats?: {
     total: number;
     contexts: Record<
@@ -51,14 +86,27 @@ interface SkippedTrackWithEvents extends ExtendedSkippedTrack {
       }
     >;
   };
+
+  /** Distribution of skips by hour of day (24-element array) */
   timeOfDayData?: Array<number>;
 }
 
 /**
  * Updates the list of recently played tracks from Spotify
  *
- * Fetches the user's recently played tracks and updates the state
- * to reflect the current listening history.
+ * Fetches the user's recently played tracks from the Spotify API
+ * and updates the application state to reflect the current listening
+ * history. This provides a baseline of listening data for skip detection
+ * and backward navigation identification.
+ *
+ * @returns Promise that resolves when the update is complete
+ *
+ * @example
+ * // Refresh recent tracks history
+ * async function refreshHistory() {
+ *   await updateRecentTracks();
+ *   console.log('Recent tracks history updated from Spotify');
+ * }
  */
 export async function updateRecentTracks(): Promise<void> {
   try {
@@ -94,7 +142,19 @@ export async function updateRecentTracks(): Promise<void> {
 /**
  * Retrieves skipped tracks data from storage
  *
+ * Loads all recorded skipped track data from the application's
+ * persistent storage, providing access to the complete history
+ * of skipped tracks for analysis and display.
+ *
  * @returns Promise resolving to an array of skipped track records
+ *
+ * @example
+ * // Load skipped tracks for display
+ * async function loadSkippedTracks() {
+ *   const tracks = await getSkippedTracks();
+ *   console.log(`Loaded ${tracks.length} skipped tracks from storage`);
+ *   return tracks;
+ * }
  */
 export async function getSkippedTracks(): Promise<SkippedTrack[]> {
   try {
@@ -107,28 +167,67 @@ export async function getSkippedTracks(): Promise<SkippedTrack[]> {
 
 /**
  * Enhanced skipped track information with detailed classification
+ *
+ * Comprehensive data structure for recording a skip event with
+ * detailed contextual information, analysis results, and metadata.
+ * This structure provides the foundation for sophisticated skip
+ * analytics and pattern recognition.
  */
 export interface SkipInfo {
+  /** Spotify track ID */
   id: string;
+
+  /** Track name */
   name: string;
+
+  /** Artist name */
   artist: string;
+
+  /** Album name (optional) */
   album?: string;
+
+  /** Timestamp when skip occurred (milliseconds since epoch) */
   skippedAt: number;
+
+  /** Duration track was played before skipping (milliseconds) */
   playDuration: number;
+
+  /** Total track duration (milliseconds) */
   trackDuration: number;
+
+  /** Percentage of track played before skipping (0.0-1.0) */
   playPercentage: number;
+
+  /** Spotify device ID where skip occurred */
   deviceId?: string;
+
+  /** Spotify device name where skip occurred */
   deviceName?: string;
+
+  /** Classification of skip type (preview, standard, near_end, etc.) */
   skipType: string;
+
+  /** Whether skip appears to be manual vs. automatic */
   isManualSkip: boolean;
+
+  /** Confidence in skip classification (0.0-1.0) */
   confidence: number;
+
+  /** Human-readable explanation of skip classification */
   reason: string;
 
-  // Listening context information
+  /** Listening context information */
   context?: {
-    type: string; // 'playlist', 'album', 'artist', 'collection', 'radio', etc.
+    /** Context type: 'playlist', 'album', 'artist', 'collection', 'radio', etc. */
+    type: string;
+
+    /** Spotify URI of the context */
     uri?: string;
+
+    /** Human-readable name of the context */
     name?: string;
+
+    /** Spotify ID of the context */
     id?: string;
   };
 }
@@ -136,11 +235,61 @@ export interface SkipInfo {
 /**
  * Records a track skip in the application's history
  *
- * @param trackIdOrInfo Track ID or detailed skip info object
+ * Stores detailed information about a skipped track in the application's
+ * persistent storage, including comprehensive metadata about the skip
+ * event. This function supports two parameter styles:
+ *
+ * 1. Complete SkipInfo object with all details
+ * 2. Individual parameters for basic skip recording
+ *
+ * The function implements sophisticated storage logic:
+ * - Merges new skip events with existing skip history
+ * - Updates metadata with each skip occurrence
+ * - Tracks skip patterns over time
+ * - Maintains contextual information about skips
+ * - Handles storage errors gracefully
+ *
+ * @param trackIdOrInfo Track ID or detailed SkipInfo object
  * @param trackName Track name (when using individual parameters)
  * @param artistName Artist name (when using individual parameters)
  * @param skippedAt Timestamp when track was skipped (when using individual parameters)
  * @param progress Progress percentage at which the track was skipped (when using individual parameters)
+ * @returns Promise that resolves when the skip has been recorded
+ *
+ * @example
+ * // Record a skip with detailed information
+ * const skipInfo = {
+ *   id: 'spotify:track:1234567890',
+ *   name: 'Track Name',
+ *   artist: 'Artist Name',
+ *   album: 'Album Name',
+ *   skippedAt: Date.now(),
+ *   playDuration: 45000,
+ *   trackDuration: 180000,
+ *   playPercentage: 0.25,
+ *   deviceName: 'My Device',
+ *   skipType: 'standard',
+ *   isManualSkip: true,
+ *   confidence: 0.85,
+ *   reason: 'Track skipped at 25%, below threshold of 70%',
+ *   context: {
+ *     type: 'playlist',
+ *     name: 'My Playlist',
+ *     id: 'playlist:1234567890'
+ *   }
+ * };
+ *
+ * await recordSkippedTrack(skipInfo);
+ *
+ * @example
+ * // Record a skip with basic information
+ * await recordSkippedTrack(
+ *   'spotify:track:1234567890',  // Track ID
+ *   'Track Name',                // Track name
+ *   'Artist Name',               // Artist name
+ *   Date.now(),                  // Current timestamp
+ *   0.25                         // 25% progress
+ * );
  */
 export async function recordSkippedTrack(
   trackIdOrInfo: string | SkipInfo,

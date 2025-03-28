@@ -1,11 +1,27 @@
 /**
- * Main dashboard layout component
+ * Dashboard Layout System
  *
- * Provides a responsive grid layout for dashboard panels including:
- * - Summary statistics
- * - Recent skipped tracks
- * - Artist statistics
- * - Session overview
+ * Implements a responsive, data-focused layout that presents key application metrics
+ * and visualizations in an organized dashboard format. The component intelligently
+ * adapts between desktop grid and mobile tab-based layouts depending on screen size.
+ *
+ * Layout components:
+ * - Statistics summary panel with key performance indicators
+ * - Recent skipped tracks listing with time and context information
+ * - Artist analysis section showing skip patterns by musician
+ * - Session overview with listening session metrics and duration
+ *
+ * Responsive behavior:
+ * - Desktop: Multi-column grid layout showing all panels simultaneously
+ * - Mobile: Tab-based interface with icon navigation between sections
+ * - Graceful loading states with skeleton placeholders
+ *
+ * Implementation details:
+ * - Uses CSS Grid for desktop layout arrangement
+ * - Implements a tab system for mobile view content organization
+ * - Provides fallback placeholder content when data is not available
+ * - Integrates Lucide icons for consistent visual language
+ * - Features loading skeletons for progressive enhancement
  */
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +29,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart2, Clock, ListMusic, Users } from "lucide-react";
 import React from "react";
 
+/**
+ * Props interface for DashboardLayout component
+ *
+ * @property isLoading - Optional boolean that controls the display of skeleton loading states.
+ *                       When true, placeholder skeletons appear instead of content panels.
+ * @property statisticsSummary - Optional React node for statistics summary content.
+ *                               Displays key metrics and overall usage data.
+ * @property recentTracks - Optional React node for recently skipped tracks listing.
+ *                          Shows chronological list of songs the user has skipped.
+ * @property artistSummary - Optional React node for artist analytics content.
+ *                           Displays statistics grouped by artist/creator.
+ * @property sessionOverview - Optional React node for listening session information.
+ *                             Shows detailed data about user listening patterns.
+ */
 interface DashboardLayoutProps {
   isLoading?: boolean;
   statisticsSummary?: React.ReactNode;
@@ -22,10 +52,19 @@ interface DashboardLayoutProps {
 }
 
 /**
- * Main dashboard layout component
+ * Dashboard layout component for data visualization
  *
- * @param props - Component props
- * @returns Dashboard layout component
+ * Creates a responsive layout system for displaying Spotify listening statistics
+ * and skipped track analytics. Adapts between grid layout (desktop) and
+ * tab-based navigation (mobile) based on viewport size.
+ *
+ * @param props - Component properties
+ * @param props.isLoading - Whether skeleton loading states should be shown
+ * @param props.statisticsSummary - Content for the statistics summary panel
+ * @param props.recentTracks - Content for the recent skipped tracks panel
+ * @param props.artistSummary - Content for the artist statistics panel
+ * @param props.sessionOverview - Content for the listening session panel
+ * @returns Dashboard layout with responsive arrangement of statistics panels
  */
 export function DashboardLayout({
   isLoading = false,

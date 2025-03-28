@@ -1,11 +1,28 @@
 /**
- * Main skipped tracks layout component
+ * Skipped Tracks Analytics Dashboard
  *
- * Provides a responsive layout for the Skipped Tracks page including:
- * - Header with metadata and controls
- * - Bulk actions for track management
- * - Table of skipped tracks with detailed analytics
- * - Filter controls for data visualization
+ * Provides a specialized interface for analyzing, filtering, and managing
+ * the user's skipped track history with powerful data visualization tools.
+ * This layout prioritizes data exploration while maintaining responsiveness.
+ *
+ * Key functional areas:
+ * - Header section with metadata summary and global controls
+ * - Bulk action toolbar for multi-track operations
+ * - Interactive data table with comprehensive track metrics
+ * - Advanced filtering system for data exploration
+ *
+ * Responsive design implementation:
+ * - Desktop: Full-featured layered layout with all tools visible
+ * - Mobile: Tab-based interface prioritizing data visibility
+ * - Context-appropriate controls for each viewport size
+ * - Loading state management with skeleton placeholders
+ *
+ * Technical highlights:
+ * - Conditional rendering based on available data
+ * - Tab interface with icon-based navigation for mobile
+ * - Semantic grouping of related functionality
+ * - Consistent empty states with visual cues
+ * - Clean separation of filtering and data display concerns
  */
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +30,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Filter, ListMusic, Settings, SkipForward } from "lucide-react";
 import React from "react";
 
+/**
+ * Props interface for SkippedTracksLayout component
+ *
+ * @property isLoading - Optional boolean to indicate loading state.
+ *                      When true, displays skeleton placeholders instead of content.
+ * @property header - Optional React node for the page header section.
+ *                    Contains title, summary metrics, and primary controls.
+ * @property bulkActions - Optional React node for batch operations controls.
+ *                        Provides actions that apply to multiple selected tracks.
+ * @property tracksTable - Optional React node for the skipped tracks data table.
+ *                        Displays detailed track information with sorting and selection.
+ * @property filters - Optional React node for advanced filtering controls.
+ *                     Contains timeframe, artist, and playback position filters.
+ */
 interface SkippedTracksLayoutProps {
   isLoading?: boolean;
   header?: React.ReactNode;
@@ -22,10 +53,19 @@ interface SkippedTracksLayoutProps {
 }
 
 /**
- * Main layout component for Skipped Tracks page
+ * Skipped tracks data analysis layout component
  *
- * @param props - Component props
- * @returns SkippedTracksLayout component
+ * Creates a responsive data-focused layout for viewing and managing
+ * skipped track history. Adjusts content organization based on viewport
+ * size to maintain usability across device types.
+ *
+ * @param props - Component properties
+ * @param props.isLoading - Whether to display skeleton loading state
+ * @param props.header - Content for the page header section
+ * @param props.bulkActions - Content for batch operations controls
+ * @param props.tracksTable - Content for the data table section
+ * @param props.filters - Optional content for data filtering controls
+ * @returns SkippedTracksLayout with responsive content arrangement
  */
 export function SkippedTracksLayout({
   isLoading = false,

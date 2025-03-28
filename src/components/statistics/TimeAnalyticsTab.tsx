@@ -1,3 +1,26 @@
+/**
+ * Temporal Listening Patterns Analysis Component
+ *
+ * Provides in-depth visualization and analysis of listening patterns over
+ * different time periods (hourly, daily, monthly). This component enables
+ * users to understand when they listen to music most frequently and how
+ * their listening behaviors vary across different time frames.
+ *
+ * Features:
+ * - Monthly listening activity with comparative visualization
+ * - Daily listening patterns with multi-metric analysis
+ * - Hourly skip rate and listening time distributions
+ * - Multiple visualization options (bar charts, line charts, area charts)
+ * - Toggle between different chart types for various perspectives
+ * - Highlighting of peak listening periods and patterns
+ * - Loading skeleton state during data retrieval
+ * - Empty state handling for new users
+ *
+ * This component provides users with insights into their temporal listening
+ * habits, helping them identify when they listen most, when they tend to
+ * skip more frequently, and how their listening behavior evolves over time.
+ */
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,11 +55,34 @@ import {
 import { NoDataMessage } from "./NoDataMessage";
 import { formatPercent, formatTime } from "./utils";
 
+/**
+ * Props for the TimeAnalyticsTab component
+ *
+ * @property loading - Whether statistics data is currently being loaded
+ * @property statistics - Raw statistics data object or null if unavailable
+ */
 interface TimeAnalyticsTabProps {
   loading: boolean;
   statistics: StatisticsData | null;
 }
 
+/**
+ * Temporal listening patterns analysis component
+ *
+ * Renders visualizations of time-based listening patterns across multiple
+ * time granularities (hourly, daily, monthly). Supports multiple chart types
+ * for each time frame to provide different analytical perspectives.
+ *
+ * The component handles three main states:
+ * - Loading state with skeleton placeholders
+ * - Empty state with guidance for new users
+ * - Populated state with temporal analytics visualizations
+ *
+ * @param props - Component properties
+ * @param props.loading - Whether data is being loaded
+ * @param props.statistics - Complete statistics data object
+ * @returns React component with temporal listening pattern visualizations
+ */
 export function TimeAnalyticsTab({
   loading,
   statistics,
@@ -139,7 +185,16 @@ export function TimeAnalyticsTab({
   today.setHours(0, 0, 0, 0);
   mostRecentDate.setHours(0, 0, 0, 0);
 
-  // For accessing the actual date in the charts
+  /**
+   * Returns a date object for a specific day in the recent history
+   *
+   * Calculates actual calendar dates for chart labels and data points
+   * based on index positions. Creates a consistent 14-day window for
+   * visualization regardless of data availability.
+   *
+   * @param index - Position index in the chart (0-13 for 14-day window)
+   * @returns Date object representing the actual calendar date
+   */
   const getActualDateFromIndex = (index: number) => {
     // Create a new date object 14 days before today, then add the index
     // This gives us a consistent date range regardless of data availability

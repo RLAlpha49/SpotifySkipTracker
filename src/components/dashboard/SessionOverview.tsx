@@ -1,8 +1,22 @@
 /**
- * Session Overview component
+ * Listening Session Analysis Component
  *
- * Displays information about recent listening sessions with key metrics
- * such as duration, tracks played, and skips.
+ * Visualizes the user's recent listening sessions with comprehensive metrics
+ * about duration, track count, and skip behavior. This component provides
+ * insight into listening patterns over time through a chronological display
+ * of session data.
+ *
+ * Features:
+ * - Chronological listing of recent listening sessions
+ * - Key metrics for each session (duration, tracks, skips)
+ * - Today indicator for current-day sessions
+ * - Time formatting for intuitive duration display
+ * - Empty state handling for new users
+ * - Loading skeleton for progressive content display
+ *
+ * This component serves as a timeline of listening activity, helping users
+ * understand their music consumption patterns and identify trends in their
+ * listening behavior across different sessions.
  */
 
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +31,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Calendar, Clock, Music, SkipForward } from "lucide-react";
 import React from "react";
 
+/**
+ * Individual listening session data structure
+ *
+ * @property id - Unique identifier for the session
+ * @property date - ISO date string when the session occurred
+ * @property duration - Length of the session in minutes
+ * @property trackCount - Number of tracks played during the session
+ * @property skipCount - Number of tracks skipped during the session
+ * @property skipPercentage - Percentage of tracks skipped (0-100)
+ */
 interface SessionData {
   id: string;
   date: string;
@@ -26,6 +50,13 @@ interface SessionData {
   skipPercentage: number;
 }
 
+/**
+ * Props for the SessionOverview component
+ *
+ * @property isLoading - Optional flag indicating if session data is being loaded
+ * @property sessions - Array of listening session data objects to display
+ * @property maxItems - Maximum number of sessions to display (default: 3)
+ */
 interface SessionOverviewProps {
   isLoading?: boolean;
   sessions?: SessionData[];
@@ -33,17 +64,36 @@ interface SessionOverviewProps {
 }
 
 /**
- * Component to display recent listening sessions with statistics
+ * Recent listening sessions overview component
  *
- * @param props - Component props
- * @returns Session overview component
+ * Displays a chronological list of the user's most recent listening sessions
+ * with key metrics for each session. Provides visual indicators for today's
+ * sessions and handles both loading and empty states gracefully.
+ *
+ * The component formats dates and durations for easy reading and provides
+ * a link to the full sessions view when more sessions are available than
+ * can be displayed in the limited dashboard space.
+ *
+ * @param props - Component properties
+ * @param props.isLoading - Whether to display skeleton loading state
+ * @param props.sessions - Array of session data to display
+ * @param props.maxItems - Maximum number of sessions to show
+ * @returns React component with recent sessions overview
  */
 export function SessionOverview({
   isLoading = false,
   sessions = [],
   maxItems = 3,
 }: SessionOverviewProps) {
-  // Format date to a readable format
+  /**
+   * Formats ISO date string to user-friendly display format
+   *
+   * Converts raw date strings to a readable format showing
+   * weekday, month, and day (e.g., "Mon, Jan 15").
+   *
+   * @param dateString - ISO date string to format
+   * @returns Formatted date string for display
+   */
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString(undefined, {
@@ -53,7 +103,16 @@ export function SessionOverview({
     });
   };
 
-  // Format duration in minutes
+  /**
+   * Converts minutes to human-readable duration format
+   *
+   * Formats duration values appropriately based on length:
+   * - Less than 60 minutes: "X min"
+   * - 60 minutes or more: "Xh Ym"
+   *
+   * @param minutes - Duration in minutes
+   * @returns Formatted duration string
+   */
   const formatDuration = (minutes: number) => {
     if (minutes < 60) {
       return `${minutes} min`;

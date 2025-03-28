@@ -1,47 +1,84 @@
-import React, { useState } from "react";
+/**
+ * Listening Session Analysis Component
+ *
+ * Provides detailed visualization and analysis of listening sessions,
+ * including duration, device distribution, and skip behavior patterns.
+ * This component gives users insights into their listening habits over time.
+ *
+ * Features:
+ * - Recent listening sessions timeline with detailed metrics
+ * - Device usage distribution with multiple visualization options
+ * - Session duration and skip rate analysis
+ * - Multiple chart types (list, pie chart, progress bars)
+ * - Toggle between different visualization modes
+ * - Loading skeleton state during data retrieval
+ * - Empty state handling for new users
+ *
+ * This component helps users understand when, where, and how they listen
+ * to music, including which devices they prefer and how their listening
+ * behavior varies across different sessions and contexts.
+ */
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-  History,
-  Calendar,
-  Clock,
-  Smartphone,
-  Laptop,
-  Tablet,
-  SkipForward,
-  Repeat,
-  Music2,
-  Timer,
-  Zap,
-  BarChart3,
-  PieChart as PieChartIcon,
-  List,
-  LineChart as LineChartIcon,
-} from "lucide-react";
-import { StatisticsData } from "@/types/statistics";
-import { NoDataMessage } from "./NoDataMessage";
-import { formatPercent, formatTime } from "./utils";
-import {
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  PieChart,
-  Pie,
-  Cell,
-  AreaChart,
-  Area,
-  Legend,
-} from "recharts";
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { StatisticsData } from "@/types/statistics";
+import {
+  BarChart3,
+  Calendar,
+  Clock,
+  History,
+  Laptop,
+  LineChart as LineChartIcon,
+  List,
+  Music2,
+  PieChart as PieChartIcon,
+  Repeat,
+  SkipForward,
+  Smartphone,
+  Tablet,
+  Timer,
+  Zap,
+} from "lucide-react";
+import React, { useState } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { NoDataMessage } from "./NoDataMessage";
+import { formatPercent, formatTime } from "./utils";
 
+/**
+ * Props for the SessionsTab component
+ *
+ * @property loading - Whether statistics data is currently being loaded
+ * @property statistics - Raw statistics data object or null if unavailable
+ * @property recentSessions - Array of processed session data with formatting for display
+ * @property recentSessions[].id - Unique identifier for the session
+ * @property recentSessions[].formattedDate - Human-readable date when session occurred
+ * @property recentSessions[].formattedTime - Human-readable time when session occurred
+ * @property recentSessions[].formattedDuration - Human-readable duration of the session
+ * @property recentSessions[].skipRate - Proportion of tracks skipped in the session (0-1)
+ * @property recentSessions[].trackIds - Array of track IDs played in the session
+ * @property recentSessions[].skippedTracks - Number of tracks skipped in the session
+ * @property recentSessions[].deviceName - Name of device used for the session
+ * @property recentSessions[].deviceType - Type category of device (phone, tablet, computer)
+ */
 interface SessionsTabProps {
   loading: boolean;
   statistics: StatisticsData | null;
@@ -58,6 +95,24 @@ interface SessionsTabProps {
   }>;
 }
 
+/**
+ * Listening session statistics analysis component
+ *
+ * Renders visualizations of session-level listening data, including
+ * timeline of recent sessions, device usage distribution, and session
+ * metrics. Supports multiple visualization modes for different perspectives.
+ *
+ * The component handles three main states:
+ * - Loading state with skeleton placeholders
+ * - Empty state with guidance for new users
+ * - Populated state with session statistics visualizations
+ *
+ * @param props - Component properties
+ * @param props.loading - Whether data is being loaded
+ * @param props.statistics - Complete statistics data object
+ * @param props.recentSessions - Array of processed recent session data
+ * @returns React component with session statistics visualizations
+ */
 export function SessionsTab({
   loading,
   statistics,
@@ -150,14 +205,34 @@ export function SessionsTab({
     );
   }
 
-  // Function to determine color based on skip rate
+  /**
+   * Determines text color based on session skip rate
+   *
+   * Maps skip rate values to appropriate colors to provide visual feedback:
+   * - Low values (< 20%): Green for sessions with few skips
+   * - Medium values (20-40%): Amber for sessions with moderate skips
+   * - High values (> 40%): Red for sessions with frequent skips
+   *
+   * @param skipRate - Skip rate as a decimal (0-1)
+   * @returns CSS class string for the text color
+   */
   const getSkipRateColor = (skipRate: number) => {
     if (skipRate < 0.2) return "text-emerald-500";
     if (skipRate < 0.4) return "text-amber-500";
     return "text-rose-500";
   };
 
-  // Function to get device icon based on type
+  /**
+   * Returns appropriate device icon based on device type
+   *
+   * Maps device type strings to Lucide icon components with appropriate styling:
+   * - Phones/mobile devices: Smartphone icon with sky blue color
+   * - Tablets/iPads: Tablet icon with indigo color
+   * - All other devices: Laptop icon with violet color
+   *
+   * @param deviceType - Device type string (e.g., "phone", "tablet", "computer")
+   * @returns React element containing the appropriate icon component
+   */
   const getDeviceIcon = (deviceType: string) => {
     const type = deviceType.toLowerCase();
     if (type.includes("phone") || type.includes("mobile")) {

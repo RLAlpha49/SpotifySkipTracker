@@ -1,17 +1,50 @@
 /**
- * Spotify API Token Management
+ * Spotify API Token Management Service
  *
- * Handles the management of Spotify API access and refresh tokens,
- * including token storage, validation, and retrieval.
+ * This module provides comprehensive management of Spotify API authentication tokens,
+ * handling all aspects of token lifecycle including storage, validation, retrieval,
+ * and automatic refresh of expired tokens.
+ *
+ * Features:
+ * - Secure in-memory token storage
+ * - Token validation and expiry checking
+ * - Access token auto-refresh using refresh tokens
+ * - Token information retrieval
+ * - Token state management
+ * - Intelligent token refresh scheduling
+ * - Comprehensive error handling for token operations
+ *
+ * This module works closely with the Authentication module to maintain
+ * a valid authentication state throughout the application's lifecycle.
+ *
+ * Usage:
+ * ```typescript
+ * import {
+ *   ensureValidToken,
+ *   getAccessToken,
+ *   refreshAccessToken
+ * } from '@/services/spotify/token';
+ *
+ * // Before making API calls, ensure a valid token
+ * await ensureValidToken();
+ *
+ * // Get the current token for API requests
+ * const token = getAccessToken();
+ *
+ * // Manual token refresh if needed
+ * await refreshAccessToken();
+ * ```
+ *
+ * @module SpotifyTokenManagement
  */
 
+import { SpotifyTokenRefreshResponse } from "@/types/spotify-api";
 import axios from "axios";
 import querystring from "querystring";
 import { saveLog } from "../../helpers/storage/logs-store";
+import { retryApiCall } from "../api-retry";
 import { TOKEN_URL } from "./constants";
 import { ensureCredentialsSet, getCredentials } from "./credentials";
-import { SpotifyTokenRefreshResponse } from "@/types/spotify-api";
-import { retryApiCall } from "../api-retry";
 
 // Token state
 let accessToken: string | null = null;

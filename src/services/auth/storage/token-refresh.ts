@@ -1,17 +1,32 @@
 /**
- * Token refresh service
+ * Token Refresh Management Module
  *
- * Handles refreshing expired tokens and scheduling token refreshes.
+ * Provides automatic access token refresh functionality for the OAuth authentication
+ * system, ensuring continuous API access without requiring user re-authentication.
+ *
+ * Features:
+ * - Proactive token refresh scheduling before expiration
+ * - Automatic token refresh with error handling
+ * - Configurable refresh safety margin for reliable token renewal
+ * - Circular dependency resolution through dependency injection
+ * - Graceful handling of refresh failures
+ * - Automatic timer management with cleanup
+ * - Comprehensive logging of refresh activities
+ * - Integration with Spotify API for token refresh operations
+ *
+ * This module works in concert with the token operations and token state modules,
+ * providing time-based automatic refresh of access tokens using refresh tokens,
+ * which is essential for maintaining long-lived authentication sessions.
  */
 
+import { AuthTokens } from "@/types/auth";
 import { saveLog } from "../../../helpers/storage/logs-store";
 import * as spotifyApi from "../../spotify";
-import { AuthTokens } from "@/types/auth";
 import {
   clearRefreshTimer,
   getRefreshTokenState,
-  setRefreshTimer,
   REFRESH_MARGIN,
+  setRefreshTimer,
 } from "./token-state";
 
 // The function reference to avoid circular dependency
@@ -21,7 +36,21 @@ let scheduleTokenRefreshFnRegistered = false;
 /**
  * Sets the reference to the setTokens function to avoid circular dependency
  *
- * @param setTokensFn The setTokens function
+ * Implements a dependency injection pattern to resolve circular dependencies
+ * between the token refresh and token operations modules. This function
+ * must be called during token system initialization before token refresh
+ * operations can be performed.
+ *
+ * Additionally, this function registers the scheduleTokenRefresh function
+ * with the token-operations module, creating a bidirectional relationship
+ * without direct cyclic imports.
+ *
+ * @param setTokensFn The function to use for storing tokens after refresh
+ *
+ * @example
+ * // During token system initialization
+ * import { setTokens } from "./token-operations";
+ * initTokenRefresh(setTokens);
  */
 export function initTokenRefresh(
   setTokensFn: (tokens: AuthTokens) => void,
@@ -40,7 +69,25 @@ export function initTokenRefresh(
 /**
  * Schedules a token refresh before the current token expires
  *
- * @param expiresIn Seconds until the token expires
+ * Sets up an automatic refresh operation that will execute shortly before
+ * the current access token expires. The exact timing is controlled by
+ * the REFRESH_MARGIN constant, which ensures the token is refreshed with
+ * sufficient time to prevent any authentication gaps.
+ *
+ * This function:
+ * 1. Clears any existing refresh timer to prevent multiple refreshes
+ * 2. Calculates the optimal time to refresh (token expiry - safety margin)
+ * 3. Sets up a timer to execute the refresh at the calculated time
+ * 4. Stores the timer reference for future management
+ *
+ * @param expiresIn Number of seconds until the current token expires
+ *
+ * @example
+ * // Schedule a refresh for a token with 1 hour validity
+ * scheduleTokenRefresh(3600);
+ *
+ * // This will automatically refresh the token 5 minutes before expiry
+ * // (assuming REFRESH_MARGIN is set to 300 seconds)
  */
 export function scheduleTokenRefresh(expiresIn: number): void {
   // Clear any existing timer
@@ -59,7 +106,32 @@ export function scheduleTokenRefresh(expiresIn: number): void {
 /**
  * Refreshes the access token using the refresh token
  *
- * @returns Promise resolving to true if refresh was successful
+ * Performs the complete token refresh operation by:
+ * 1. Retrieving the current refresh token
+ * 2. Exchanging it with Spotify for a new access token
+ * 3. Storing the updated tokens
+ * 4. Scheduling the next refresh based on the new expiry
+ *
+ * This function handles error conditions gracefully and includes fallback
+ * initialization if called before the token system is fully initialized,
+ * making it robust against various calling patterns.
+ *
+ * @returns Promise resolving to true if refresh was successful, false otherwise
+ *
+ * @example
+ * // Manually refresh token when needed
+ * try {
+ *   const success = await refreshAccessToken();
+ *   if (success) {
+ *     console.log("Successfully refreshed access token");
+ *     performApiRequest();
+ *   } else {
+ *     console.error("Failed to refresh token");
+ *     showLoginPrompt();
+ *   }
+ * } catch (error) {
+ *   handleError(error);
+ * }
  */
 export async function refreshAccessToken(): Promise<boolean> {
   try {

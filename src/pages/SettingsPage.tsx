@@ -1,14 +1,34 @@
 /**
- * SettingsPage Component
+ * Application Configuration and Preferences Center
  *
- * Configuration interface for application settings:
- * - Spotify API authentication credentials
- * - Skip detection parameters and thresholds
- * - Log management and retention policies
- * - Application behavior and automation preferences
+ * Centralized system for managing all user-configurable aspects of the application
+ * with real-time validation and safe persistence. Provides granular control over
+ * application behavior while maintaining data integrity and security.
  *
- * Uses Zod schema validation to ensure data integrity before
- * persisting settings to storage.
+ * Configuration domains:
+ * - Spotify API integration with secure credential management
+ * - Skip detection sensitivity and algorithmic parameters
+ * - Logging verbosity, retention policies, and storage limits
+ * - User interface preferences and visual customization
+ * - Automation rules for library management
+ *
+ * Form architecture:
+ * - Schema-validated input with Zod type enforcement
+ * - React Hook Form integration for controlled components
+ * - Contextual validation with real-time feedback
+ * - Sectioned layout for logical grouping of related settings
+ *
+ * Advanced features:
+ * - Import/export functionality for configuration backup
+ * - Settings reset capability with confirmation workflow
+ * - Application restart management for critical setting changes
+ * - Contextual help and documentation for complex options
+ * - Dynamic UI adaptation based on setting interdependencies
+ *
+ * Security considerations:
+ * - Safe credential handling without plaintext exposure
+ * - Validation to prevent harmful configuration combinations
+ * - Change detection to prevent unnecessary persistence
  */
 
 import { ApiCredentialsForm } from "@/components/settings/ApiCredentialsForm";
@@ -106,10 +126,19 @@ export default function SettingsPage() {
   }, [form]);
 
   /**
-   * Determines if settings changes require application restart
+   * Analyzes settings changes to determine restart requirements
    *
-   * @param newSettings - The modified settings to evaluate
-   * @returns Boolean indicating if restart is needed
+   * Evaluates critical configuration changes that require application
+   * restart to take effect properly. Specifically identifies changes to
+   * authentication parameters that affect the Spotify API connection
+   * and cannot be applied dynamically at runtime.
+   *
+   * This ensures proper notification to users when their changes will
+   * require an application restart to fully apply, providing transparency
+   * in the configuration process.
+   *
+   * @param newSettings - The modified settings object to evaluate
+   * @returns Boolean indicating whether restart is required
    */
   const requiresRestart = (newSettings: SettingsSchema): boolean => {
     const currentValues = form.getValues();
@@ -143,9 +172,19 @@ export default function SettingsPage() {
   };
 
   /**
-   * Form submission handler - persists settings and manages restart process
+   * Processes and persists form submission with validation
    *
-   * @param values - Form values from React Hook Form submission
+   * Central handler for settings form submission that:
+   * 1. Merges form values with existing settings
+   * 2. Persists changes to secure storage via IPC
+   * 3. Evaluates restart requirements based on changes
+   * 4. Provides appropriate success/failure feedback
+   * 5. Initiates restart confirmation dialog when needed
+   *
+   * Implements proper error handling with user-friendly notifications
+   * and detailed error logging to help troubleshoot configuration issues.
+   *
+   * @param values - Validated form values from React Hook Form
    */
   async function onSubmit(values: z.infer<typeof settingsFormSchema>) {
     try {
@@ -187,9 +226,19 @@ export default function SettingsPage() {
   }
 
   /**
-   * Handles settings import from file
+   * Processes externally imported settings configuration
    *
-   * @param importedSettings - The settings loaded from an import file
+   * Handles the integration of settings imported from JSON files by:
+   * 1. Validating imported data structure against schema
+   * 2. Extracting relevant configuration parameters
+   * 3. Updating form state with imported values
+   * 4. Persisting changes to application storage
+   * 5. Providing clear success/failure feedback
+   *
+   * Includes validation safeguards to prevent invalid configuration
+   * from corrupting application settings.
+   *
+   * @param importedSettings - Settings object from external import
    */
   const handleImportSettings = async (importedSettings: SettingsSchema) => {
     try {

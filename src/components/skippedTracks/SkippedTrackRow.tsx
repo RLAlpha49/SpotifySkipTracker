@@ -1,29 +1,58 @@
-import React, { lazy, Suspense } from "react";
-import { TableCell, TableRow } from "@/components/ui/table";
+/**
+ * Individual Skipped Track Row Component
+ *
+ * Renders a single track row within the skipped tracks table, displaying comprehensive
+ * track information and skip statistics with appropriate visual styling based on
+ * skip frequency. Highlights tracks that exceed the configured skip threshold.
+ *
+ * Features:
+ * - Conditional styling for tracks that exceed skip thresholds
+ * - Direct link to open tracks in Spotify
+ * - Color-coded skip ratio visualization
+ * - Formatted relative timestamps for skip history
+ * - Contextual warning indicators for tracks suggested for removal
+ * - Dropdown menu with track-specific actions
+ *
+ * This component forms the core visual representation of each tracked song in the
+ * application, combining metadata, statistics, and actionable controls in a cohesive
+ * and informative row display.
+ */
+
 import { Button } from "@/components/ui/button";
-import {
-  MoreVertical,
-  Music,
-  AlertTriangle,
-  Clock,
-  ExternalLink,
-} from "lucide-react";
-import { SkippedTrack } from "@/types/spotify";
-import { calculateSkipRatio, formatDate, getRecentSkipCount } from "./utils";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { TableCell, TableRow } from "@/components/ui/table";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { SkippedTrack } from "@/types/spotify";
+import {
+  AlertTriangle,
+  Clock,
+  ExternalLink,
+  MoreVertical,
+  Music,
+} from "lucide-react";
+import React, { lazy, Suspense } from "react";
+import { calculateSkipRatio, formatDate, getRecentSkipCount } from "./utils";
 
 // Lazy load the track actions menu
 const TrackActionsMenu = lazy(() => import("./TrackActionsMenu"));
 
+/**
+ * Props for the SkippedTrackRow component
+ *
+ * @property track - The skipped track data object to display
+ * @property timeframeInDays - Analysis window in days for recent skip counting
+ * @property shouldSuggestRemoval - Whether this track exceeds the skip threshold
+ * @property onUnlikeTrack - Callback for removing the track from Spotify library
+ * @property onRemoveTrackData - Callback for removing just the track's skip data
+ */
 interface SkippedTrackRowProps {
   track: SkippedTrack;
   timeframeInDays: number;
@@ -32,6 +61,28 @@ interface SkippedTrackRowProps {
   onRemoveTrackData: (track: SkippedTrack) => Promise<void>;
 }
 
+/**
+ * Table row component for an individual skipped track
+ *
+ * Renders a comprehensive view of a single track's skip statistics and metadata
+ * with appropriate styling based on skip frequency. Provides interactive elements
+ * including a Spotify link and dropdown menu for track-specific actions.
+ *
+ * Visual features:
+ * - Highlighted background for tracks exceeding skip threshold
+ * - Warning icon for tracks suggested for removal
+ * - Color-coded skip ratio visualization based on skip percentage
+ * - Formatted timestamp of most recent skip event
+ * - Condensed artist and track information with truncation for long names
+ *
+ * @param props - Component properties
+ * @param props.track - Track data to display
+ * @param props.timeframeInDays - Analysis window in days for recent skips
+ * @param props.shouldSuggestRemoval - Whether this track exceeds the threshold
+ * @param props.onUnlikeTrack - Function to handle track removal from library
+ * @param props.onRemoveTrackData - Function to handle skip data deletion
+ * @returns React component for a single track table row
+ */
 export function SkippedTrackRow({
   track,
   timeframeInDays,
@@ -115,7 +166,7 @@ export function SkippedTrackRow({
           </div>
         </div>
       </TableCell>
-      <TableCell className={`whitespace-nowrap text-right ${bgColor}`}>
+      <TableCell className={`text-right whitespace-nowrap ${bgColor}`}>
         <span
           className={
             shouldSuggestRemoval
@@ -150,7 +201,7 @@ export function SkippedTrackRow({
           </span>
         </div>
       </TableCell>
-      <TableCell className={`whitespace-nowrap text-right ${bgColor}`}>
+      <TableCell className={`text-right whitespace-nowrap ${bgColor}`}>
         <div className="text-muted-foreground flex items-center justify-end gap-1">
           <Clock className="h-3.5 w-3.5" />
           {formatDate(track)}

@@ -1,16 +1,48 @@
 /**
- * Spotify Library Management
+ * Spotify Library Management Service
  *
- * Provides functions for interacting with the user's Spotify library,
- * including checking and manipulating saved tracks.
+ * This module provides functionality for interacting with the user's Spotify library,
+ * focusing on track management operations such as checking saved status, liking,
+ * and unliking tracks.
+ *
+ * Features:
+ * - Check if tracks are saved in the user's library
+ * - Add tracks to the user's library (like/save)
+ * - Remove tracks from the user's library (unlike/unsave)
+ * - Silent operation mode for background checks
+ * - Automatic token validation before API calls
+ * - Comprehensive error handling with optional silent mode
+ * - Automatic retry for API request failures
+ *
+ * The library management functionality is essential for implementing features
+ * such as track favoriting, checking save status in playlists, and synchronizing
+ * local application state with the user's Spotify library.
+ *
+ * Usage:
+ * ```typescript
+ * import {
+ *   isTrackInLibrary,
+ *   likeTrack,
+ *   unlikeTrack
+ * } from '@/services/spotify/library';
+ *
+ * // Check if a track is saved
+ * const isSaved = await isTrackInLibrary('spotify:track:id');
+ *
+ * // Like and unlike tracks
+ * await likeTrack('spotify:track:id');
+ * await unlikeTrack('spotify:track:id');
+ * ```
+ *
+ * @module SpotifyLibrary
  */
 
-import { saveLog } from "../../helpers/storage/logs-store";
-import { API_BASE_URL } from "./constants";
 import { AxiosErrorResponse } from "@/types/spotify-api";
-import { ensureValidToken, getAccessToken } from "./token";
+import { saveLog } from "../../helpers/storage/logs-store";
 import { retryApiCall } from "../api-retry";
+import { API_BASE_URL } from "./constants";
 import spotifyAxios from "./interceptors";
+import { ensureValidToken, getAccessToken } from "./token";
 
 /**
  * Checks if a track is in the user's Spotify library

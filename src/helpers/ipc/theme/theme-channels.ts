@@ -1,9 +1,23 @@
 /**
- * Theme IPC channel constants
+ * Theme Management IPC Channel Constants
  *
- * Defines IPC channel names used for theme-related communication
- * between main and renderer processes. Used consistently in both
- * the listeners (main process) and the context bridge (preload).
+ * Defines standardized channel identifiers for theme control operations
+ * in the Electron IPC communication system.
+ *
+ * These constants establish a clear communication contract between processes
+ * for all theme-related operations. The consistent naming scheme follows the
+ * 'theme-mode:action' pattern, providing a self-documenting API structure.
+ *
+ * Benefits of this centralized definition approach:
+ * - Single source of truth for channel names
+ * - Consistent naming patterns across the codebase
+ * - Type safety through string constants
+ * - Clear separation between different theme operations
+ * - Easy addition of new theme-related channels
+ *
+ * These channels connect the theme-listeners.ts module (main process) with
+ * the theme-context.ts module (preload script) to provide secure theme
+ * management capabilities to the renderer process.
  */
 
 /**

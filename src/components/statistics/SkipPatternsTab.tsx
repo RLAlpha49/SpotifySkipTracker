@@ -1,3 +1,26 @@
+/**
+ * Skip Pattern Detection and Analysis Component
+ *
+ * Provides advanced visualization and analysis of algorithmically detected
+ * patterns in user's track skipping behavior. This component helps users
+ * understand their unconscious listening preferences and behaviors.
+ *
+ * Features:
+ * - Pattern type distribution with multiple visualization options
+ * - Confidence level analysis for detected patterns
+ * - Detailed pattern descriptions with evidence and examples
+ * - Filtering capabilities by pattern type
+ * - Interactive expanding/collapsing of pattern details
+ * - Manual refresh for updated pattern detection
+ * - Multiple chart types (bar charts, pie charts, radial charts)
+ * - Loading skeleton state during data retrieval
+ * - Empty and error state handling
+ *
+ * This component leverages machine learning algorithms to identify meaningful
+ * patterns in skipping behavior, helping users gain deeper insights into their
+ * listening habits that may not be immediately obvious through standard metrics.
+ */
+
 import { formatPercent } from "@/components/statistics";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,12 +70,26 @@ import {
   YAxis,
 } from "recharts";
 
+/**
+ * Props for the SkipPatternsTab component
+ *
+ * @property loading - Whether statistics data is currently being loaded
+ * @property statistics - Raw statistics data object or null if unavailable
+ */
 interface SkipPatternsTabProps {
   loading: boolean;
   statistics: StatisticsData | null;
 }
 
-// Helper function to format dates
+/**
+ * Formats date strings into locale-specific human-readable format
+ *
+ * Converts ISO date strings to formatted dates with month, day and year.
+ * Handles potential parsing errors with a fallback value.
+ *
+ * @param dateStr - Date string to format
+ * @returns Formatted date string or "Unknown date" if parsing fails
+ */
 const formatDate = (dateStr: string): string => {
   try {
     const date = new Date(dateStr);
@@ -66,7 +103,19 @@ const formatDate = (dateStr: string): string => {
   }
 };
 
-// Get icon based on pattern type
+/**
+ * Returns appropriate icon component based on pattern type
+ *
+ * Maps different pattern types to relevant Lucide icon components:
+ * - Artist aversion: User icon
+ * - Time of day: Clock icon
+ * - Context specific: List icon
+ * - Immediate skip: SkipForward icon
+ * - Skip streak: Repeat icon
+ *
+ * @param type - Pattern type identifier string
+ * @returns React element containing the appropriate icon component
+ */
 const getPatternIcon = (type: string) => {
   switch (type) {
     case "artist_aversion":
@@ -84,14 +133,36 @@ const getPatternIcon = (type: string) => {
   }
 };
 
-// Get text color based on confidence
+/**
+ * Determines text color based on pattern confidence level
+ *
+ * Maps confidence values to appropriate colors to provide visual feedback:
+ * - High confidence (≥ 90%): Green for highly reliable patterns
+ * - Medium confidence (80-89%): Amber for moderately reliable patterns
+ * - Lower confidence (< 80%): Slate for patterns requiring more evidence
+ *
+ * @param confidence - Pattern confidence as a decimal (0-1)
+ * @returns CSS class string for the text color
+ */
 const getConfidenceColor = (confidence: number) => {
   if (confidence >= 0.9) return "text-emerald-500";
   if (confidence >= 0.8) return "text-amber-500";
   return "text-slate-500";
 };
 
-// Get fill color based on pattern type
+/**
+ * Determines fill color based on pattern type for chart visualization
+ *
+ * Maps pattern types to consistent colors for unified visualization:
+ * - Artist aversion: Purple
+ * - Time of day: Green
+ * - Context specific: Yellow
+ * - Immediate skip: Orange
+ * - Skip streak: Blue
+ *
+ * @param type - Pattern type identifier string
+ * @returns Hex color code for chart elements
+ */
 const getTypeColor = (type: string) => {
   switch (type) {
     case "artist_aversion":
@@ -109,7 +180,14 @@ const getTypeColor = (type: string) => {
   }
 };
 
-// Add a custom type for the pie chart data with rawType
+/**
+ * Custom type definition for pattern distribution chart data
+ *
+ * @property type - Display-friendly pattern type name (capitalized with spaces)
+ * @property rawType - Original pattern type identifier from the API
+ * @property count - Number of patterns of this type
+ * @property color - Hex color code for visualization
+ */
 type PatternTypeData = {
   type: string;
   rawType: string;
@@ -117,6 +195,23 @@ type PatternTypeData = {
   color: string;
 };
 
+/**
+ * Skip pattern analysis component
+ *
+ * Renders visualizations of algorithmically detected patterns in
+ * skip behavior. Provides multiple chart types, filtering options,
+ * and detailed pattern information with evidence.
+ *
+ * The component handles multiple states:
+ * - Loading state with skeleton placeholders
+ * - Error state with message and retry option
+ * - Empty state for users with insufficient data
+ * - Populated state with pattern visualizations and details
+ *
+ * @param props - Component properties
+ * @param props.loading - Whether main statistics data is being loaded
+ * @returns React component with skip pattern analysis
+ */
 export function SkipPatternsTab({ loading }: SkipPatternsTabProps) {
   const [patterns, setPatterns] = useState<DetectedPattern[]>([]);
   const [patternLoading, setPatternLoading] = useState(true);
@@ -129,31 +224,41 @@ export function SkipPatternsTab({ loading }: SkipPatternsTabProps) {
     "bar" | "radial"
   >("bar");
 
-  // Fetch patterns
-  useEffect(() => {
-    const fetchPatterns = async () => {
-      setPatternLoading(true);
-      try {
-        // Use statisticsAPI instead of spotify
-        const response = await window.statisticsAPI.getSkipPatterns();
-        console.log("Fetched patterns response:", response);
+  /**
+   * Fetches skip pattern data from the API
+   *
+   * Retrieves algorithmically detected patterns through the statistics API.
+   * Handles success, failure, and error states appropriately.
+   * Updates component state with fetched data or error messages.
+   */
+  const fetchPatterns = async () => {
+    setPatternLoading(true);
+    try {
+      // Use statisticsAPI instead of spotify
+      const response = await window.statisticsAPI.getSkipPatterns();
+      console.log("Fetched patterns response:", response);
 
-        if (response.success && response.data) {
-          setPatterns(response.data);
-          setPatternError(null);
-        } else {
-          setPatterns([]);
-          setPatternError(response.error || "Failed to load patterns");
-        }
-      } catch (err) {
-        console.error("Error fetching skip patterns:", err);
-        setPatternError("Failed to load skip patterns");
-        window.spotify.saveLog(`Error fetching skip patterns: ${err}`, "ERROR");
-      } finally {
-        setPatternLoading(false);
+      if (response.success && response.data) {
+        setPatterns(response.data);
+        setPatternError(null);
+      } else {
+        setPatterns([]);
+        setPatternError(response.error || "Failed to load patterns");
       }
-    };
+    } catch (err) {
+      console.error("Error fetching skip patterns:", err);
+      setPatternError("Failed to load skip patterns");
+      window.spotify.saveLog(
+        `Error fetching skip patterns: ${err instanceof Error ? err.message : String(err)}`,
+        "ERROR",
+      );
+    } finally {
+      setPatternLoading(false);
+    }
+  };
 
+  // Fetch patterns on component mount and when refresh is triggered
+  useEffect(() => {
     fetchPatterns();
   }, [refreshTrigger]);
 
@@ -162,7 +267,14 @@ export function SkipPatternsTab({ loading }: SkipPatternsTabProps) {
     setExpandedPattern(expandedPattern === patternId ? null : patternId);
   };
 
-  // Apply filter for pattern type
+  /**
+   * Updates active filter for pattern types
+   *
+   * Controls filtering of patterns by type (artist aversion, time of day, etc.)
+   * Toggles filter off if the same type is selected twice.
+   *
+   * @param type - Pattern type to filter by, or null to clear filter
+   */
   const handleFilterChange = (type: string | null) => {
     setActiveFilter(activeFilter === type ? null : type);
   };
@@ -172,7 +284,14 @@ export function SkipPatternsTab({ loading }: SkipPatternsTabProps) {
     ? patterns.filter((p) => p.type === activeFilter)
     : patterns;
 
-  // Group patterns by type for summary visualization
+  /**
+   * Generates aggregated data for pattern type distribution chart
+   *
+   * Groups patterns by type and formats data for visualization.
+   * Adds display-friendly type names and appropriate colors.
+   *
+   * @returns Array of pattern type distribution data objects for charts
+   */
   const getPatternsByType = () => {
     const groupedPatterns: Record<string, number> = {};
 
@@ -191,7 +310,14 @@ export function SkipPatternsTab({ loading }: SkipPatternsTabProps) {
     }));
   };
 
-  // Get confidence distribution data for chart
+  /**
+   * Generates data for confidence level distribution chart
+   *
+   * Groups patterns by confidence level ranges and formats for visualization.
+   * Maps confidence ranges to appropriate colors based on reliability.
+   *
+   * @returns Array of confidence distribution data objects for charts
+   */
   const getConfidenceDistribution = () => {
     const ranges = [
       { range: "70-75%", count: 0, color: "#d1d5db" }, // Gray
@@ -223,7 +349,14 @@ export function SkipPatternsTab({ loading }: SkipPatternsTabProps) {
   // Generate data for confidence distribution chart
   const confidenceData = getConfidenceDistribution();
 
-  // Get occurrence trend data (when patterns were first detected)
+  /**
+   * Generates data for pattern occurrence trend analysis
+   *
+   * Groups patterns by detection date to show trends over time.
+   * Formats dates and counts for time-series visualization.
+   *
+   * @returns Array of trend data objects for timeline charts
+   */
   const getOccurrenceTrend = () => {
     const patternsToUse = activeFilter ? filteredPatterns : patterns;
     const dateMap: Record<string, number> = {};
@@ -275,7 +408,12 @@ export function SkipPatternsTab({ loading }: SkipPatternsTabProps) {
     },
   };
 
-  // Handle refreshing patterns data
+  /**
+   * Triggers a refresh of pattern data from the API
+   *
+   * Initiates a new API call to retrieve the latest detected patterns.
+   * Updates loading state and increment refresh trigger to re-run effect.
+   */
   const handleRefresh = async () => {
     try {
       setPatternLoading(true);

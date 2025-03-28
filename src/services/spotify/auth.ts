@@ -1,16 +1,39 @@
 /**
- * Spotify API Authentication
+ * Spotify API Authentication Service
  *
- * Handles OAuth 2.0 authentication with Spotify, including authorization URL generation
- * and token exchange.
+ * This module handles the OAuth 2.0 authentication process with Spotify's Web API,
+ * including authorization URL generation, token exchange, and authentication flow management.
+ *
+ * Features:
+ * - OAuth 2.0 authorization code flow implementation
+ * - Authorization URL generation with configurable scopes
+ * - Secure token exchange process
+ * - Automatic token storage upon successful authentication
+ * - Comprehensive error handling during authentication
+ * - Security features including state parameter support
+ *
+ * Usage:
+ * ```typescript
+ * import { getAuthorizationUrl, exchangeCodeForTokens } from '@/services/spotify/auth';
+ *
+ * // Generate the authorization URL for the user to visit
+ * const redirectUri = 'http://localhost:3000/callback';
+ * const scopes = ['user-read-playback-state', 'user-modify-playback-state'];
+ * const authUrl = getAuthorizationUrl(redirectUri, scopes);
+ *
+ * // After redirect, exchange the received code for tokens
+ * const tokens = await exchangeCodeForTokens(code, redirectUri);
+ * ```
+ *
+ * @module SpotifyAuthentication
  */
 
+import { SpotifyTokens } from "@/types/spotify-api";
 import axios from "axios";
 import querystring from "querystring";
 import { saveLog } from "../../helpers/storage/logs-store";
 import { AUTH_URL, TOKEN_URL } from "./constants";
 import { ensureCredentialsSet, getCredentials } from "./credentials";
-import { SpotifyTokens } from "@/types/spotify-api";
 import { setTokens } from "./token";
 
 /**

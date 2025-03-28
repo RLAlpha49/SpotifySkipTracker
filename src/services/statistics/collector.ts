@@ -1,7 +1,28 @@
 /**
- * Skip data collection service
+ * Skip Data Collection Service
  *
- * Handles background collection and aggregation of skip metrics
+ * This module provides automated background collection and scheduling of
+ * statistics aggregation operations at configurable intervals. It manages
+ * the lifecycle of the statistics collection process, ensuring data is
+ * regularly processed without requiring user intervention.
+ *
+ * Features:
+ * - Automated background metrics processing with configurable intervals
+ * - Intelligent scheduling with efficient resource usage
+ * - Manual trigger capability for immediate processing
+ * - Comprehensive logging of aggregation activities
+ * - Graceful error handling with operation continuity
+ * - Coordination of multiple aggregation processes in the correct sequence
+ * - Application state-aware processing that respects system resources
+ *
+ * The collection service orchestrates the entire statistics pipeline by:
+ * 1. Scheduling regular aggregation runs at defined intervals
+ * 2. Managing the initial aggregation on startup
+ * 3. Providing status reporting for the UI
+ * 4. Handling manual refresh requests
+ * 5. Ensuring proper cleanup on shutdown
+ *
+ * @module StatisticsCollection
  */
 
 import { saveLog } from "../../helpers/storage/store";
@@ -18,7 +39,24 @@ let isCollecting = false;
 
 /**
  * Starts the background skip metrics collection service
- * @param intervalMinutes How often to run aggregation (in minutes)
+ *
+ * Initializes and schedules regular background processing of listening data
+ * into statistical aggregations. Runs an immediate aggregation upon startup,
+ * then schedules recurring aggregations at the specified interval.
+ *
+ * The service consolidates all aggregation operations, including:
+ * - Daily metrics processing
+ * - Weekly metrics aggregation
+ * - Artist-specific analytics
+ * - Library-wide statistics
+ * - Time-based pattern analysis
+ *
+ * @param intervalMinutes - How often to run aggregation (in minutes, default: 60)
+ * @returns Promise that resolves when service is started and initial aggregation completes
+ *
+ * @example
+ * // Start collection with 30-minute intervals
+ * await startSkipMetricsCollection(30);
  */
 export async function startSkipMetricsCollection(intervalMinutes = 60) {
   if (isCollecting) {
@@ -51,6 +89,15 @@ export async function startSkipMetricsCollection(intervalMinutes = 60) {
 
 /**
  * Stops the background skip metrics collection service
+ *
+ * Terminates the scheduled background aggregation process and
+ * cleans up resources. This function should be called when the
+ * application is shutting down or when aggregation needs to be
+ * temporarily suspended.
+ *
+ * @example
+ * // Stop collection during application shutdown
+ * stopSkipMetricsCollection();
  */
 export function stopSkipMetricsCollection() {
   if (aggregationInterval) {
@@ -64,6 +111,18 @@ export function stopSkipMetricsCollection() {
 
 /**
  * Checks if the collection service is currently running
+ *
+ * Determines whether the background metrics collection service
+ * is actively running and scheduled. Useful for UI indicators
+ * or to prevent duplicate service initialization.
+ *
+ * @returns True if collection service is active, false otherwise
+ *
+ * @example
+ * // Check collection status before attempting to start
+ * if (!isSkipMetricsCollectionActive()) {
+ *   await startSkipMetricsCollection();
+ * }
  */
 export function isSkipMetricsCollectionActive(): boolean {
   return isCollecting;
@@ -71,6 +130,28 @@ export function isSkipMetricsCollectionActive(): boolean {
 
 /**
  * Manually triggers a metrics aggregation
+ *
+ * Forces an immediate execution of the complete aggregation process
+ * outside of the scheduled interval. Useful for:
+ * - Immediate updates after significant listening activity
+ * - Testing or debugging the aggregation process
+ * - User-requested refresh of statistics
+ *
+ * The function runs the same comprehensive aggregation process as the
+ * scheduled background task but executes immediately and provides
+ * detailed error information if aggregation fails.
+ *
+ * @returns Promise that resolves when aggregation completes
+ * @throws Error if aggregation process fails
+ *
+ * @example
+ * // Trigger manual update with error handling
+ * try {
+ *   await triggerManualAggregation();
+ *   showSuccessMessage();
+ * } catch (error) {
+ *   showErrorMessage(error);
+ * }
  */
 export async function triggerManualAggregation(): Promise<void> {
   try {
@@ -84,8 +165,20 @@ export async function triggerManualAggregation(): Promise<void> {
 }
 
 /**
- * Runs the full aggregation process
- * This is the core function that aggregates all metrics
+ * Runs the complete metrics aggregation process
+ *
+ * Executes the full sequence of aggregation operations in the correct order:
+ * 1. Daily metrics processing - transforms raw events into daily summaries
+ * 2. Weekly metrics aggregation - combines daily data into weekly insights
+ * 3. Artist metrics calculation - analyzes artist-specific listening patterns
+ * 4. Library statistics - computes overall collection metrics
+ * 5. Time pattern analysis - identifies temporal listening behavior
+ *
+ * Each step is logged for monitoring and debugging purposes, with
+ * comprehensive reporting of the data volume processed in each phase.
+ *
+ * @returns Promise that resolves when the full aggregation is complete
+ * @private Internal function not exported from the module
  */
 async function runAggregation(): Promise<void> {
   saveLog("Running skip metrics aggregation", "DEBUG");

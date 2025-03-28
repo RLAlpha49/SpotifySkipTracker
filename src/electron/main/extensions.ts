@@ -2,20 +2,32 @@
  * Development Extensions Module
  *
  * Installs development tools and extensions to facilitate debugging
- * and application testing. Only active in development mode.
+ * and application testing in the Electron environment.
+ *
+ * Features:
+ * - Conditionally loads extensions only in development mode
+ * - Installs React Developer Tools for component inspection
+ * - Provides proper error handling and logging
+ * - Prevents installation in production builds
+ *
+ * Note: This module has no effect in production builds to maintain security and performance.
  */
 
-import { saveLog } from "../../helpers/storage/store";
 import {
   installExtension,
   REACT_DEVELOPER_TOOLS,
 } from "electron-devtools-installer";
+import { saveLog } from "../../helpers/storage/store";
 
 // Environment detection
 const inDevelopment = process.env.NODE_ENV === "development";
 
 /**
  * Installs development tools and extensions
+ *
+ * Conditionally installs Electron DevTools extensions based on the current
+ * environment. Only activates in development mode to avoid unnecessary
+ * overhead in production builds. Logs success or failure for debugging.
  *
  * @returns {Promise<void>} Resolves when extensions are installed or skipped
  */

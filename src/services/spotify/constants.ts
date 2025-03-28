@@ -1,7 +1,16 @@
 /**
  * Spotify API Constants
  *
- * Contains constant values used throughout the Spotify API integration.
+ * This module contains all the constant values used throughout the Spotify API integration.
+ * It centralizes critical configuration values such as endpoints, retry settings, and
+ * required OAuth scopes for consistent use across the application.
+ *
+ * Key Constants:
+ * - API endpoints (auth, token, base API URL)
+ * - Retry configuration for API resilience
+ * - Authentication scopes required for the application's functionality
+ *
+ * @module SpotifyConstants
  */
 
 // API endpoints

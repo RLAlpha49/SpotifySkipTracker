@@ -1,16 +1,34 @@
 /**
- * Renderer process Spotify service
+ * Spotify Renderer Service
  *
- * Provides type-safe interface for IPC communication with the main process
- * to access Spotify API functionality. Handles all renderer-side interactions
- * with Spotify features implemented in the main process.
+ * This module provides a type-safe interface for communication between the renderer
+ * and main processes to access Spotify API functionality. It serves as the bridge
+ * between the application's UI and the underlying Spotify integration.
  *
- * All methods communicate via predefined IPC channels to corresponding
- * main process handlers.
+ * Features:
+ * - Complete Spotify API integration through IPC channels
+ * - Authentication flow management including login/logout
+ * - Real-time playback state monitoring and control
+ * - Track skip detection and history management
+ * - Application settings persistence
+ * - Comprehensive error handling for all API operations
+ * - Type-safe interface with full TypeScript definitions
+ *
+ * This service abstracts away the complexity of Electron's IPC communication,
+ * providing a clean API for components to interact with Spotify functionality
+ * without needing to understand the underlying IPC mechanics or main process
+ * implementation details.
+ *
+ * The service follows a consistent pattern for all methods:
+ * 1. Call the appropriate IPC channel with typed parameters
+ * 2. Handle any errors that occur during communication
+ * 3. Return properly typed responses or sensible defaults on failure
+ *
+ * @module SpotifyRendererService
  */
 
-import { ipcRenderer } from "electron";
 import { SkippedTrack } from "@/types/spotify";
+import { ipcRenderer } from "electron";
 
 /**
  * Spotify API authentication credentials

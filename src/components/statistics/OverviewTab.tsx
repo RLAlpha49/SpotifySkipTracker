@@ -1,23 +1,62 @@
-import React from "react";
+/**
+ * Statistics Overview Dashboard Component
+ *
+ * Provides a high-level summary of the user's listening statistics through
+ * a collection of metric cards displaying key data points. This component
+ * serves as the main landing view for the statistics section, offering
+ * a quick snapshot of listening habits and patterns.
+ *
+ * Features:
+ * - Grid layout of key metric cards with responsive design
+ * - Visual indicators with color coding based on metric values
+ * - Loading skeleton state during data retrieval
+ * - Empty state handling for new users
+ * - Hover effects for improved visual engagement
+ * - Contextual icons for enhanced readability
+ *
+ * This component consolidates the most important statistics in a single view,
+ * allowing users to quickly assess their listening patterns before diving
+ * into more detailed analysis in the specialized tabs.
+ */
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatisticsData } from "@/types/statistics";
 import {
-  Clock,
-  SkipForward,
   Calendar,
+  Clock,
+  Laptop,
   Music,
-  User,
   PlayCircle,
   Repeat,
-  Laptop,
+  SkipForward,
   Sparkles,
   TrendingUp,
+  User,
 } from "lucide-react";
-import { StatisticsData } from "@/types/statistics";
+import React from "react";
 import { NoDataMessage } from "./NoDataMessage";
 import { formatPercent } from "./utils";
 
+/**
+ * Props for the OverviewTab component
+ *
+ * @property loading - Whether statistics data is currently being loaded
+ * @property statistics - Raw statistics data object or null if unavailable
+ * @property statsSummary - Processed summary of key statistics for display
+ * @property statsSummary.totalListeningTime - Total listening time in human-readable format
+ * @property statsSummary.skipRate - Formatted skip rate percentage
+ * @property statsSummary.skipRateValue - Skip rate as a decimal value (0-1)
+ * @property statsSummary.discoveryRate - Formatted percentage of new artists discovered
+ * @property statsSummary.totalTracks - Total number of tracks played
+ * @property statsSummary.totalArtists - Total number of unique artists listened to
+ * @property statsSummary.mostActiveDay - Day of week with most listening activity
+ * @property statsSummary.peakListeningHour - Hour of day with most listening activity
+ * @property statsSummary.recentTracksCount - Number of tracks played recently
+ * @property statsSummary.recentSkipCount - Number of tracks skipped recently
+ * @property statsSummary.recentListeningTime - Recent listening time in human-readable format
+ */
 interface OverviewTabProps {
   loading: boolean;
   statistics: StatisticsData | null;
@@ -36,6 +75,28 @@ interface OverviewTabProps {
   } | null;
 }
 
+/**
+ * Statistics overview dashboard with key metrics
+ *
+ * Renders a grid of metric cards displaying key statistics about the user's
+ * listening habits. Each card focuses on a specific aspect of listening behavior,
+ * such as skip rate, artist diversity, or listening duration.
+ *
+ * The component handles multiple states:
+ * - Loading state with skeleton placeholders
+ * - Empty state with guidance for new users
+ * - Populated state with formatted statistics in visually engaging cards
+ *
+ * Visual elements include color-coded indicators, progress bars, and iconography
+ * to help users quickly interpret the data and identify patterns in their
+ * listening behavior.
+ *
+ * @param props - Component properties
+ * @param props.loading - Whether data is being loaded
+ * @param props.statistics - Complete statistics data object
+ * @param props.statsSummary - Processed summary statistics for display
+ * @returns React component with statistics overview dashboard
+ */
 export function OverviewTab({
   loading,
   statistics,
@@ -70,19 +131,51 @@ export function OverviewTab({
     );
   }
 
-  // Function to determine progress bar color based on value
+  /**
+   * Determines progress bar color based on skip rate value
+   *
+   * Maps skip rate values to appropriate colors for visual feedback:
+   * - Low values (< 30%): Green to indicate healthy listening
+   * - Medium values (30-50%): Amber to indicate moderate skipping
+   * - High values (> 50%): Red to indicate frequent skipping
+   *
+   * @param value - Skip rate as a decimal (0-1)
+   * @returns CSS class string for the progress bar color
+   */
   const getProgressColor = (value: number) => {
     if (value < 0.3) return "bg-emerald-500";
     if (value < 0.5) return "bg-amber-500";
     return "bg-rose-500";
   };
 
+  /**
+   * Determines text color for repeat listening rate
+   *
+   * Maps repeat listening rate values to appropriate colors:
+   * - Low values (< 15%): Default muted color
+   * - Medium values (15-30%): Amber to indicate moderate repetition
+   * - High values (> 30%): Green to indicate significant repetition
+   *
+   * @param value - Repeat rate as a decimal (0-1)
+   * @returns CSS class string for the text color
+   */
   const getRepeatRateColor = (value: number) => {
     if (value < 0.15) return "text-muted-foreground";
     if (value < 0.3) return "text-amber-500";
     return "text-emerald-500";
   };
 
+  /**
+   * Determines text color for artist discovery rate
+   *
+   * Maps discovery rate percentage to appropriate colors:
+   * - Low values (< 10%): Default muted color
+   * - Medium values (10-25%): Amber to indicate moderate discovery
+   * - High values (> 25%): Green to indicate significant discovery
+   *
+   * @param value - Discovery rate as a percentage string
+   * @returns CSS class string for the text color
+   */
   const getDiscoveryColor = (value: string) => {
     const numValue = parseFloat(value);
     if (numValue < 10) return "text-muted-foreground";

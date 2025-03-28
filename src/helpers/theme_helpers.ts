@@ -1,14 +1,24 @@
 /**
- * Theme management module
+ * Application Theme Management System
  *
- * Provides functionality for managing application themes (dark/light mode).
- * Handles user preferences, system theme detection, and synchronization
- * between localStorage and application state.
+ * Provides a sophisticated theme management system with dark/light mode support,
+ * system preference detection, and persistent user preferences across sessions.
  *
- * Supports three theme modes:
- * - "dark": Forces dark mode regardless of system settings
- * - "light": Forces light mode regardless of system settings
- * - "system": Follows the operating system preference
+ * Key features:
+ * - Three theme modes (dark, light, system-matched)
+ * - Local storage persistence of user preferences
+ * - Real-time UI updates without page refresh
+ * - System theme detection and synchronization
+ * - Seamless integration with CSS variables
+ *
+ * The implementation uses a combination of:
+ * - Local storage for preference persistence
+ * - Document class manipulation for real-time CSS changes
+ * - IPC communication with the main process for system theme detection
+ * - Event-driven architecture for theme changes
+ *
+ * This module enables consistent theming across the entire application
+ * while respecting user preferences and system settings.
  */
 
 import { ThemeMode } from "@/types/theme-mode";

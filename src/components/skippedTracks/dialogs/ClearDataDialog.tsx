@@ -1,5 +1,23 @@
-import React from "react";
-import { AlertTriangle, Database, Clock, X, XCircle } from "lucide-react";
+/**
+ * Skip Data Clearing Confirmation Dialog Component
+ *
+ * Provides a specialized confirmation dialog for the operation of clearing all
+ * skip tracking data while preserving the tracks in the user's Spotify library.
+ * This dialog clearly communicates the difference between removing tracks and
+ * just clearing their skip statistics.
+ *
+ * Features:
+ * - Distinct visual styling using amber/warning colors
+ * - Clear explanation of what data will be affected
+ * - Emphasis on tracks remaining in the Spotify library
+ * - Details about the permanent nature of the data deletion
+ * - Contextual information about processing time expectations
+ * - Option to safely cancel the operation
+ *
+ * This component is lazy-loaded to improve initial page load performance,
+ * as it's only needed when users choose to perform data clearing operations.
+ */
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,7 +28,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { AlertTriangle, Clock, Database, X, XCircle } from "lucide-react";
+import React from "react";
 
+/**
+ * Props for the ClearDataDialog component
+ *
+ * @property open - Whether the dialog is currently visible
+ * @property onOpenChange - Callback to control dialog visibility
+ * @property onConfirm - Callback function to execute when clearing is confirmed
+ */
 interface ClearDataDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -18,8 +45,24 @@ interface ClearDataDialogProps {
 }
 
 /**
- * Dialog for confirming clearing all skipped tracks data
- * Lazy loaded to reduce initial bundle size
+ * Confirmation dialog for clearing all skip tracking data
+ *
+ * Renders a detailed confirmation dialog when users attempt to clear all
+ * skip tracking data. Emphasizes that this operation affects only statistics
+ * and not the actual tracks in their Spotify library.
+ *
+ * The dialog uses distinctive amber styling to differentiate it from the more
+ * destructive track removal operations. It clearly explains what will happen
+ * and provides options to proceed or cancel.
+ *
+ * This component is lazy-loaded to reduce initial bundle size, only appearing
+ * when needed for the data clearing operation.
+ *
+ * @param props - Component properties
+ * @param props.open - Whether dialog is visible
+ * @param props.onOpenChange - Function to control dialog visibility
+ * @param props.onConfirm - Function to execute when clearing is confirmed
+ * @returns React component for data clearing confirmation dialog
  */
 export default function ClearDataDialog({
   open,

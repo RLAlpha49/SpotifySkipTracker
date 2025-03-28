@@ -1,6 +1,23 @@
-import React from "react";
+/**
+ * Spotify API Credentials Configuration Component
+ *
+ * Provides a user interface for managing Spotify Developer API authentication
+ * credentials required for application functionality. This component collects
+ * and validates the essential credentials needed to establish connectivity
+ * with the Spotify Web API.
+ *
+ * Features:
+ * - Input fields for Spotify Client ID, Client Secret, and Redirect URI
+ * - Field-specific validation with error messaging
+ * - Contextual help tooltips explaining each credential's purpose
+ * - Direct link to Spotify Developer Dashboard for credential creation
+ * - Real-time change tracking to prompt save actions
+ *
+ * This component handles the most critical configuration aspect of the application,
+ * as valid API credentials are required for all Spotify data access functionality.
+ */
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   FormControl,
   FormDescription,
@@ -9,24 +26,47 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { UseFormReturn } from "react-hook-form";
-import * as z from "zod";
+import { Input } from "@/components/ui/input";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { HelpCircle, KeyRound, AtSign, Link } from "lucide-react";
+import { AtSign, HelpCircle, KeyRound, Link } from "lucide-react";
+import React from "react";
+import { UseFormReturn } from "react-hook-form";
+import * as z from "zod";
 
 // Import the schema from a shared location for consistency
 import { settingsFormSchema } from "./settingsFormSchema";
 
+/**
+ * Props for the ApiCredentialsForm component
+ *
+ * @property form - React Hook Form instance with Zod schema typing
+ * @property setSettingsChanged - Callback to notify parent component of changes
+ */
 interface ApiCredentialsFormProps {
   form: UseFormReturn<z.infer<typeof settingsFormSchema>>;
   setSettingsChanged: (changed: boolean) => void;
 }
 
+/**
+ * Spotify API credentials configuration form
+ *
+ * Renders a card-based form containing input fields for the three essential
+ * Spotify API credentials required for application authentication. Includes
+ * descriptive labels, tooltips, and validation.
+ *
+ * The component tracks changes and notifies the parent component when settings
+ * are modified to enable proper save state management.
+ *
+ * @param props - Component properties
+ * @param props.form - React Hook Form instance for form state management
+ * @param props.setSettingsChanged - Function to notify parent of form changes
+ * @returns React component for managing Spotify API credentials
+ */
 export function ApiCredentialsForm({
   form,
   setSettingsChanged,

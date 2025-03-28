@@ -1,13 +1,25 @@
 /**
- * Main application layout component
+ * Main Application Layout Component
  *
- * Provides consistent layout structure throughout the application with:
- * - Window-draggable header with app title and theme toggle
- * - Scrollable main content area
- * - Fixed bottom navigation with route highlighting
+ * Serves as the primary structural container for the entire application,
+ * establishing a consistent visual hierarchy and navigation system.
  *
- * Uses Electron's app-region CSS properties to enable window dragging
- * in frameless window mode.
+ * Key structural elements:
+ * - App header with application title and theme controls
+ * - Draggable region for frameless window movement
+ * - Scrollable content area with overflow handling
+ * - Persistent bottom navigation bar with active route highlighting
+ *
+ * Accessibility features:
+ * - Semantic HTML structure with proper landmarks
+ * - Focus-visible indicators for keyboard navigation
+ * - Appropriate contrast between content and background
+ *
+ * Technical implementation:
+ * - Uses CSS app-region for Electron window dragging
+ * - Implements TanStack Router integration for navigation
+ * - Lazy-loads theme toggle component for performance
+ * - Provides route matching for navigation state management
  */
 
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -26,7 +38,8 @@ const ToggleTheme = lazy(() => import("@/components/ToggleTheme"));
 /**
  * Props interface for MainLayout component
  *
- * @property children - React nodes to render in the main content area
+ * @property children - React nodes to render in the main content area. These elements
+ *                      will be placed in a scrollable container with proper overflow handling.
  */
 interface MainLayoutProps {
   children: ReactNode;
@@ -35,9 +48,13 @@ interface MainLayoutProps {
 /**
  * Main layout wrapper for the application
  *
+ * Provides the primary structural layout for all pages in the application,
+ * including header, scrollable content area, and bottom navigation.
+ * Handles window dragging and ensures consistent application appearance.
+ *
  * @param props - Component properties
- * @param props.children - Content to render in the main area
- * @returns MainLayout component
+ * @param props.children - Content to render in the main scrollable area
+ * @returns MainLayout component with consistent app structure
  */
 export default function MainLayout({ children }: MainLayoutProps) {
   // Use useMatch to check each route directly

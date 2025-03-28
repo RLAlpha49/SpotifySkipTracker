@@ -1,3 +1,24 @@
+/**
+ * Spotify Playback Monitoring Control Component
+ *
+ * Provides a user interface for controlling and visualizing the status of
+ * Spotify playback monitoring. This component serves as the primary control
+ * center for starting and stopping the monitoring service that detects
+ * skipped tracks and collects listening data.
+ *
+ * Features:
+ * - Real-time monitoring status visualization with color-coded indicators
+ * - Start/stop controls with loading states during transitions
+ * - Detailed status messaging with tooltips for additional information
+ * - Error state handling with descriptive feedback
+ * - Authentication-aware UI that adapts to login state
+ * - Toast notifications for monitoring state changes
+ *
+ * This component is central to the application's core functionality,
+ * as it controls the service responsible for tracking skip patterns
+ * and collecting the data used throughout the analytics features.
+ */
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,8 +39,27 @@ import {
 import React, { useState } from "react";
 import { toast } from "sonner";
 
+/**
+ * Possible states for the playback monitoring service
+ *
+ * @property inactive - Service is not running
+ * @property initializing - Service is starting up
+ * @property active - Service is running normally
+ * @property error - Service encountered an error
+ */
 export type MonitoringStatus = "inactive" | "initializing" | "active" | "error";
 
+/**
+ * Props for the PlaybackMonitoringCard component
+ *
+ * @property isAuthenticated - Whether the user is currently authenticated with Spotify
+ * @property isMonitoring - Whether the monitoring service is currently active
+ * @property onStartMonitoring - Handler function for initiating monitoring
+ * @property onStopMonitoring - Handler function for stopping monitoring
+ * @property monitoringStatus - Current detailed status of the monitoring service
+ * @property statusMessage - Optional status message providing additional context
+ * @property errorDetails - Optional detailed error information when in error state
+ */
 interface PlaybackMonitoringCardProps {
   isAuthenticated: boolean;
   isMonitoring: boolean;
@@ -30,6 +70,28 @@ interface PlaybackMonitoringCardProps {
   errorDetails?: string;
 }
 
+/**
+ * Spotify playback monitoring control card
+ *
+ * Renders a card component that displays the current status of the
+ * monitoring service and provides controls to start or stop it.
+ * The card adapts its display based on authentication state and
+ * current monitoring status to provide contextual controls and messaging.
+ *
+ * The component maintains local loading states during transitions to
+ * provide immediate feedback to users while asynchronous operations
+ * complete, and uses toast notifications to confirm successful actions.
+ *
+ * @param props - Component properties
+ * @param props.isAuthenticated - Whether the user is authenticated
+ * @param props.isMonitoring - Whether monitoring is currently active
+ * @param props.onStartMonitoring - Function to start monitoring
+ * @param props.onStopMonitoring - Function to stop monitoring
+ * @param props.monitoringStatus - Detailed monitoring status
+ * @param props.statusMessage - Optional additional status information
+ * @param props.errorDetails - Optional error details when in error state
+ * @returns React component for monitoring control
+ */
 export function PlaybackMonitoringCard({
   isAuthenticated,
   isMonitoring,
@@ -42,7 +104,13 @@ export function PlaybackMonitoringCard({
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
 
-  // Handle monitoring start with loading state and notifications
+  /**
+   * Initiates monitoring with loading state and user feedback
+   *
+   * Handles the start monitoring process with appropriate loading states
+   * and toast notifications for success or error outcomes. Maintains the
+   * loading state during the asynchronous operation.
+   */
   const handleStartMonitoring = async () => {
     try {
       setIsStarting(true);
@@ -59,7 +127,13 @@ export function PlaybackMonitoringCard({
     }
   };
 
-  // Handle monitoring stop with loading state and notifications
+  /**
+   * Stops monitoring with loading state and user feedback
+   *
+   * Handles the stop monitoring process with appropriate loading states
+   * and toast notifications for success or error outcomes. Maintains the
+   * loading state during the asynchronous operation.
+   */
   const handleStopMonitoring = async () => {
     try {
       setIsStopping(true);
@@ -76,7 +150,15 @@ export function PlaybackMonitoringCard({
     }
   };
 
-  // Get status badge details based on monitoring status
+  /**
+   * Determines badge styling based on current monitoring status
+   *
+   * Returns an object containing the icon, text, and style classes
+   * for the status badge based on the current monitoring status.
+   * Each status has a distinctive color scheme and icon.
+   *
+   * @returns Object with icon, text, and styling for status badge
+   */
   const getStatusBadge = () => {
     switch (monitoringStatus) {
       case "initializing":

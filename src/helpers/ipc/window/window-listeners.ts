@@ -1,13 +1,22 @@
 /**
- * Window control IPC listener module
+ * Window Control IPC Handler Implementation
  *
- * Configures IPC handlers in the main process for window control operations.
- * Uses Electron's BrowserWindow API to manipulate the application window.
+ * Implements the main process side of window management IPC communication,
+ * handling requests from the renderer process to control the application window.
  *
- * Implements handlers for:
- * - Minimizing the application window
- * - Maximizing or restoring the application window
- * - Closing the application window
+ * This module registers handlers for standardized window control operations,
+ * utilizing Electron's BrowserWindow API to manipulate the native window while
+ * maintaining the security boundary between processes. The implementation:
+ *
+ * - Registers secure IPC handlers for each window operation
+ * - Associates each handler with the appropriate BrowserWindow methods
+ * - Adds intelligence like toggling between maximize/restore states
+ * - Provides consistent behavior across platforms
+ * - Ensures window references are properly maintained
+ *
+ * These handlers receive requests through the predefined IPC channels from
+ * window-channels.ts, completing the secure communication pathway from
+ * renderer to main process.
  */
 
 import { BrowserWindow, ipcMain } from "electron";

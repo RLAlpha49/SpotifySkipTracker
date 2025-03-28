@@ -1,19 +1,48 @@
-import React from "react";
+/**
+ * Real-Time Spotify Playback Visualization Component
+ *
+ * Provides a detailed real-time view of the currently playing track on Spotify
+ * with interactive playback controls. Displays complete track metadata with
+ * album artwork, progress tracking, and playback state information.
+ *
+ * Core features:
+ * - Album artwork display with placeholder for missing images
+ * - Track, artist, and album information with appropriate typography
+ * - Interactive progress bar with time display
+ * - Transport controls (play/pause, previous, next)
+ * - Library status indicator (saved/not saved)
+ * - Graceful handling of authentication and monitoring states
+ *
+ * This component serves as the primary interface for monitoring and controlling
+ * Spotify playback, providing users with a complete view of their current listening
+ * session regardless of which device is playing.
+ */
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { PlaybackInfo } from "@/types/spotify";
 import {
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  Music,
   ExternalLink,
   Heart,
+  Music,
+  Pause,
+  Play,
+  SkipBack,
+  SkipForward,
 } from "lucide-react";
-import { PlaybackInfo } from "@/types/spotify";
-import { Badge } from "@/components/ui/badge";
+import React from "react";
 
+/**
+ * Props for the NowPlayingCard component
+ *
+ * @property isAuthenticated - Whether the user is authenticated with Spotify
+ * @property isMonitoring - Whether the application is actively monitoring playback
+ * @property playbackInfo - Current playback information including track metadata
+ * @property onPlayPause - Handler for toggling play/pause state
+ * @property onPreviousTrack - Handler for skipping to previous track
+ * @property onNextTrack - Handler for skipping to next track
+ */
 interface NowPlayingCardProps {
   isAuthenticated: boolean;
   isMonitoring: boolean;
@@ -23,6 +52,21 @@ interface NowPlayingCardProps {
   onNextTrack: () => Promise<void>;
 }
 
+/**
+ * Spotify Now Playing Card Component
+ *
+ * Displays the currently playing Spotify track with artwork, metadata,
+ * playback progress, and transport controls. Adapts its display based on
+ * authentication status and playback state.
+ *
+ * Visual states:
+ * - Full playback display with controls when a track is playing
+ * - Empty state with appropriate messaging when no track is playing
+ * - Disabled state when not authenticated or not monitoring
+ *
+ * @param props - Component properties
+ * @returns React component with current playback information
+ */
 export function NowPlayingCard({
   isAuthenticated,
   isMonitoring,
@@ -32,7 +76,11 @@ export function NowPlayingCard({
   onNextTrack,
 }: NowPlayingCardProps) {
   /**
-   * Formats seconds to MM:SS format
+   * Formats timestamp in seconds to MM:SS display format
+   *
+   * Converts raw second count into a human-readable time format
+   * with minutes and zero-padded seconds for consistent display.
+   * Used for both current position and track duration.
    *
    * @param seconds - Number of seconds to format
    * @returns Formatted time string in MM:SS format
@@ -126,7 +174,7 @@ export function NowPlayingCard({
               </div>
             </div>
             {/* Playback Controls */}
-            <div className="flex items-center justify-center space-x-4 pb-1 pt-3">
+            <div className="flex items-center justify-center space-x-4 pt-3 pb-1">
               <Button
                 variant="outline"
                 size="icon"

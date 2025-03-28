@@ -1,8 +1,24 @@
 /**
- * Persistent storage module for Spotify Skip Tracker
+ * Central Storage Management System
  *
- * This is the main entry point for all storage-related functionality.
- * It re-exports the modularized storage functions from specialized files.
+ * Acts as the primary entry point and facade for all storage-related operations
+ * in the Spotify Skip Tracker application. This module implements a modular
+ * architecture for storage management by:
+ *
+ * - Aggregating specialized storage modules into a unified API
+ * - Providing centralized access to all persistence functions
+ * - Maintaining separation of concerns through modular design
+ * - Simplifying imports through re-exporting of specialized functions
+ *
+ * The storage system handles multiple data types including:
+ * - User settings and preferences
+ * - Skipped tracks and playback history
+ * - Application logs and debugging information
+ * - Statistical aggregations and analysis data
+ *
+ * This unified interface allows the application to interact with various
+ * storage mechanisms through a single, consistent API while maintaining
+ * separation of implementation details.
  */
 
 // Re-export all storage utilities

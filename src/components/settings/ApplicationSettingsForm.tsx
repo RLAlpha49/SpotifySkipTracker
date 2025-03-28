@@ -1,3 +1,24 @@
+/**
+ * General Application Settings Configuration Component
+ *
+ * Provides a comprehensive interface for configuring core application
+ * behavior, including monitoring, polling frequency, theme selection,
+ * and logging parameters. This component controls settings that affect
+ * the overall application experience and performance.
+ *
+ * Features:
+ * - Auto-start monitoring toggle for automatic session tracking
+ * - Polling interval adjustment for Spotify API request frequency
+ * - Logging configuration with level selection and retention policies
+ * - Theme selection for light/dark/system preferences
+ * - Comprehensive tooltips explaining setting implications
+ * - Organized in logical sections with appropriate visual hierarchy
+ *
+ * This component represents the central configuration panel for general
+ * application behavior, affecting system resources, data collection,
+ * and user experience aspects of the application.
+ */
+
 import ToggleTheme from "@/components/ToggleTheme";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -39,11 +60,33 @@ import { UseFormReturn } from "react-hook-form";
 import * as z from "zod";
 import { settingsFormSchema } from "./settingsFormSchema";
 
+/**
+ * Props for the ApplicationSettingsForm component
+ *
+ * @property form - React Hook Form instance with Zod schema typing
+ * @property setSettingsChanged - Callback to notify parent component of changes
+ */
 interface ApplicationSettingsFormProps {
   form: UseFormReturn<z.infer<typeof settingsFormSchema>>;
   setSettingsChanged: (changed: boolean) => void;
 }
 
+/**
+ * General application settings configuration form
+ *
+ * Renders a comprehensive form with controls for core application settings
+ * including monitoring behavior, polling frequency, logging options, and
+ * theme preferences. Groups related settings into visually distinct sections.
+ *
+ * The component uses a combination of switches, select dropdowns, number inputs,
+ * and specialized controls to provide an intuitive configuration experience.
+ * Each setting includes detailed tooltips explaining its purpose and implications.
+ *
+ * @param props - Component properties
+ * @param props.form - React Hook Form instance for form state management
+ * @param props.setSettingsChanged - Function to notify parent of form changes
+ * @returns React component for managing general application settings
+ */
 export function ApplicationSettingsForm({
   form,
   setSettingsChanged,

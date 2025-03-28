@@ -1,4 +1,24 @@
-import React from "react";
+/**
+ * Statistics Data Clearing Confirmation Dialog
+ *
+ * Provides a comprehensive warning and confirmation interface before
+ * permanently deleting all statistics data. This component ensures
+ * users fully understand the consequences of clearing their data through
+ * clear visual cues and explicit descriptions of affected data.
+ *
+ * Features:
+ * - Prominent warning design with danger color palette
+ * - Explicit listing of all data types that will be affected
+ * - Permanent action warning with visual emphasis
+ * - Loading state during data clearing operation
+ * - Confirmation requirements to prevent accidental data loss
+ * - Ability to safely cancel the operation
+ *
+ * This dialog serves as a critical safety mechanism to prevent accidental
+ * loss of valuable usage data and analytics, requiring deliberate user
+ * confirmation before proceeding with destructive data operations.
+ */
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,14 +31,23 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   AlertTriangle,
-  Trash2,
-  X,
-  Shield,
   Clock,
   Database,
   History,
+  Shield,
+  Trash2,
+  X,
 } from "lucide-react";
+import React from "react";
 
+/**
+ * Props for the ClearStatisticsDialog component
+ *
+ * @property open - Whether the dialog is currently visible
+ * @property onOpenChange - Callback to control dialog visibility
+ * @property onClear - Callback function to execute when clearing is confirmed
+ * @property clearing - Whether the clearing operation is currently in progress
+ */
 interface ClearStatisticsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -26,6 +55,26 @@ interface ClearStatisticsDialogProps {
   clearing: boolean;
 }
 
+/**
+ * Confirmation dialog for clearing all statistics data
+ *
+ * Renders a detailed warning dialog when users attempt to clear their
+ * statistics data. Provides comprehensive information about what data
+ * will be affected and requires explicit confirmation due to the
+ * permanent nature of the action.
+ *
+ * The dialog uses distinctive destructive styling with warning colors
+ * and icons to emphasize the irreversible nature of the operation.
+ * It displays a detailed list of data categories that will be removed
+ * and supports a loading state during the clearing process.
+ *
+ * @param props - Component properties
+ * @param props.open - Whether dialog is visible
+ * @param props.onOpenChange - Function to control dialog visibility
+ * @param props.onClear - Function to execute when clearing is confirmed
+ * @param props.clearing - Whether data clearing is in progress
+ * @returns React component for statistics clearing confirmation dialog
+ */
 export function ClearStatisticsDialog({
   open,
   onOpenChange,

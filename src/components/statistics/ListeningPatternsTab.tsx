@@ -1,48 +1,93 @@
-import React, { useState } from "react";
+/**
+ * Listening Pattern Analysis Component
+ *
+ * Provides in-depth visualization and analysis of listening behavior patterns
+ * across different artists, times of day, and days of the week. This component
+ * helps users understand their music consumption habits through multiple
+ * specialized chart types and visualization options.
+ *
+ * Features:
+ * - Artist skip rate analysis with sortable visualization
+ * - Time of day listening distribution showing peak hours
+ * - Day of week activity patterns with multiple chart views
+ * - Toggle between different visualization modes for each metric
+ * - Color-coded indicators for skip behavior patterns
+ * - Loading skeleton state during data retrieval
+ * - Empty state handling for new users
+ *
+ * This component helps users discover patterns in their listening behavior
+ * that may not be immediately obvious, such as which artists they tend to skip
+ * more frequently or when they listen to music most actively during the week.
+ */
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
-import {
-  SkipForward,
-  Clock,
-  Calendar,
-  Music,
-  Info,
-  PieChart as PieChartIcon,
-  Activity,
-  List,
-} from "lucide-react";
-import { StatisticsData } from "@/types/statistics";
-import { NoDataMessage } from "./NoDataMessage";
-import { formatPercent, getDayName, getHourLabel } from "./utils";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Legend,
-  RadialBarChart,
-  RadialBar,
-  Cell,
-  Radar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-} from "recharts";
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { StatisticsData } from "@/types/statistics";
+import {
+  Activity,
+  Calendar,
+  Clock,
+  Info,
+  List,
+  Music,
+  PieChart as PieChartIcon,
+  SkipForward,
+} from "lucide-react";
+import React, { useState } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  PolarAngleAxis,
+  PolarGrid,
+  Radar,
+  RadarChart,
+  RadialBar,
+  RadialBarChart,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { NoDataMessage } from "./NoDataMessage";
+import { formatPercent, getDayName, getHourLabel } from "./utils";
 
+/**
+ * Props for the ListeningPatternsTab component
+ *
+ * @property loading - Whether statistics data is currently being loaded
+ * @property statistics - Raw statistics data object or null if unavailable
+ */
 interface ListeningPatternsTabProps {
   loading: boolean;
   statistics: StatisticsData | null;
 }
 
+/**
+ * Listening pattern analytics component
+ *
+ * Renders visualizations of listening patterns across artists, time periods,
+ * and days of the week. Provides multiple visualization options for each
+ * category of data through toggle controls.
+ *
+ * The component handles three main states:
+ * - Loading state with skeleton placeholders
+ * - Empty state with guidance for new users
+ * - Populated state with pattern visualizations and toggleable chart types
+ *
+ * @param props - Component properties
+ * @param props.loading - Whether data is being loaded
+ * @param props.statistics - Complete statistics data object
+ * @returns React component with listening pattern visualizations
+ */
 export function ListeningPatternsTab({
   loading,
   statistics,
@@ -91,14 +136,33 @@ export function ListeningPatternsTab({
     );
   }
 
-  // Function to determine progress bar color based on skip rate
+  /**
+   * Determines progress bar color based on skip rate value
+   *
+   * Maps skip rate values to appropriate colors to provide visual feedback:
+   * - Low values (< 30%): Green to indicate rarely skipped artists
+   * - Medium values (30-50%): Amber to indicate moderately skipped artists
+   * - High values (> 50%): Red to indicate frequently skipped artists
+   *
+   * @param value - Skip rate as a decimal (0-1)
+   * @returns CSS class string for the progress bar color
+   */
   const getSkipRateColor = (value: number) => {
     if (value < 0.3) return "bg-emerald-500";
     if (value < 0.5) return "bg-amber-500";
     return "bg-rose-500";
   };
 
-  // Get color for recharts visualization
+  /**
+   * Determines hex color for chart elements based on skip rate
+   *
+   * Similar to getSkipRateColor but returns hex color values for use
+   * in Recharts components instead of CSS class names. Uses the same
+   * thresholds for color assignment.
+   *
+   * @param value - Skip rate as a decimal (0-1)
+   * @returns Hex color string for chart elements
+   */
   const getSkipRateChartColor = (value: number) => {
     if (value < 0.3) return "#10b981"; // emerald-500
     if (value < 0.5) return "#f59e0b"; // amber-500

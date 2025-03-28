@@ -1,7 +1,18 @@
 /**
- * Statistics services setup
+ * Statistics Services Setup Module
  *
  * Initializes and manages statistics collection and aggregation services
+ * for tracking user behavior and music listening patterns.
+ *
+ * Responsibilities:
+ * - Initializes statistics collection services
+ * - Manages IPC communication for statistics data
+ * - Configures data aggregation intervals
+ * - Handles data export and analysis functions
+ * - Provides cleanup and shutdown functionality
+ *
+ * This module serves as the coordination point for all statistics-related
+ * operations, connecting the renderer process to the statistics services.
  */
 
 import { app, BrowserWindow, ipcMain } from "electron";
@@ -56,6 +67,12 @@ const ARTIST_INSIGHTS_FILE = join(statisticsDir, "artist_insights.json");
 
 /**
  * Initialize the statistics services
+ *
+ * Sets up collection services and IPC handlers to enable statistics
+ * collection, aggregation, and retrieval.
+ *
+ * @param mainWindow - The main application window instance for IPC communication
+ * @returns {Promise<void>} Resolves when initialization is complete
  */
 export async function initializeStatisticsServices(
   mainWindow: BrowserWindow,
@@ -77,6 +94,11 @@ export async function initializeStatisticsServices(
 
 /**
  * Clean up statistics services
+ *
+ * Stops collection processes and ensures proper shutdown of statistics services
+ * to prevent memory leaks and background processes.
+ *
+ * @returns {void}
  */
 export function shutdownStatisticsServices(): void {
   try {
@@ -87,6 +109,15 @@ export function shutdownStatisticsServices(): void {
   }
 }
 
+/**
+ * Set up IPC handlers for statistics functionality
+ *
+ * Establishes all IPC channels needed for statistics collection, retrieval,
+ * and management between the renderer process and main process.
+ *
+ * @param mainWindow - The main application window instance for IPC communication
+ * @returns {void}
+ */
 export function setupStatisticsIPC(mainWindow: BrowserWindow) {
   // Collection service controls
   // Handler to check if metrics collection is active

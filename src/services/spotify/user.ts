@@ -1,15 +1,41 @@
 /**
- * Spotify User Profile API
+ * Spotify User Profile Service
  *
- * Provides functions for retrieving user profile information from Spotify.
+ * This module provides functionality for retrieving and managing user profile information
+ * from the Spotify API. It handles fetching profile details such as display name,
+ * profile image, country, and subscription level.
+ *
+ * Features:
+ * - User profile information retrieval
+ * - Automatic token validation before API calls
+ * - Comprehensive error handling
+ * - Automatic retry for failed API requests
+ *
+ * The user profile information is essential for personalizing the application
+ * experience and displaying user-specific content throughout the interface.
+ *
+ * Usage:
+ * ```typescript
+ * import { getCurrentUser } from '@/services/spotify/user';
+ *
+ * // Fetch the current user's profile information
+ * try {
+ *   const profile = await getCurrentUser();
+ *   console.log(`Hello, ${profile.display_name}!`);
+ * } catch (error) {
+ *   console.error('Failed to fetch user profile:', error);
+ * }
+ * ```
+ *
+ * @module SpotifyUserProfile
  */
 
-import { saveLog } from "../../helpers/storage/logs-store";
-import { API_BASE_URL } from "./constants";
 import { SpotifyUserProfile } from "@/types/spotify-api";
-import { ensureValidToken, getAccessToken } from "./token";
+import { saveLog } from "../../helpers/storage/logs-store";
 import { retryApiCall } from "../api-retry";
+import { API_BASE_URL } from "./constants";
 import spotifyAxios from "./interceptors";
+import { ensureValidToken, getAccessToken } from "./token";
 
 /**
  * Retrieves the current user's Spotify profile

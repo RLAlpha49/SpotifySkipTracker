@@ -1,12 +1,59 @@
+/**
+ * Statistics Empty State Component
+ *
+ * Provides a visually appealing and informative empty state display
+ * when statistical data is not yet available for visualization. This
+ * component creates a consistent empty state experience across all
+ * statistics tabs and visualizations.
+ *
+ * Visual features:
+ * - Soft amber/warning color palette for attention without alarm
+ * - Randomly selected chart icon for visual interest
+ * - Custom message support for context-specific guidance
+ * - Consistent styling with light/dark mode support
+ * - Actionable hint for generating future data
+ *
+ * The component is designed to be both informative and encouraging,
+ * helping users understand why data isn't available while motivating
+ * them to continue using the application to generate insights.
+ */
 import { BarChart, Info, LineChart, PieChart } from "lucide-react";
 import React from "react";
 
+/**
+ * Props for the NoDataMessage component
+ *
+ * @property message - Custom message explaining why data is unavailable
+ *                    or what actions the user can take
+ */
 interface NoDataMessageProps {
   message: string;
 }
 
+/**
+ * Empty state display for statistics visualizations
+ *
+ * Renders a visually distinct card with helpful messaging when
+ * statistical data is not yet available for display. Features a
+ * randomly selected chart icon and supports custom messaging.
+ *
+ * Visual characteristics:
+ * - Rounded card with amber accent colors
+ * - Randomly selected chart icon (bar, line, or pie)
+ * - Standard heading with customizable message body
+ * - Actionable hint badge at the bottom
+ * - Full light/dark mode compatibility
+ * - Accessible text contrast and spacing
+ *
+ * @param props - Component properties
+ * @param props.message - Custom message explaining the empty state
+ * @returns React component for statistics empty state
+ */
 export function NoDataMessage({ message }: NoDataMessageProps) {
-  // Select a random chart icon to display
+  /**
+   * Select a random chart icon for visual variety
+   * Different visualization is shown each time the component renders
+   */
   const icons = [
     <BarChart key="bar" className="h-5 w-5 text-amber-500" />,
     <LineChart key="line" className="h-5 w-5 text-amber-500" />,

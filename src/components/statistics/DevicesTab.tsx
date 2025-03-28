@@ -1,31 +1,79 @@
-import React from "react";
+/**
+ * Device Usage Statistics Analysis Component
+ *
+ * Provides comprehensive analytics on how the user's listening habits vary
+ * across different devices. This component visualizes device-specific metrics
+ * such as listening time distribution, skip rates, and usage patterns
+ * across different times of day.
+ *
+ * Features:
+ * - Comparative device usage visualization with progress bars
+ * - Device-specific skip rate analysis with color coding
+ * - Time-of-day usage patterns for each device
+ * - Device type identification with appropriate iconography
+ * - Loading skeleton state during data retrieval
+ * - Empty state handling for new users
+ *
+ * This component helps users understand how their listening habits
+ * differ between devices (e.g., phone vs. computer) and identify
+ * which devices are associated with different listening behaviors.
+ */
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatisticsData } from "@/types/statistics";
 import {
-  Smartphone,
-  Laptop,
-  Tablet,
+  AlarmClock,
   Clock,
+  Cpu,
+  Laptop,
+  Moon,
   PlayCircle,
   SkipForward,
+  Smartphone,
+  Sun,
   Sunrise,
   Sunset,
-  Sun,
-  Moon,
-  AlarmClock,
-  Cpu,
+  Tablet,
 } from "lucide-react";
-import { StatisticsData } from "@/types/statistics";
+import React from "react";
 import { NoDataMessage } from "./NoDataMessage";
 import { formatPercent, formatTime, getHourLabel } from "./utils";
 
+/**
+ * Props for the DevicesTab component
+ *
+ * @property loading - Whether statistics data is currently being loaded
+ * @property statistics - Complete statistics data object with device metrics
+ */
 interface DevicesTabProps {
   loading: boolean;
   statistics: StatisticsData | null;
 }
 
+/**
+ * Device usage analysis dashboard
+ *
+ * Renders a collection of visualizations showing how listening behavior
+ * varies across different devices. Provides comparative analysis of metrics
+ * such as listening time, skip rates, and time-of-day usage patterns.
+ *
+ * The component handles multiple states:
+ * - Loading state with skeleton placeholders
+ * - Empty state with guidance for new users
+ * - Populated state with device-specific analytics
+ *
+ * Visual elements include progress bars for comparisons, color-coded
+ * indicators for skip rates, and specialized icons for different device
+ * types and times of day.
+ *
+ * @param props - Component properties
+ * @param props.loading - Whether data is being loaded
+ * @param props.statistics - Complete statistics data object
+ * @returns React component with device usage analytics
+ */
 export function DevicesTab({ loading, statistics }: DevicesTabProps) {
   if (loading) {
     return (
@@ -112,7 +160,16 @@ export function DevicesTab({ loading, statistics }: DevicesTabProps) {
     );
   }
 
-  // Function to determine device icon based on device type
+  /**
+   * Determines the appropriate icon for different device types
+   *
+   * Maps device type strings to visual icons that represent
+   * the category of device (smartphone, tablet, computer).
+   * Uses keyword matching to handle various device naming conventions.
+   *
+   * @param deviceType - Device type string from Spotify API
+   * @returns React element with the appropriate device icon
+   */
   const getDeviceIcon = (deviceType: string) => {
     const type = deviceType.toLowerCase();
     if (type.includes("phone") || type.includes("mobile")) {
@@ -124,21 +181,50 @@ export function DevicesTab({ loading, statistics }: DevicesTabProps) {
     }
   };
 
-  // Function to get color based on skip rate
+  /**
+   * Determines progress bar color based on skip rate value
+   *
+   * Maps skip rate values to appropriate colors for visual feedback:
+   * - Low values (< 20%): Green to indicate healthy listening
+   * - Medium values (20-40%): Amber to indicate moderate skipping
+   * - High values (> 40%): Red to indicate frequent skipping
+   *
+   * @param skipRate - Skip rate as a decimal (0-1)
+   * @returns CSS class string for the progress bar color
+   */
   const getSkipRateColor = (skipRate: number) => {
     if (skipRate < 0.2) return "bg-emerald-500";
     if (skipRate < 0.4) return "bg-amber-500";
     return "bg-rose-500";
   };
 
-  // Function to get text color based on skip rate
+  /**
+   * Determines text color for skip rate labels
+   *
+   * Applies consistent color coding to skip rate text labels
+   * using the same threshold values as the progress bar colors.
+   *
+   * @param skipRate - Skip rate as a decimal (0-1)
+   * @returns CSS class string for the text color
+   */
   const getSkipRateTextColor = (skipRate: number) => {
     if (skipRate < 0.2) return "text-emerald-500";
     if (skipRate < 0.4) return "text-amber-500";
     return "text-rose-500";
   };
 
-  // Function to get time of day icon
+  /**
+   * Selects an appropriate icon for different times of day
+   *
+   * Maps hour values (0-23) to time-appropriate icons:
+   * - Early morning (5-8): Sunrise
+   * - Daytime (8-17): Sun
+   * - Evening (17-20): Sunset
+   * - Night (20-5): Moon
+   *
+   * @param hour - Hour in 24-hour format (0-23)
+   * @returns React element with the appropriate time icon
+   */
   const getTimeIcon = (hour: number) => {
     if (hour >= 5 && hour < 8)
       return <Sunrise className="h-4 w-4 text-amber-500" />;

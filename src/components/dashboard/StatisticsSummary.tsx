@@ -1,8 +1,21 @@
 /**
- * Statistics Summary component
+ * Dashboard Statistics Overview Component
  *
- * Displays key statistics and metrics in a summary card format
- * including total tracks, skips, and skip percentage.
+ * Delivers a comprehensive visual summary of key listening statistics
+ * with responsive card-based layout and dynamic data visualization.
+ * Presents critical metrics about user's Spotify listening patterns,
+ * focusing on skip behavior analysis and activity trends.
+ *
+ * Visual features:
+ * - Four primary metric cards with icons and trend indicators
+ * - Skip rate visualization with progress bar
+ * - Time-based activity breakdown (daily/weekly/monthly)
+ * - Loading skeleton states for progressive content display
+ * - Responsive layout adapting to various screen sizes
+ *
+ * This component serves as the entry point for analytics exploration,
+ * providing at-a-glance insights while encouraging deeper investigation
+ * through the dedicated statistics pages.
  */
 
 import {
@@ -25,6 +38,18 @@ import {
 } from "lucide-react";
 import React from "react";
 
+/**
+ * Props for the StatisticsSummary component
+ *
+ * @property isLoading - Optional flag indicating if data is still loading
+ * @property totalTracks - Total number of tracks played across all sessions
+ * @property totalSkips - Total number of tracks skipped across all sessions
+ * @property skipPercentage - Percentage of tracks skipped (0-100)
+ * @property todaySkips - Number of tracks skipped today
+ * @property weekSkips - Number of tracks skipped in the current week
+ * @property monthSkips - Number of tracks skipped in the current month
+ * @property avgSkipTime - Average time in seconds before a track is skipped
+ */
 interface StatisticsSummaryProps {
   isLoading?: boolean;
   totalTracks?: number;
@@ -37,10 +62,21 @@ interface StatisticsSummaryProps {
 }
 
 /**
- * Component to display key statistics in a summary format
+ * Statistics summary dashboard component
  *
- * @param props - Component props
- * @returns Statistics summary component
+ * Renders a comprehensive overview of user's listening statistics
+ * with metrics cards and visualizations. Adapts its display based
+ * on loading state and available data, with responsive layout for
+ * different screen sizes.
+ *
+ * Key sections:
+ * - Header with title and description
+ * - Primary metrics in card grid (tracks, skips, time, activity)
+ * - Skip rate visualization with contextual trend indicators
+ * - Time-based breakdown of skip activity
+ *
+ * @param props - Component properties
+ * @returns React component with statistics dashboard layout
  */
 export function StatisticsSummary({
   isLoading = false,
@@ -52,7 +88,15 @@ export function StatisticsSummary({
   monthSkips = 0,
   avgSkipTime = 0,
 }: StatisticsSummaryProps) {
-  // Format avgSkipTime from seconds to mm:ss
+  /**
+   * Formats seconds into MM:SS display format
+   *
+   * Converts raw seconds into a human-readable time format
+   * with leading zeros for consistent display.
+   *
+   * @param timeInSec - Time in seconds to format
+   * @returns Formatted time string in MM:SS format
+   */
   const formatSkipTime = (timeInSec: number) => {
     const minutes = Math.floor(timeInSec / 60);
     const seconds = Math.floor(timeInSec % 60);

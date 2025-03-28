@@ -1,17 +1,25 @@
 /**
- * Secure token storage module
+ * Secure Authentication Token Management System
  *
- * Provides encrypted storage for Spotify authentication credentials
- * with AES-256-GCM encryption for protecting sensitive token data.
+ * Provides industrial-strength security for storing sensitive Spotify API credentials
+ * using military-grade encryption techniques and secure storage practices.
  *
- * This module acts as an encryption wrapper around the modular token
- * storage services, adding an extra layer of security.
+ * Security architecture:
+ * - AES-256-GCM symmetric encryption algorithm (NIST recommended)
+ * - Authenticated encryption with data integrity verification
+ * - Unique initialization vectors (IV) for each encryption operation
+ * - Persistent secure key generation and storage
+ * - Automatic key management in user data directory
  *
- * Security features:
- * - 256-bit AES encryption in GCM mode
- * - Secure key storage in application data directory
- * - Authentication tags for data integrity verification
- * - Unique initialization vectors for each encryption operation
+ * This module ensures that authentication tokens remain secure even if the
+ * token storage file is compromised, as the encryption key is stored separately
+ * and the tokens cannot be decrypted without it.
+ *
+ * Token lifecycle:
+ * 1. Authentication tokens received from Spotify API
+ * 2. Tokens encrypted with unique IV and authentication tag
+ * 3. Encrypted data stored securely in application data directory
+ * 4. Tokens decrypted only when needed for API operations
  */
 
 import * as crypto from "crypto";

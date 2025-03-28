@@ -1,3 +1,24 @@
+/**
+ * Application Logging and Diagnostics Console Component
+ *
+ * Provides a comprehensive interface for monitoring, filtering, and managing
+ * application logs. This component serves as the primary debugging and diagnostic
+ * tool, allowing users to inspect application behavior and troubleshoot issues.
+ *
+ * Features:
+ * - Real-time log visualization with automatic scrolling
+ * - Log filtering by severity level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+ * - Text search functionality for finding specific log entries
+ * - Historical log file navigation with file selection
+ * - Auto-refresh toggle for real-time monitoring
+ * - Color-coded log entries based on severity level
+ * - Utilities for clearing logs and accessing log files
+ * - Session grouping for improved log readability
+ *
+ * This component is essential for development, debugging, and user troubleshooting,
+ * providing visibility into the application's internal processes and events.
+ */
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +53,18 @@ import {
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
+/**
+ * Props for the LogsCard component
+ *
+ * @property logs - Array of log message strings for the current session
+ * @property settings - Configuration for log display and behavior
+ * @property logSearchTerm - Current search filter text
+ * @property onDisplayLogLevelChange - Handler for changing minimum display log level
+ * @property onToggleLogAutoRefresh - Handler for toggling automatic log refreshing
+ * @property onLogSearch - Handler for log search text changes
+ * @property onClearLogs - Handler for clearing the current log data
+ * @property onOpenLogsDirectory - Handler for opening the logs directory
+ */
 interface LogsCardProps {
   logs: string[];
   settings: LogSettings;
@@ -43,6 +76,28 @@ interface LogsCardProps {
   onOpenLogsDirectory: () => Promise<boolean>;
 }
 
+/**
+ * Application logging and diagnostics console
+ *
+ * Renders a comprehensive logging interface that displays application logs
+ * with filtering, search, and file navigation capabilities. Provides tools
+ * for log analysis and management to aid in debugging and troubleshooting.
+ *
+ * The component manages both current session logs and historical log files,
+ * with appropriate controls for each context. Log entries are parsed,
+ * filtered, and formatted for optimal readability.
+ *
+ * @param props - Component properties
+ * @param props.logs - Current session log messages
+ * @param props.settings - Log display configuration
+ * @param props.logSearchTerm - Current search filter
+ * @param props.onDisplayLogLevelChange - Function to change minimum log level
+ * @param props.onToggleLogAutoRefresh - Function to toggle auto-refresh
+ * @param props.onLogSearch - Function to handle search input
+ * @param props.onClearLogs - Function to clear logs
+ * @param props.onOpenLogsDirectory - Function to open logs directory
+ * @returns React component for log visualization and management
+ */
 export function LogsCard({
   logs,
   settings,

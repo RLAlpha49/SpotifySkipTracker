@@ -1,8 +1,32 @@
 /**
- * Track change detection and handling
+ * Track Change Detection and Processing Module
  *
- * Handles the logic for detecting and processing track changes,
- * including skip detection and track completion metrics.
+ * Implements sophisticated track change detection and analysis to accurately
+ * identify transitions between tracks, distinguish between skips and completions,
+ * and maintain comprehensive listening history data.
+ *
+ * Features:
+ * - Robust track change detection with high accuracy
+ * - Intelligent skip vs. normal progression discrimination
+ * - Backward navigation identification (prev button)
+ * - Local history tracking for accurate navigation detection
+ * - Spotify API history integration for verification
+ * - Skip event logging with comprehensive metadata
+ * - Detailed now-playing status updates
+ * - Listening context awareness (playlist, album, etc.)
+ * - Edge case handling for app restarts and network issues
+ *
+ * This module serves as the coordination layer between raw playback
+ * state changes and higher-level skip analytics. It detects when tracks
+ * change, determines the nature of those changes, and records appropriate
+ * events and metadata for analytical purposes.
+ *
+ * The track change system uses a multi-layered approach:
+ * 1. Local history tracking for immediate context
+ * 2. Spotify API history verification for accuracy
+ * 3. Progress-based skip detection algorithms
+ * 4. Pattern analysis for behavioral insights
+ * 5. Edge case handling for reliability
  */
 
 import * as store from "../../helpers/storage/store";
@@ -33,7 +57,16 @@ const NAVIGATION_EXPIRY_TIME = 60000; // 60 seconds
 /**
  * Adds a track to the local history
  *
- * @param trackId Track ID to add to history
+ * Maintains an in-memory record of recently played tracks to assist
+ * with navigation detection and skip analysis. This local history
+ * provides immediate context for track changes without requiring
+ * API calls to Spotify.
+ *
+ * @param trackId Spotify track ID to add to history
+ *
+ * @example
+ * // Record a track in local history when it starts playing
+ * addToLocalHistory('spotify:track:1234567890');
  */
 function addToLocalHistory(trackId: string): void {
   if (!trackId) return;
@@ -58,10 +91,32 @@ function addToLocalHistory(trackId: string): void {
 /**
  * Check if navigating to a previous track based on local history
  *
+ * Analyzes the local track history to determine if a track change
+ * appears to be backward navigation (i.e., the user clicked "previous")
+ * rather than a skip or normal track progression.
+ *
+ * This function uses a sophisticated algorithm that considers:
+ * - Position of the track in recent history
+ * - Timing of recent navigations
+ * - Progress through the current track
+ * - Navigation patterns and behaviors
+ *
  * @param newTrackId ID of the track being navigated to
  * @param previousTrackId ID of the track being navigated from
- * @param progressPercent How far through the previous track we were
- * @returns Whether this appears to be a backward navigation
+ * @param progressPercent How far through the previous track the user was (0.0-1.0)
+ * @returns Whether this appears to be backward navigation
+ *
+ * @example
+ * // Check if a track change was backward navigation
+ * const wasGoingBack = isBackwardNavigationInLocalHistory(
+ *   newTrackId,
+ *   previousTrackId,
+ *   0.15 // User was 15% through the previous track
+ * );
+ *
+ * if (wasGoingBack) {
+ *   console.log('User navigated to a previous track (clicked prev button)');
+ * }
  */
 function isBackwardNavigationInLocalHistory(
   newTrackId: string,
@@ -126,7 +181,27 @@ function isBackwardNavigationInLocalHistory(
 /**
  * Handles a track change event
  *
- * @param newTrackId Spotify ID of the new track
+ * Central handler for track change events that coordinates the entire
+ * track change analysis and processing pipeline. This function:
+ *
+ * 1. Logs the track change for monitoring
+ * 2. Retrieves relevant playback state information
+ * 3. Checks for edge cases that might affect analysis
+ * 4. Identifies backward navigation vs. forward progression
+ * 5. Analyzes if the change was a skip or normal completion
+ * 6. Determines if the skip was manual or automatic
+ * 7. Records skip events with detailed metadata
+ * 8. Updates history tracking for future analysis
+ *
+ * @param newTrackId Spotify ID of the new track being played
+ * @returns Promise that resolves when processing is complete
+ *
+ * @example
+ * // Process a track change when detected
+ * async function onTrackChanged(newTrackId) {
+ *   await handleTrackChange(newTrackId);
+ *   updateUIForNewTrack();
+ * }
  */
 export async function handleTrackChange(newTrackId: string): Promise<void> {
   try {
@@ -472,31 +547,42 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
 }
 
 /**
- * Logs the currently playing track at appropriate intervals
+ * Logs information about the currently playing track
  *
- * @param trackId Spotify track ID
- * @param trackName Track name
- * @param artistName Artist name
+ * Records and logs information about the track that is currently playing,
+ * avoiding duplicate logging of the same track within a short time period.
+ * This function is used to maintain a clean record of tracks as they begin
+ * playing for monitoring and analysis purposes.
+ *
+ * @param trackId Spotify track ID that is now playing
+ * @param trackName Human-readable name of the track
+ * @param artistName Name of the artist performing the track
+ *
+ * @example
+ * // Log when a new track starts playing
+ * logNowPlaying(
+ *   'spotify:track:1234567890',
+ *   'Bohemian Rhapsody',
+ *   'Queen'
+ * );
  */
 export function logNowPlaying(
   trackId: string,
   trackName: string,
   artistName: string,
 ): void {
-  const now = Date.now();
+  // Avoid logging the same track multiple times in quick succession
   const lastLogged = getTrackLastLogged(trackId);
-  const state = getPlaybackState();
+  const now = Date.now();
 
-  // Always log if this is an explicit track change (different track than before)
-  const isTrackChange =
-    state.lastTrackChangeTimestamp &&
-    now - state.lastTrackChangeTimestamp < 3000; // Within 3 seconds of a track change
-
-  // Log the track if:
-  // 1. It's a new track change event, OR
-  // 2. It hasn't been logged in the last 5 minutes (for continuous playback)
-  if (isTrackChange || now - lastLogged > 5 * 60 * 1000) {
-    store.saveLog(`Now playing: "${trackName}" by ${artistName}`, "INFO");
-    setTrackLastLogged(trackId, now);
+  // If we've logged this track in the last 3 seconds, don't log again
+  if (now - lastLogged < 3000) {
+    return;
   }
+
+  // Record that we've logged this track
+  setTrackLastLogged(trackId, now);
+
+  // Log the track information
+  store.saveLog(`Now playing: "${trackName}" by ${artistName}`, "INFO");
 }

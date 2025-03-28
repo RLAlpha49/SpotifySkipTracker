@@ -1,10 +1,36 @@
+/**
+ * Skipped Tracks Analysis Utility Functions
+ *
+ * This module provides specialized utility functions for analyzing, processing,
+ * and formatting skipped track data throughout the application. These utilities
+ * handle the complex calculations and data transformations required for skip
+ * pattern analysis and library management.
+ *
+ * Core capabilities:
+ * - Timestamp parsing and normalization
+ * - Skip frequency analysis within configurable timeframes
+ * - Ratio calculations for skip patterns
+ * - Sorting and comparison functions for data visualization
+ * - Date formatting for consistent UI presentation
+ * - Threshold-based removal suggestion algorithms
+ *
+ * These utilities maintain consistency in how skip data is processed across
+ * multiple components and views, ensuring reliable analysis results.
+ */
 import { SkippedTrack } from "@/types/spotify";
 
 /**
- * Safely converts any timestamp format to a Date object
+ * Safely parses different timestamp formats into a standardized Date object
  *
- * @param timestamp - Timestamp string (ISO or numeric)
- * @returns Date object or null if invalid
+ * Handles multiple timestamp formats that may exist in the dataset:
+ * - ISO 8601 date strings
+ * - Unix timestamp milliseconds as strings
+ * - Other date string formats
+ *
+ * Returns null for invalid or empty timestamps to enable safe optional chaining.
+ *
+ * @param timestamp - Timestamp string in any supported format
+ * @returns Standardized Date object or null if invalid
  */
 export const parseTimestamp = (timestamp: string): Date | null => {
   if (!timestamp) return null;
@@ -22,11 +48,17 @@ export const parseTimestamp = (timestamp: string): Date | null => {
 };
 
 /**
- * Calculates skips within the configured time window
+ * Counts track skips within a specified timeframe
  *
- * @param track - Track to analyze for recent skips
- * @param timeframeInDays - Number of days to consider for recent skips
- * @returns Number of skips within the timeframe
+ * Analyzes a track's skip history to determine how many times it has been
+ * skipped within the configured timeframe. Uses timestamp parsing to ensure
+ * accurate date comparison regardless of timestamp format.
+ *
+ * Handles tracks with missing timestamp data by falling back to total skip count.
+ *
+ * @param track - Track data object containing skip history
+ * @param timeframeInDays - Analysis window in days (e.g., 30 for last month)
+ * @returns Number of times the track was skipped within the timeframe
  */
 export const getRecentSkipCount = (
   track: SkippedTrack,
@@ -46,12 +78,18 @@ export const getRecentSkipCount = (
 };
 
 /**
- * Evaluates if a track exceeds the skip threshold
+ * Determines if a track should be suggested for removal from library
  *
- * @param track - Track to evaluate against threshold
- * @param skipThreshold - Threshold of skips to mark for removal
- * @param timeframeInDays - Timeframe in days to consider for evaluation
- * @returns Boolean indicating if track should be suggested for removal
+ * Applies configured threshold criteria to identify tracks that are frequently
+ * skipped and may be candidates for removal from the user's library. This is the
+ * core decision algorithm for both automated and manual library cleanup.
+ *
+ * Uses error handling to ensure robust evaluation even with incomplete data.
+ *
+ * @param track - Track data object to evaluate
+ * @param skipThreshold - Minimum number of skips to trigger suggestion
+ * @param timeframeInDays - Timeframe to consider for skip analysis
+ * @returns Boolean indicating if the track meets removal criteria
  */
 export const shouldSuggestRemoval = (
   track: SkippedTrack,
@@ -68,10 +106,16 @@ export const shouldSuggestRemoval = (
 };
 
 /**
- * Calculates percentage of skips relative to total plays
+ * Calculates the percentage of times a track is skipped when played
  *
- * @param track - Track to calculate skip ratio for
- * @returns Formatted percentage string
+ * Computes the ratio between skip count and total plays, providing insight
+ * into how frequently the user chooses to skip a particular track when it
+ * comes up in their listening session.
+ *
+ * Returns formatted percentage string ready for UI display.
+ *
+ * @param track - Track data object with play and skip counts
+ * @returns Formatted percentage string (e.g., "75%")
  */
 export const calculateSkipRatio = (track: SkippedTrack): string => {
   const skipCount = track.skipCount || 0;
@@ -85,10 +129,16 @@ export const calculateSkipRatio = (track: SkippedTrack): string => {
 };
 
 /**
- * Gets the most recent timestamp from a track's skip history
+ * Retrieves the most recent skip timestamp from a track's history
  *
- * @param track - Track to get the most recent timestamp from
- * @returns The most recent timestamp string
+ * Identifies the most recent time a track was skipped by analyzing and
+ * sorting all recorded skip timestamps. Handles both ISO string and
+ * numeric timestamp formats for maximum compatibility.
+ *
+ * Falls back to lastSkipped field if detailed history is unavailable.
+ *
+ * @param track - Track data object with skip timestamp history
+ * @returns Most recent skip timestamp as a string
  */
 export const getMostRecentTimestamp = (track: SkippedTrack): string => {
   if (track.skipTimestamps && track.skipTimestamps.length > 0) {
@@ -106,10 +156,16 @@ export const getMostRecentTimestamp = (track: SkippedTrack): string => {
 };
 
 /**
- * Formats ISO date string to localized date and time
+ * Converts timestamps to human-readable date and time format
  *
- * @param dateString - ISO timestamp string or track object
- * @returns Human-readable formatted date string
+ * Transforms raw timestamps into localized, user-friendly date strings
+ * for display in the UI. Handles both direct timestamp strings and
+ * track objects with embedded timestamps.
+ *
+ * Includes comprehensive error handling for missing or invalid dates.
+ *
+ * @param dateString - ISO timestamp string or track object containing timestamps
+ * @returns Localized, formatted date and time string
  */
 export const formatDate = (dateString: string | SkippedTrack): string => {
   // Handle case where the entire track is passed in
@@ -131,12 +187,18 @@ export const formatDate = (dateString: string | SkippedTrack): string => {
 };
 
 /**
- * Comparison function for sorting tracks by skip frequency
+ * Compares two tracks for sorting based on skip frequency
+ *
+ * Custom comparison function for array sorting that prioritizes tracks
+ * by their recent skip count within the specified timeframe. Uses total
+ * skip count as a secondary sort criterion when recent counts are equal.
+ *
+ * Designed for use with Array.sort() to order tracks by skip frequency.
  *
  * @param a - First track to compare
  * @param b - Second track to compare
- * @param timeframeInDays - Timeframe in days to consider for sorting
- * @returns Sort value (-1, 0, 1) for array sorting
+ * @param timeframeInDays - Timeframe to consider for skip counting
+ * @returns Sort comparison value: negative if a should come after b, positive if before
  */
 export const sortBySkipCount = (
   a: SkippedTrack,

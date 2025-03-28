@@ -1,20 +1,32 @@
 /**
- * Windows Installer Event Handling
+ * Windows Installer Event Handling Module
  *
  * Handles Squirrel.Windows installation events for proper desktop integration.
  * This module manages shortcut creation/removal and other Windows-specific
- * installation tasks.
+ * installation tasks during application install, update, and uninstall processes.
+ *
+ * Supported installation events:
+ * - Installation (--squirrel-install)
+ * - Update (--squirrel-updated)
+ * - Uninstallation (--squirrel-uninstall)
+ * - Old version removal (--squirrel-obsolete)
+ *
+ * Note: This module only applies to Windows platform installations.
  */
 
+import { exec } from "child_process";
 import { app } from "electron";
 import path from "path";
-import { exec } from "child_process";
 
 /**
  * Processes Squirrel.Windows installer events
  *
- * @param command - The Squirrel command received from the installer
- * @returns Whether an event was handled
+ * Handles specific Squirrel commands for Windows desktop integration,
+ * creating or removing shortcuts and performing necessary installation tasks.
+ * Exits the app after handling installation events.
+ *
+ * @param command - The Squirrel command received from the installer (from process.argv)
+ * @returns {boolean} True if an event was handled, false otherwise
  */
 export function handleSquirrelEvent(command?: string): boolean {
   if (process.platform !== "win32" || !command) {
@@ -69,7 +81,11 @@ export function handleSquirrelEvent(command?: string): boolean {
 /**
  * Checks if the application is being started by Squirrel installer
  *
- * @returns True if a Squirrel event was handled and the app should exit
+ * Examines command line arguments to determine if the application
+ * was launched by the Squirrel installer and handles any installation events.
+ * This function should be called at the very beginning of app startup.
+ *
+ * @returns {boolean} True if a Squirrel event was handled and the app should exit
  */
 export function checkForSquirrelEvents(): boolean {
   if (process.platform !== "win32") {

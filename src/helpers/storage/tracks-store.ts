@@ -1,15 +1,29 @@
 /**
- * Tracks storage module
+ * Skipped Tracks Data Management System
  *
- * Manages skipped track data persistence with features for:
- * - Storing track skip statistics
- * - Tracking complete playbacks
- * - Time-based analysis of skip patterns
+ * Comprehensive solution for tracking, analyzing, and storing user listening behavior
+ * with special focus on skipped tracks and completion patterns.
+ *
+ * Key capabilities:
+ * - Persistent storage of skip history with timestamps
+ * - Track completion tracking for skip/listen ratio analysis
+ * - Temporal analysis of listening patterns over time
+ * - Artist and genre correlation for skip behavior
+ * - Time-based filtering for relevant recent data
+ *
+ * The module maintains detailed statistics per track:
+ * - Skip counts and timestamps for pattern detection
+ * - Complete play counts for skip ratio calculation
+ * - Last skipped time for recency analysis
+ * - Track metadata (artist, album, name) for reporting
+ *
+ * This data forms the foundation for the application's statistical analysis
+ * and insight generation, helping users understand their listening patterns.
  */
 
+import { SkippedTrack } from "@/types/spotify";
 import fs from "fs";
 import path from "path";
-import { SkippedTrack } from "@/types/spotify";
 import { skipsPath } from "./utils";
 
 // Skipped tracks storage location

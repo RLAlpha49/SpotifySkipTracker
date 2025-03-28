@@ -1,9 +1,21 @@
 /**
- * Window control module
+ * Application Window Management System
  *
- * Provides wrapper functions around Electron window control functionality.
- * These functions communicate with the main Electron process via IPC
- * to control the application window state.
+ * Provides a clean, cross-platform interface for controlling the application window
+ * state through secure IPC communication with the Electron main process.
+ *
+ * This module abstracts platform-specific window behavior complexities behind
+ * a simple API, allowing the application to provide consistent window controls
+ * across operating systems while maintaining proper process isolation.
+ *
+ * Supported operations:
+ * - Window minimization (iconify)
+ * - Window maximization and restoration
+ * - Window closing with proper application lifecycle management
+ *
+ * Each operation is implemented through asynchronous IPC calls to ensure
+ * the renderer process never gains direct access to native window controls,
+ * maintaining Electron's security model while providing the necessary functionality.
  */
 
 /**
