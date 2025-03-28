@@ -1,27 +1,33 @@
-import axios from "axios";
-import querystring from "querystring";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   exchangeCodeForTokens,
   getAuthorizationUrl,
-} from "../../../../services/spotify/auth";
-import * as credentialsModule from "../../../../services/spotify/credentials";
-import * as tokenModule from "../../../../services/spotify/token";
+} from "@/services/spotify/auth";
+import * as tokenModule from "@/services/spotify/token";
+import axios from "axios";
+import querystring from "querystring";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock dependencies
 vi.mock("axios");
-vi.mock("../../../../helpers/storage/logs-store", () => ({
+vi.mock("@/helpers/storage/logs-store", () => ({
   saveLog: vi.fn(),
+}));
+vi.mock("@/services/spotify/credentials", () => ({
+  getCredentials: vi.fn().mockReturnValue({
+    clientId: "mock-client-id",
+    clientSecret: "mock-client-secret",
+  }),
+  ensureCredentialsSet: vi.fn(),
+}));
+
+// Mock Electron
+vi.mock("electron", () => ({
+  app: {
+    getPath: vi.fn().mockReturnValue("/mock/user/data"),
+  },
 }));
 
 // Mock modules with spies instead of completely replacing them
-vi.spyOn(credentialsModule, "getCredentials").mockReturnValue({
-  clientId: "mock-client-id",
-  clientSecret: "mock-client-secret",
-});
-vi.spyOn(credentialsModule, "ensureCredentialsSet").mockImplementation(
-  () => {},
-);
 vi.spyOn(tokenModule, "setTokens").mockImplementation(() => {});
 
 describe("Spotify Auth Service", () => {

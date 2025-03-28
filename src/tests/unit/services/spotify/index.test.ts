@@ -1,5 +1,12 @@
-import { describe, expect, it } from "vitest";
-import * as spotifyService from "../../../../services/spotify";
+import * as spotifyService from "@/services/spotify";
+import { describe, expect, it, vi } from "vitest";
+
+// Mock Electron
+vi.mock("electron", () => ({
+  app: {
+    getPath: vi.fn().mockReturnValue("/mock/user/data"),
+  },
+}));
 
 describe("Spotify Service Index", () => {
   describe("exports", () => {
@@ -47,10 +54,10 @@ describe("Spotify Service Index", () => {
     });
 
     it("should export constants", () => {
-      expect(spotifyService).toHaveProperty("BASE_API_URL");
+      expect(spotifyService).toHaveProperty("API_BASE_URL");
       expect(spotifyService).toHaveProperty("AUTH_URL");
       expect(spotifyService).toHaveProperty("TOKEN_URL");
-      expect(spotifyService).toHaveProperty("SCOPES");
+      expect(spotifyService).toHaveProperty("SPOTIFY_SCOPES");
     });
   });
 

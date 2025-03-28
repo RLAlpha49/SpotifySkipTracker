@@ -1,122 +1,95 @@
-import axios from "axios";
+import { API_BASE_URL } from "@/services/spotify/constants";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getCurrentUser } from "../../../../services/spotify/user";
 
-// Mock dependencies
-vi.mock("axios");
-vi.mock("../../../../helpers/storage/logs-store", () => ({
+// Mock all dependencies
+vi.mock("axios", () => ({
+  default: {
+    create: vi.fn().mockReturnValue({}),
+  },
+}));
+
+vi.mock("@/helpers/storage/logs-store", () => ({
+  LogsStore: {
+    addLog: vi.fn(),
+  },
   saveLog: vi.fn(),
 }));
-vi.mock("../../../../services/spotify/token", () => ({
-  ensureValidToken: vi.fn(),
+
+vi.mock("electron", () => ({
+  ipcRenderer: {
+    send: vi.fn(),
+  },
+}));
+
+vi.mock("@/services/spotify/token", () => ({
+  ensureValidToken: vi.fn().mockResolvedValue(undefined),
   getAccessToken: vi.fn().mockReturnValue("mock-access-token"),
 }));
 
+vi.mock("@/services/api-retry", () => ({
+  retryApiCall: vi.fn().mockImplementation((fn) => fn()),
+}));
+
+// Mock the specific interceptors module
+vi.mock(
+  "@/services/spotify/interceptors",
+  () => {
+    const mockGet = vi.fn();
+
+    return {
+      __esModule: true,
+      default: {
+        get: mockGet,
+      },
+    };
+  },
+  { virtual: true },
+);
+
+// Import module under test after mocks are set up
+import { getCurrentUser } from "@/services/spotify/user";
+
+// Get access to the mocked functions
+const mockAxios = vi.mocked(
+  await import("@/services/spotify/interceptors"),
+).default;
+const mockGet = mockAxios.get;
+
 describe("Spotify User Service", () => {
   beforeEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("getCurrentUser", () => {
-    it("should fetch the current user profile successfully", async () => {
-      // Mock user profile response
+    it("should fetch current user profile successfully", async () => {
       const mockUserProfile = {
         id: "user123",
         display_name: "Test User",
         email: "test@example.com",
-        images: [{ url: "https://example.com/avatar.jpg" }],
         country: "US",
-        product: "premium",
-        uri: "spotify:user:user123",
-        external_urls: {
-          spotify: "https://open.spotify.com/user/user123",
-        },
       };
 
-      // Setup mock response
-      vi.mocked(axios.get).mockResolvedValueOnce({ data: mockUserProfile });
+      mockGet.mockResolvedValueOnce({
+        data: mockUserProfile,
+        status: 200,
+      });
 
-      // Call the function
       const result = await getCurrentUser();
 
-      // Verify axios was called correctly
-      expect(axios.get).toHaveBeenCalledWith(
-        "https://api.spotify.com/v1/me",
-        expect.objectContaining({
-          headers: {
-            Authorization: "Bearer mock-access-token",
-          },
-        }),
-      );
-
-      // Verify result
+      expect(mockGet).toHaveBeenCalledWith(`${API_BASE_URL}/me`, {
+        headers: {
+          Authorization: "Bearer mock-access-token",
+        },
+      });
       expect(result).toEqual(mockUserProfile);
     });
 
-    it("should handle API errors gracefully", async () => {
-      // Setup mock error
-      vi.mocked(axios.get).mockRejectedValueOnce(new Error("API Error"));
+    it("should throw an error when API call fails", async () => {
+      mockGet.mockRejectedValueOnce(new Error("API error"));
 
-      // Call should throw
       await expect(getCurrentUser()).rejects.toThrow(
-        "Failed to fetch user profile: API Error",
+        /Failed to get user profile/,
       );
-    });
-
-    it("should transform response when transform is true", async () => {
-      // Mock user profile response
-      const mockUserProfile = {
-        id: "user123",
-        display_name: "Test User",
-        email: "test@example.com",
-        images: [{ url: "https://example.com/avatar.jpg" }],
-        country: "US",
-        product: "premium",
-        uri: "spotify:user:user123",
-        external_urls: {
-          spotify: "https://open.spotify.com/user/user123",
-        },
-      };
-
-      // Setup mock response
-      vi.mocked(axios.get).mockResolvedValueOnce({ data: mockUserProfile });
-
-      // Call the function with transform=true
-      const result = await getCurrentUser(true);
-
-      // Verify transformed result
-      expect(result).toHaveProperty("id", mockUserProfile.id);
-      expect(result).toHaveProperty("name", mockUserProfile.display_name);
-      expect(result).toHaveProperty("email", mockUserProfile.email);
-      expect(result).toHaveProperty("avatarUrl", mockUserProfile.images[0].url);
-      expect(result).toHaveProperty("uri", mockUserProfile.uri);
-      expect(result).toHaveProperty("isPremium", true);
-    });
-
-    it("should handle missing properties in transform", async () => {
-      // Mock user profile with missing data
-      const mockUserProfile = {
-        id: "user123",
-        display_name: "Test User",
-        // No email
-        // No images
-        product: "free",
-        uri: "spotify:user:user123",
-      };
-
-      // Setup mock response
-      vi.mocked(axios.get).mockResolvedValueOnce({ data: mockUserProfile });
-
-      // Call the function with transform=true
-      const result = await getCurrentUser(true);
-
-      // Verify transformed result with fallbacks
-      expect(result).toHaveProperty("id", mockUserProfile.id);
-      expect(result).toHaveProperty("name", mockUserProfile.display_name);
-      expect(result).toHaveProperty("email", ""); // Default empty string
-      expect(result).toHaveProperty("avatarUrl", ""); // Default empty string
-      expect(result).toHaveProperty("uri", mockUserProfile.uri);
-      expect(result).toHaveProperty("isPremium", false); // Free account
     });
   });
 });

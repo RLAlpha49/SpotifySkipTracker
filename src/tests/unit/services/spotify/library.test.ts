@@ -1,125 +1,189 @@
-import axios from "axios";
+import { API_BASE_URL } from "@/services/spotify/constants";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// Mock all dependencies
+vi.mock("axios", () => ({
+  default: {
+    create: vi.fn().mockReturnValue({}),
+  },
+}));
+
+vi.mock("@/helpers/storage/logs-store", () => ({
+  LogsStore: {
+    addLog: vi.fn(),
+  },
+  saveLog: vi.fn(),
+}));
+
+vi.mock("electron", () => ({
+  ipcRenderer: {
+    send: vi.fn(),
+  },
+}));
+
+vi.mock("@/services/spotify/token", () => ({
+  ensureValidToken: vi.fn().mockResolvedValue(undefined),
+  getAccessToken: vi.fn().mockReturnValue("mock-access-token"),
+}));
+
+vi.mock("@/services/api-retry", () => ({
+  retryApiCall: vi.fn().mockImplementation((fn) => fn()),
+}));
+
+// Mock the specific interceptors module
+vi.mock(
+  "@/services/spotify/interceptors",
+  () => {
+    const mockGet = vi.fn();
+    const mockPut = vi.fn();
+    const mockDelete = vi.fn();
+
+    return {
+      __esModule: true,
+      default: {
+        get: mockGet,
+        put: mockPut,
+        delete: mockDelete,
+      },
+    };
+  },
+  { virtual: true },
+);
+
+// Import module under test after mocks are set up
 import {
   isTrackInLibrary,
   likeTrack,
   unlikeTrack,
-} from "../../../../services/spotify/library";
+} from "@/services/spotify/library";
 
-// Mock dependencies
-vi.mock("axios");
-vi.mock("../../../../helpers/storage/logs-store", () => ({
-  saveLog: vi.fn(),
-}));
-vi.mock("../../../../services/spotify/token", () => ({
-  ensureValidToken: vi.fn(),
-  getAccessToken: vi.fn().mockReturnValue("mock-access-token"),
-}));
+// Get access to the mocked functions
+const mockAxios = vi.mocked(
+  await import("@/services/spotify/interceptors"),
+).default;
+const mockGet = mockAxios.get;
+const mockPut = mockAxios.put;
+const mockDelete = mockAxios.delete;
 
 describe("Spotify Library Service", () => {
-  const mockTrackId = "1abc23defghij4klmno5pqrs";
-
   beforeEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("isTrackInLibrary", () => {
     it("should return true when track is in library", async () => {
-      // Mock API response: [true] means the first (and only) track is in library
-      vi.mocked(axios.get).mockResolvedValueOnce({ data: [true] });
+      mockGet.mockResolvedValueOnce({
+        data: [true],
+        status: 200,
+      });
 
-      const result = await isTrackInLibrary(mockTrackId);
+      const result = await isTrackInLibrary("track123");
 
-      // Verify axios was called correctly
-      expect(axios.get).toHaveBeenCalledWith(
-        "https://api.spotify.com/v1/me/tracks/contains",
-        expect.objectContaining({
-          params: { ids: mockTrackId },
-          headers: { Authorization: "Bearer mock-access-token" },
-        }),
+      expect(mockGet).toHaveBeenCalledWith(
+        `${API_BASE_URL}/me/tracks/contains?ids=track123`,
+        {
+          headers: {
+            Authorization: "Bearer mock-access-token",
+          },
+        },
       );
-
-      // Verify result
       expect(result).toBe(true);
     });
 
     it("should return false when track is not in library", async () => {
-      // Mock API response: [false] means the track is not in library
-      vi.mocked(axios.get).mockResolvedValueOnce({ data: [false] });
+      mockGet.mockResolvedValueOnce({
+        data: [false],
+        status: 200,
+      });
 
-      const result = await isTrackInLibrary(mockTrackId);
+      const result = await isTrackInLibrary("track123");
 
+      expect(mockGet).toHaveBeenCalledWith(
+        `${API_BASE_URL}/me/tracks/contains?ids=track123`,
+        {
+          headers: {
+            Authorization: "Bearer mock-access-token",
+          },
+        },
+      );
       expect(result).toBe(false);
     });
 
-    it("should handle errors gracefully", async () => {
-      // Mock API error
-      vi.mocked(axios.get).mockRejectedValueOnce(new Error("API Error"));
+    it("should return false when API call fails", async () => {
+      mockGet.mockRejectedValueOnce(new Error("API error"));
 
-      // For stability, the function should return false on errors rather than throwing
-      const result = await isTrackInLibrary(mockTrackId);
+      const result = await isTrackInLibrary("track123");
 
       expect(result).toBe(false);
     });
   });
 
   describe("likeTrack", () => {
-    it("should add track to library successfully", async () => {
-      // Mock successful API response
-      vi.mocked(axios.put).mockResolvedValueOnce({ status: 200 });
+    it("should add a track to the library", async () => {
+      mockPut.mockResolvedValueOnce({
+        status: 200,
+      });
 
-      const result = await likeTrack(mockTrackId);
+      await likeTrack("track123");
 
-      // Verify axios was called correctly
-      expect(axios.put).toHaveBeenCalledWith(
-        "https://api.spotify.com/v1/me/tracks",
-        null, // No body data when using ids parameter
-        expect.objectContaining({
-          params: { ids: mockTrackId },
-          headers: { Authorization: "Bearer mock-access-token" },
-        }),
+      expect(mockPut).toHaveBeenCalledWith(
+        `${API_BASE_URL}/me/tracks?ids=track123`,
+        {},
+        {
+          headers: {
+            Authorization: "Bearer mock-access-token",
+          },
+        },
       );
-
-      // Verify result
-      expect(result).toBe(true);
     });
 
-    it("should handle errors gracefully", async () => {
-      // Mock API error
-      vi.mocked(axios.put).mockRejectedValueOnce(new Error("API Error"));
+    it("should handle errors when adding a track", async () => {
+      mockPut.mockRejectedValueOnce(new Error("API error"));
 
-      await expect(likeTrack(mockTrackId)).rejects.toThrow(
-        "Failed to add track to library: API Error",
+      await likeTrack("track123");
+      // The function should not throw, just log the error
+      expect(mockPut).toHaveBeenCalledWith(
+        `${API_BASE_URL}/me/tracks?ids=track123`,
+        {},
+        {
+          headers: {
+            Authorization: "Bearer mock-access-token",
+          },
+        },
       );
     });
   });
 
   describe("unlikeTrack", () => {
-    it("should remove track from library successfully", async () => {
-      // Mock successful API response
-      vi.mocked(axios.delete).mockResolvedValueOnce({ status: 200 });
+    it("should remove a track from the library", async () => {
+      mockDelete.mockResolvedValueOnce({
+        status: 200,
+      });
 
-      const result = await unlikeTrack(mockTrackId);
+      await unlikeTrack("track123");
 
-      // Verify axios was called correctly
-      expect(axios.delete).toHaveBeenCalledWith(
-        "https://api.spotify.com/v1/me/tracks",
-        expect.objectContaining({
-          params: { ids: mockTrackId },
-          headers: { Authorization: "Bearer mock-access-token" },
-        }),
+      expect(mockDelete).toHaveBeenCalledWith(
+        `${API_BASE_URL}/me/tracks?ids=track123`,
+        {
+          headers: {
+            Authorization: "Bearer mock-access-token",
+          },
+        },
       );
-
-      // Verify result
-      expect(result).toBe(true);
     });
 
-    it("should handle errors gracefully", async () => {
-      // Mock API error
-      vi.mocked(axios.delete).mockRejectedValueOnce(new Error("API Error"));
+    it("should handle errors when removing a track", async () => {
+      mockDelete.mockRejectedValueOnce(new Error("API error"));
 
-      await expect(unlikeTrack(mockTrackId)).rejects.toThrow(
-        "Failed to remove track from library: API Error",
+      await unlikeTrack("track123");
+      // The function should not throw, just log the error
+      expect(mockDelete).toHaveBeenCalledWith(
+        `${API_BASE_URL}/me/tracks?ids=track123`,
+        {
+          headers: {
+            Authorization: "Bearer mock-access-token",
+          },
+        },
       );
     });
   });

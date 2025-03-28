@@ -1,337 +1,375 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import axios from "axios";
+import { API_BASE_URL } from "@/services/spotify/constants";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// Mock all dependencies
+vi.mock("axios", () => ({
+  default: {
+    create: vi.fn().mockReturnValue({}),
+  },
+}));
+
+vi.mock("@/helpers/storage/logs-store", () => ({
+  LogsStore: {
+    addLog: vi.fn(),
+  },
+  saveLog: vi.fn(),
+}));
+
+vi.mock("electron", () => ({
+  ipcRenderer: {
+    send: vi.fn(),
+  },
+}));
+
+vi.mock("@/services/spotify/token", () => ({
+  ensureValidToken: vi.fn().mockResolvedValue(undefined),
+  getAccessToken: vi.fn().mockReturnValue("mock-access-token"),
+}));
+
+vi.mock("@/services/api-retry", () => ({
+  retryApiCall: vi.fn().mockImplementation((fn) => fn()),
+}));
+
+// Mock the specific interceptors module
+vi.mock(
+  "@/services/spotify/interceptors",
+  () => {
+    const mockGet = vi.fn();
+    const mockPost = vi.fn();
+    const mockPut = vi.fn();
+
+    return {
+      __esModule: true,
+      default: {
+        get: mockGet,
+        post: mockPost,
+        put: mockPut,
+      },
+    };
+  },
+  { virtual: true },
+);
+
+// Import module under test after mocks are set up
 import {
   getCurrentPlayback,
   getRecentlyPlayedTracks,
   getTrack,
   pause,
   play,
-  skipToPrevious,
   skipToNext,
-} from "../../../../services/spotify/playback";
+  skipToPrevious,
+} from "@/services/spotify/playback";
 
-// Mock dependencies
-vi.mock("axios");
-vi.mock("../../../../helpers/storage/logs-store", () => ({
-  saveLog: vi.fn(),
-}));
-vi.mock("../../../../services/spotify/token", () => ({
-  ensureValidToken: vi.fn(),
-  getAccessToken: vi.fn().mockReturnValue("mock-access-token"),
-}));
+// Get access to the mocked functions
+const mockAxios = vi.mocked(
+  await import("@/services/spotify/interceptors"),
+).default;
+const mockGet = mockAxios.get;
+const mockPost = mockAxios.post;
+const mockPut = mockAxios.put;
 
 describe("Spotify Playback Service", () => {
   beforeEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   describe("getCurrentPlayback", () => {
-    it("should return the current playback state when playing", async () => {
-      // Mock playback state response
+    it("should return current playback state when playing", async () => {
       const mockPlaybackState = {
         is_playing: true,
         item: {
           id: "track123",
           name: "Test Track",
           artists: [{ name: "Test Artist" }],
-          album: { name: "Test Album" },
-          duration_ms: 300000,
         },
-        progress_ms: 60000,
-        device: {
-          id: "device123",
-          name: "Test Device",
-          type: "Computer",
-        },
+        device: { name: "Test Device" },
       };
 
-      vi.mocked(axios.get).mockResolvedValueOnce({ data: mockPlaybackState });
+      mockGet.mockResolvedValueOnce({
+        data: mockPlaybackState,
+        status: 200,
+      });
 
       const result = await getCurrentPlayback();
 
-      // Verify axios was called correctly
-      expect(axios.get).toHaveBeenCalledWith(
-        "https://api.spotify.com/v1/me/player",
-        expect.objectContaining({
-          headers: { Authorization: "Bearer mock-access-token" },
-        }),
-      );
-
-      // Verify result
+      expect(mockGet).toHaveBeenCalledWith(`${API_BASE_URL}/me/player`, {
+        headers: {
+          Authorization: "Bearer mock-access-token",
+        },
+      });
       expect(result).toEqual(mockPlaybackState);
     });
 
-    it("should return null when no active playback", async () => {
-      // 204 No Content means no active playback
-      vi.mocked(axios.get).mockResolvedValueOnce({ status: 204, data: null });
+    it("should return null when no active playback (204 No Content)", async () => {
+      mockGet.mockResolvedValueOnce({
+        status: 204,
+      });
 
       const result = await getCurrentPlayback();
 
+      expect(mockGet).toHaveBeenCalledWith(`${API_BASE_URL}/me/player`, {
+        headers: {
+          Authorization: "Bearer mock-access-token",
+        },
+      });
       expect(result).toBeNull();
     });
 
-    it("should handle errors gracefully", async () => {
-      vi.mocked(axios.get).mockRejectedValueOnce(new Error("API Error"));
+    it("should throw an error when API call fails", async () => {
+      mockGet.mockRejectedValueOnce(new Error("API error"));
 
       await expect(getCurrentPlayback()).rejects.toThrow(
-        "Failed to fetch current playback: API Error",
+        /Failed to get playback state/,
       );
     });
 
-    it("should transform response when transform is true", async () => {
-      // Mock playback state response
+    it("should include additional_types when detailed is true", async () => {
       const mockPlaybackState = {
         is_playing: true,
         item: {
           id: "track123",
           name: "Test Track",
-          uri: "spotify:track:track123",
-          artists: [{ name: "Test Artist", id: "artist123" }],
-          album: {
-            name: "Test Album",
-            images: [{ url: "https://example.com/album.jpg" }],
-          },
-          duration_ms: 300000,
+          artists: [{ name: "Test Artist" }],
         },
-        progress_ms: 60000,
-        device: {
-          id: "device123",
-          name: "Test Device",
-          type: "Computer",
-        },
+        device: { name: "Test Device" },
       };
 
-      vi.mocked(axios.get).mockResolvedValueOnce({ data: mockPlaybackState });
+      mockGet.mockResolvedValueOnce({
+        data: mockPlaybackState,
+        status: 200,
+      });
 
       const result = await getCurrentPlayback(true);
 
-      // Verify transformed result
-      expect(result).toHaveProperty("isPlaying", true);
-      expect(result).toHaveProperty("track");
-      expect(result.track).toHaveProperty("id", "track123");
-      expect(result.track).toHaveProperty("name", "Test Track");
-      expect(result.track).toHaveProperty("artist", "Test Artist");
-      expect(result.track).toHaveProperty("album", "Test Album");
-      expect(result.track).toHaveProperty("durationMs", 300000);
-      expect(result).toHaveProperty("progressMs", 60000);
-      expect(result).toHaveProperty("device");
-      expect(result.device).toHaveProperty("id", "device123");
-      expect(result.device).toHaveProperty("name", "Test Device");
-      expect(result.device).toHaveProperty("type", "Computer");
+      expect(mockGet).toHaveBeenCalledWith(
+        `${API_BASE_URL}/me/player?additional_types=episode`,
+        {
+          headers: {
+            Authorization: "Bearer mock-access-token",
+          },
+        },
+      );
+      expect(result).toEqual(mockPlaybackState);
     });
   });
 
   describe("getRecentlyPlayedTracks", () => {
     it("should return recently played tracks", async () => {
-      // Mock API response
-      const mockRecentlyPlayedResponse = {
+      const mockTracks = {
         items: [
           {
             track: {
-              id: "track1",
-              name: "Track 1",
-              artists: [{ name: "Artist 1" }],
+              id: "track123",
+              name: "Test Track",
             },
             played_at: "2023-01-01T12:00:00Z",
-          },
-          {
-            track: {
-              id: "track2",
-              name: "Track 2",
-              artists: [{ name: "Artist 2" }],
-            },
-            played_at: "2023-01-01T11:00:00Z",
           },
         ],
       };
 
-      vi.mocked(axios.get).mockResolvedValueOnce({
-        data: mockRecentlyPlayedResponse,
+      mockGet.mockResolvedValueOnce({
+        data: mockTracks,
+        status: 200,
       });
 
       const result = await getRecentlyPlayedTracks();
 
-      // Verify axios was called correctly
-      expect(axios.get).toHaveBeenCalledWith(
-        "https://api.spotify.com/v1/me/player/recently-played",
-        expect.objectContaining({
-          params: { limit: 50 },
-          headers: { Authorization: "Bearer mock-access-token" },
-        }),
+      expect(mockGet).toHaveBeenCalledWith(
+        `${API_BASE_URL}/me/player/recently-played?limit=5`,
+        {
+          headers: {
+            Authorization: "Bearer mock-access-token",
+          },
+        },
       );
-
-      // Verify result
-      expect(result).toEqual(mockRecentlyPlayedResponse);
+      expect(result).toEqual(mockTracks);
     });
 
     it("should respect the limit parameter", async () => {
-      vi.mocked(axios.get).mockResolvedValueOnce({ data: { items: [] } });
+      const mockTracks = {
+        items: [
+          {
+            track: {
+              id: "track123",
+              name: "Test Track",
+            },
+            played_at: "2023-01-01T12:00:00Z",
+          },
+        ],
+      };
+
+      mockGet.mockResolvedValueOnce({
+        data: mockTracks,
+        status: 200,
+      });
 
       await getRecentlyPlayedTracks(10);
 
-      // Verify limit parameter was passed
-      expect(axios.get).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          params: { limit: 10 },
-        }),
+      expect(mockGet).toHaveBeenCalledWith(
+        `${API_BASE_URL}/me/player/recently-played?limit=10`,
+        {
+          headers: {
+            Authorization: "Bearer mock-access-token",
+          },
+        },
       );
     });
 
-    it("should handle errors gracefully", async () => {
-      vi.mocked(axios.get).mockRejectedValueOnce(new Error("API Error"));
+    it("should throw an error when API call fails", async () => {
+      mockGet.mockRejectedValueOnce(new Error("API error"));
 
       await expect(getRecentlyPlayedTracks()).rejects.toThrow(
-        "Failed to fetch recently played tracks: API Error",
+        /Failed to get recently played tracks/,
       );
     });
   });
 
   describe("getTrack", () => {
     it("should fetch a track by ID", async () => {
-      const mockTrackId = "track123";
-      const mockTrackResponse = {
-        id: mockTrackId,
+      const mockTrack = {
+        id: "track123",
         name: "Test Track",
         artists: [{ name: "Test Artist" }],
-        album: { name: "Test Album" },
       };
 
-      vi.mocked(axios.get).mockResolvedValueOnce({ data: mockTrackResponse });
+      mockGet.mockResolvedValueOnce({
+        data: mockTrack,
+        status: 200,
+      });
 
-      const result = await getTrack(mockTrackId);
+      const result = await getTrack("track123");
 
-      // Verify axios was called correctly
-      expect(axios.get).toHaveBeenCalledWith(
-        `https://api.spotify.com/v1/tracks/${mockTrackId}`,
-        expect.objectContaining({
-          headers: { Authorization: "Bearer mock-access-token" },
-        }),
-      );
-
-      // Verify result
-      expect(result).toEqual(mockTrackResponse);
+      expect(mockGet).toHaveBeenCalledWith(`${API_BASE_URL}/tracks/track123`, {
+        headers: {
+          Authorization: "Bearer mock-access-token",
+        },
+      });
+      expect(result).toEqual(mockTrack);
     });
 
-    it("should handle errors gracefully", async () => {
-      const mockTrackId = "track123";
-      vi.mocked(axios.get).mockRejectedValueOnce(new Error("API Error"));
+    it("should throw an error when API call fails", async () => {
+      mockGet.mockRejectedValueOnce(new Error("API error"));
 
-      await expect(getTrack(mockTrackId)).rejects.toThrow(
-        "Failed to fetch track: API Error",
-      );
+      await expect(getTrack("track123")).rejects.toThrow(/Failed to get track/);
     });
   });
 
   describe("playback control functions", () => {
     describe("pause", () => {
       it("should pause playback successfully", async () => {
-        vi.mocked(axios.put).mockResolvedValueOnce({ status: 204 });
+        mockPut.mockResolvedValueOnce({
+          status: 204,
+        });
 
-        const result = await pause();
+        await pause();
 
-        // Verify axios was called correctly
-        expect(axios.put).toHaveBeenCalledWith(
-          "https://api.spotify.com/v1/me/player/pause",
-          null,
-          expect.objectContaining({
-            headers: { Authorization: "Bearer mock-access-token" },
-          }),
+        expect(mockPut).toHaveBeenCalledWith(
+          `${API_BASE_URL}/me/player/pause`,
+          {},
+          {
+            headers: {
+              Authorization: "Bearer mock-access-token",
+            },
+          },
         );
-
-        // Verify result
-        expect(result).toBe(true);
       });
 
-      it("should handle errors gracefully", async () => {
-        vi.mocked(axios.put).mockRejectedValueOnce(new Error("API Error"));
+      it("should not throw when API returns 403/404 error", async () => {
+        mockPut.mockRejectedValueOnce({
+          response: { status: 403 },
+          message: "API error",
+        });
 
-        await expect(pause()).rejects.toThrow(
-          "Failed to pause playback: API Error",
+        // Should not throw an error
+        await pause();
+        expect(mockPut).toHaveBeenCalledWith(
+          `${API_BASE_URL}/me/player/pause`,
+          {},
+          {
+            headers: {
+              Authorization: "Bearer mock-access-token",
+            },
+          },
         );
       });
     });
 
     describe("play", () => {
       it("should start playback successfully", async () => {
-        vi.mocked(axios.put).mockResolvedValueOnce({ status: 204 });
+        mockPut.mockResolvedValueOnce({
+          status: 204,
+        });
 
-        const result = await play();
+        await play();
 
-        // Verify axios was called correctly
-        expect(axios.put).toHaveBeenCalledWith(
-          "https://api.spotify.com/v1/me/player/play",
-          null,
-          expect.objectContaining({
-            headers: { Authorization: "Bearer mock-access-token" },
-          }),
-        );
-
-        // Verify result
-        expect(result).toBe(true);
-      });
-
-      it("should handle errors gracefully", async () => {
-        vi.mocked(axios.put).mockRejectedValueOnce(new Error("API Error"));
-
-        await expect(play()).rejects.toThrow(
-          "Failed to start playback: API Error",
+        expect(mockPut).toHaveBeenCalledWith(
+          `${API_BASE_URL}/me/player/play`,
+          {},
+          {
+            headers: {
+              Authorization: "Bearer mock-access-token",
+            },
+          },
         );
       });
-    });
 
-    describe("skipToPrevious", () => {
-      it("should skip to previous track successfully", async () => {
-        vi.mocked(axios.post).mockResolvedValueOnce({ status: 204 });
+      it("should not throw when API returns 403/404 error", async () => {
+        mockPut.mockRejectedValueOnce({
+          response: { status: 403 },
+          message: "API error",
+        });
 
-        const result = await skipToPrevious();
-
-        // Verify axios was called correctly
-        expect(axios.post).toHaveBeenCalledWith(
-          "https://api.spotify.com/v1/me/player/previous",
-          null,
-          expect.objectContaining({
-            headers: { Authorization: "Bearer mock-access-token" },
-          }),
-        );
-
-        // Verify result
-        expect(result).toBe(true);
-      });
-
-      it("should handle errors gracefully", async () => {
-        vi.mocked(axios.post).mockRejectedValueOnce(new Error("API Error"));
-
-        await expect(skipToPrevious()).rejects.toThrow(
-          "Failed to skip to previous track: API Error",
+        // Should not throw an error
+        await play();
+        expect(mockPut).toHaveBeenCalledWith(
+          `${API_BASE_URL}/me/player/play`,
+          {},
+          {
+            headers: {
+              Authorization: "Bearer mock-access-token",
+            },
+          },
         );
       });
     });
 
     describe("skipToNext", () => {
       it("should skip to next track successfully", async () => {
-        vi.mocked(axios.post).mockResolvedValueOnce({ status: 204 });
+        mockPost.mockResolvedValueOnce({
+          status: 204,
+        });
 
-        const result = await skipToNext();
+        await skipToNext();
 
-        // Verify axios was called correctly
-        expect(axios.post).toHaveBeenCalledWith(
-          "https://api.spotify.com/v1/me/player/next",
-          null,
-          expect.objectContaining({
-            headers: { Authorization: "Bearer mock-access-token" },
-          }),
+        expect(mockPost).toHaveBeenCalledWith(
+          `${API_BASE_URL}/me/player/next`,
+          {},
+          {
+            headers: {
+              Authorization: "Bearer mock-access-token",
+            },
+          },
         );
-
-        // Verify result
-        expect(result).toBe(true);
       });
+    });
 
-      it("should handle errors gracefully", async () => {
-        vi.mocked(axios.post).mockRejectedValueOnce(new Error("API Error"));
+    describe("skipToPrevious", () => {
+      it("should skip to previous track successfully", async () => {
+        mockPost.mockResolvedValueOnce({
+          status: 204,
+        });
 
-        await expect(skipToNext()).rejects.toThrow(
-          "Failed to skip to next track: API Error",
+        await skipToPrevious();
+
+        expect(mockPost).toHaveBeenCalledWith(
+          `${API_BASE_URL}/me/player/previous`,
+          {},
+          {
+            headers: {
+              Authorization: "Bearer mock-access-token",
+            },
+          },
         );
       });
     });

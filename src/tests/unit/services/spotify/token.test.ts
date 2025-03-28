@@ -1,6 +1,7 @@
 import axios from "axios";
 import querystring from "querystring";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as credentialsModule from "../../../../services/spotify/credentials";
 import {
   clearTokens,
   ensureValidToken,
@@ -17,16 +18,34 @@ vi.mock("axios");
 vi.mock("../../../../helpers/storage/logs-store", () => ({
   saveLog: vi.fn(),
 }));
-vi.mock("../../../../services/spotify/credentials", () => ({
-  ensureCredentialsSet: vi.fn(),
-  getCredentials: vi.fn().mockReturnValue({
-    clientId: "mock-client-id",
-    clientSecret: "mock-client-secret",
-  }),
+
+// Mock Electron
+vi.mock("electron", () => ({
+  app: {
+    getPath: vi.fn().mockReturnValue("/mock/user/data"),
+  },
 }));
+
+// Mock storage
+vi.mock("../../../../helpers/storage/token-store", () => ({
+  getStoredTokens: vi.fn().mockReturnValue(null),
+  storeTokens: vi.fn(),
+  clearStoredTokens: vi.fn(),
+}));
+
 vi.mock("../../../../services/api-retry", () => ({
   retryApiCall: vi.fn().mockImplementation(async (fn) => await fn()),
 }));
+
+// Use spies instead of completely replacing credential functions
+vi.spyOn(credentialsModule, "getCredentials").mockReturnValue({
+  clientId: "mock-client-id",
+  clientSecret: "mock-client-secret",
+});
+vi.spyOn(credentialsModule, "ensureCredentialsSet").mockImplementation(
+  () => {},
+);
+vi.spyOn(credentialsModule, "hasCredentials").mockReturnValue(true);
 
 describe("Spotify Token Service", () => {
   const mockAccessToken = "mock-access-token";
@@ -34,7 +53,7 @@ describe("Spotify Token Service", () => {
   const mockExpiresIn = 3600; // 1 hour
 
   beforeEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
     // Clear token state before each test
     clearTokens();
   });
