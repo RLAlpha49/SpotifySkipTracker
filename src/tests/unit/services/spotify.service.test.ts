@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import SpotifyService, {
+import {
   SpotifyCredentials,
   SpotifyPlaybackInfo,
+  spotifyService,
   SpotifySettings,
 } from "../../../services/spotify.service";
 import { SkippedTrack } from "../../../types/spotify";
@@ -17,8 +18,6 @@ vi.mock("electron", () => ({
 import { ipcRenderer } from "electron";
 
 describe("Spotify Service", () => {
-  let spotifyService: SpotifyService;
-
   // Sample test data
   const testCredentials: SpotifyCredentials = {
     clientId: "test-client-id",
@@ -58,7 +57,6 @@ describe("Spotify Service", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    spotifyService = new SpotifyService();
 
     // Default mock implementation for console.error to avoid cluttering test output
     vi.spyOn(console, "error").mockImplementation(() => {});
