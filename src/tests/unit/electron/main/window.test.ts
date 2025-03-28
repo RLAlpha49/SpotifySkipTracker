@@ -219,7 +219,8 @@ describe("Window Management Module", () => {
       );
 
       // Get the handler and call it
-      const readyHandler = vi.mocked(window.once).mock.calls[0][1] as Function;
+      const readyHandler = vi.mocked(window.once).mock
+        .calls[0][1] as () => void;
       readyHandler();
 
       expect(window.show).toHaveBeenCalled();
@@ -233,7 +234,7 @@ describe("Window Management Module", () => {
       expect(window.on).toHaveBeenCalledWith("closed", expect.any(Function));
 
       // Get the handler and call it
-      const closedHandler = vi.mocked(window.on).mock.calls[0][1] as Function;
+      const closedHandler = vi.mocked(window.on).mock.calls[0][1] as () => void;
       closedHandler();
 
       expect(saveLog).toHaveBeenCalledWith("Application closed", "DEBUG");
@@ -246,7 +247,7 @@ describe("Window Management Module", () => {
       const window = createWindow();
 
       // Get the closed event handler and call it
-      const closedHandler = vi.mocked(window.on).mock.calls[0][1] as Function;
+      const closedHandler = vi.mocked(window.on).mock.calls[0][1] as () => void;
       closedHandler();
 
       expect(stopPlaybackMonitoring).toHaveBeenCalled();

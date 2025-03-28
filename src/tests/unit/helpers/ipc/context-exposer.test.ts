@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import exposeContexts from "../../../../helpers/ipc/context-exposer";
 import { exposeThemeContext } from "../../../../helpers/ipc/theme/theme-context";
@@ -24,16 +24,40 @@ vi.mock("../../../../helpers/ipc/theme/theme-context", () => ({
   exposeThemeContext: vi.fn(),
 }));
 
+// Define interfaces for the exposed APIs
+interface StatisticsAPI {
+  getAll: () => Promise<unknown>;
+  getDailySkipMetrics: () => Promise<unknown>;
+  exportSkippedTracksToCSV: () => Promise<unknown>;
+  getUniqueArtistCount: () => Promise<unknown>;
+  [key: string]: (...args: unknown[]) => Promise<unknown>;
+}
+
+interface SpotifyAPI {
+  authenticate: (code?: string, isCallback?: boolean) => Promise<unknown>;
+  getStatistics: () => Promise<unknown>;
+  clearLogs: () => Promise<unknown>;
+  startMonitoring: () => Promise<unknown>;
+  onMonitoringStatusChange: (callback: (data: unknown) => void) => () => void;
+  [key: string]: (...args: unknown[]) => unknown;
+}
+
+interface FileAccessAPI {
+  saveFile: (filename: string, content: string) => Promise<unknown>;
+  readFile: (filename: string) => Promise<unknown>;
+  [key: string]: (...args: unknown[]) => Promise<unknown>;
+}
+
 describe("Context Exposer", () => {
-  let statisticsAPI: any;
-  let spotifyAPI: any;
-  let fileAccessAPI: any;
+  let statisticsAPI: StatisticsAPI;
+  let spotifyAPI: SpotifyAPI;
+  let fileAccessAPI: FileAccessAPI;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    statisticsAPI = undefined;
-    spotifyAPI = undefined;
-    fileAccessAPI = undefined;
+    statisticsAPI = undefined as unknown as StatisticsAPI;
+    spotifyAPI = undefined as unknown as SpotifyAPI;
+    fileAccessAPI = undefined as unknown as FileAccessAPI;
   });
 
   afterEach(() => {
@@ -84,7 +108,7 @@ describe("Context Exposer", () => {
       vi.mocked(contextBridge.exposeInMainWorld).mockImplementation(
         (channel, api) => {
           if (channel === "fileAccess") {
-            fileAccessAPI = api;
+            fileAccessAPI = api as FileAccessAPI;
           }
         },
       );
@@ -106,7 +130,7 @@ describe("Context Exposer", () => {
       vi.mocked(contextBridge.exposeInMainWorld).mockImplementation(
         (channel, api) => {
           if (channel === "statisticsAPI") {
-            statisticsAPI = api;
+            statisticsAPI = api as StatisticsAPI;
           }
         },
       );
@@ -144,7 +168,7 @@ describe("Context Exposer", () => {
       vi.mocked(contextBridge.exposeInMainWorld).mockImplementation(
         (channel, api) => {
           if (channel === "spotify") {
-            spotifyAPI = api;
+            spotifyAPI = api as SpotifyAPI;
           }
         },
       );
@@ -181,7 +205,7 @@ describe("Context Exposer", () => {
       vi.mocked(contextBridge.exposeInMainWorld).mockImplementation(
         (channel, api) => {
           if (channel === "spotify") {
-            spotifyAPI = api;
+            spotifyAPI = api as SpotifyAPI;
           }
         },
       );
@@ -189,7 +213,7 @@ describe("Context Exposer", () => {
       // Mock ipcRenderer.on to simulate the event callback
       vi.mocked(ipcRenderer.on).mockImplementation((_channel, callback) => {
         // Simulate a call to the callback
-        callback({} as any, { status: "test" });
+        callback({} as IpcRendererEvent, { status: "test" });
         return ipcRenderer;
       });
 
@@ -222,7 +246,7 @@ describe("Context Exposer", () => {
       vi.mocked(contextBridge.exposeInMainWorld).mockImplementation(
         (channel, api) => {
           if (channel === "fileAccess") {
-            fileAccessAPI = api;
+            fileAccessAPI = api as FileAccessAPI;
           }
         },
       );

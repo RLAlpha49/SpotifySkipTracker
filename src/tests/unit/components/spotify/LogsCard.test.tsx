@@ -6,16 +6,21 @@ import { LogsCard } from "../../../../components/spotify/LogsCard";
 
 // Mock UI components that are causing issues
 vi.mock("@/components/ui/select", () => ({
+  // eslint-disable-next-line react/prop-types
   Select: ({ children }) => <div data-testid="select">{children}</div>,
+  // eslint-disable-next-line react/prop-types
   SelectTrigger: ({ children }) => (
     <div data-testid="select-trigger">{children}</div>
   ),
+  // eslint-disable-next-line react/prop-types
   SelectValue: ({ children }) => (
     <div data-testid="select-value">{children}</div>
   ),
+  // eslint-disable-next-line react/prop-types
   SelectContent: ({ children }) => (
     <div data-testid="select-content">{children}</div>
   ),
+  // eslint-disable-next-line react/prop-types
   SelectItem: ({ value, onSelect, children }) => (
     <div
       data-testid="select-item"
@@ -28,6 +33,7 @@ vi.mock("@/components/ui/select", () => ({
 }));
 
 vi.mock("@/components/ui/switch", () => ({
+  // eslint-disable-next-line react/prop-types
   Switch: ({ checked, onCheckedChange }) => (
     <button
       role="switch"
@@ -100,7 +106,7 @@ describe("LogsCard Component", () => {
   });
 
   it("should render the component with title and logs", async () => {
-    const { container } = render(<LogsCard {...defaultProps} />);
+    render(<LogsCard {...defaultProps} />);
 
     // Check that the title is rendered
     expect(screen.getByText("Activity Logs")).toBeInTheDocument();
@@ -280,20 +286,6 @@ describe("LogsCard Component", () => {
   });
 
   it("should apply correct styling to logs based on their level", async () => {
-    const mockGetLogElement = vi.fn((logText) => {
-      return {
-        className: logText.includes("[ERROR]")
-          ? "text-red-600"
-          : logText.includes("[CRITICAL]")
-            ? "text-red-700"
-            : logText.includes("[INFO]")
-              ? "text-primary"
-              : logText.includes("[DEBUG]")
-                ? "text-muted-foreground"
-                : "",
-      };
-    });
-
     render(
       <LogsCard
         {...defaultProps}

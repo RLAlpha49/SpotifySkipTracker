@@ -56,7 +56,6 @@ vi.mock("electron", () => ({
 
 // Import after mocks
 const fs = await import("fs-extra");
-const path = await import("path");
 
 describe("Statistics Store", () => {
   // Mock console methods
@@ -310,7 +309,8 @@ describe("Statistics Store", () => {
 
       // Verify that Sets were converted to arrays
       expect(fs.writeJsonSync).toHaveBeenCalled();
-      const savedData = vi.mocked(fs.writeJsonSync).mock.calls[0][1] as any;
+      const savedData = vi.mocked(fs.writeJsonSync).mock
+        .calls[0][1] as StatisticsData;
       expect(
         Array.isArray(savedData.dailyMetrics["2023-01-01"].uniqueTracks),
       ).toBe(true);

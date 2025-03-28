@@ -6,8 +6,44 @@ import { cleanup, fireEvent, render } from "@testing-library/react";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// Define the Settings type
+interface SpotifySettings {
+  skipThreshold: number;
+  timeframeInDays: number;
+  skipProgress: number;
+  displayLogLevel: string;
+  logAutoRefresh: boolean;
+  autoStartMonitoring: boolean;
+}
+
+// Define the Spotify API interface
+interface SpotifyAPI {
+  getSettings: () => Promise<SpotifySettings>;
+  saveSettings: (settings: SpotifySettings) => Promise<boolean>;
+  resetSettings: () => Promise<boolean>;
+  clearStatistics: () => Promise<boolean>;
+  clearLogs: () => Promise<boolean>;
+  restartApp: () => Promise<boolean>;
+  authenticate: () => Promise<boolean>;
+  isAuthenticated: () => Promise<boolean>;
+  logout: () => Promise<boolean>;
+}
+
+// Define the Electron API interface
+interface ElectronAPI {
+  openLogsDirectory: () => Promise<boolean>;
+}
+
+// Extend Window interface
+declare global {
+  interface Window {
+    spotify: SpotifyAPI;
+    electron: ElectronAPI;
+  }
+}
+
 // Mock window.spotify
-const mockSpotify = {
+const mockSpotify: SpotifyAPI = {
   getSettings: vi.fn().mockResolvedValue({
     skipThreshold: 3,
     timeframeInDays: 30,
@@ -26,7 +62,7 @@ const mockSpotify = {
   logout: vi.fn().mockResolvedValue(true),
 };
 
-const mockElectron = {
+const mockElectron: ElectronAPI = {
   openLogsDirectory: vi.fn().mockResolvedValue(true),
 };
 
@@ -64,14 +100,14 @@ const TestSettingsComponent = () => {
             displayLogLevel: "INFO",
             logAutoRefresh: true,
             autoStartMonitoring: true,
-          } as any)
+          })
         }
       >
         Save Settings
       </button>
       <button
         data-testid="reset-settings-btn"
-        onClick={() => (window.spotify as any).resetSettings()}
+        onClick={() => window.spotify.resetSettings()}
       >
         Reset Settings
       </button>

@@ -26,6 +26,25 @@ const mockClassList = {
   remove: vi.fn(),
 };
 
+// Define interfaces for our mock objects
+interface ThemeMode {
+  current: typeof mockCurrent;
+  dark: typeof mockDark;
+  light: typeof mockLight;
+  system: typeof mockSystem;
+  toggle: typeof mockToggle;
+}
+
+interface MockWindow extends Window {
+  themeMode: ThemeMode;
+}
+
+interface MockDocument extends Document {
+  documentElement: {
+    classList: typeof mockClassList;
+  };
+}
+
 describe("Theme Helpers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -40,7 +59,7 @@ describe("Theme Helpers", () => {
         system: mockSystem,
         toggle: mockToggle,
       },
-    } as any;
+    } as unknown as MockWindow;
 
     // Mock localStorage - Fix: Use Object.defineProperty on the global object
     Object.defineProperty(global, "localStorage", {
@@ -54,7 +73,7 @@ describe("Theme Helpers", () => {
       documentElement: {
         classList: mockClassList,
       },
-    } as any;
+    } as unknown as MockDocument;
 
     // Default mock implementations
     mockCurrent.mockResolvedValue("system");

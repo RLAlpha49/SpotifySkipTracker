@@ -90,7 +90,7 @@ describe("Logs Storage", () => {
       "latest.log",
       "spotify-skip-tracker-2023-01-01T00-00-00-000Z.log",
       "spotify-skip-tracker-2023-01-02T00-00-00-000Z.log",
-    ] as any);
+    ] as unknown as string[]);
     vi.mocked(fs.statSync).mockImplementation((filePath) => {
       const fileName = filePath.toString();
       let mtime;

@@ -10,6 +10,15 @@ const mockMinimize = vi.fn();
 const mockMaximize = vi.fn();
 const mockClose = vi.fn();
 
+// Define interface for our mock window object
+interface ElectronWindow extends Window {
+  electronWindow: {
+    minimize: typeof mockMinimize;
+    maximize: typeof mockMaximize;
+    close: typeof mockClose;
+  };
+}
+
 describe("Window Helpers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -22,7 +31,7 @@ describe("Window Helpers", () => {
         maximize: mockMaximize,
         close: mockClose,
       },
-    } as any;
+    } as unknown as ElectronWindow;
   });
 
   afterEach(() => {

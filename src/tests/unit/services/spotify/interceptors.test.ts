@@ -1,7 +1,12 @@
 import { saveLog } from "@/helpers/storage/logs-store";
 import * as credentialsModule from "@/services/spotify/credentials";
 import * as tokenModule from "@/services/spotify/token";
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
+import axios, {
+  AxiosError,
+  AxiosRequestConfig,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
+} from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock dependencies
@@ -54,11 +59,21 @@ vi.spyOn(credentialsModule, "getCredentials").mockReturnValue({
   clientSecret: "mock-client-secret",
 });
 
+// Define custom error types for the interceptors
+type AxiosRequestErrorType = Error;
+type AxiosResponseErrorType = AxiosError & {
+  config?: AxiosRequestConfig & { _retry?: boolean; timestamp?: number };
+};
+
 // Store interceptors for testing
 let requestInterceptor: (config: AxiosRequestConfig) => AxiosRequestConfig;
-let requestErrorInterceptor: (error: any) => Promise<any>;
+let requestErrorInterceptor: (
+  error: AxiosRequestErrorType,
+) => Promise<AxiosRequestErrorType>;
 let responseInterceptor: (response: AxiosResponse) => AxiosResponse;
-let responseErrorInterceptor: (error: any) => Promise<any>;
+let responseErrorInterceptor: (
+  error: AxiosResponseErrorType,
+) => Promise<AxiosResponse | AxiosResponseErrorType>;
 
 describe("Spotify Interceptors", () => {
   beforeEach(() => {
@@ -67,16 +82,24 @@ describe("Spotify Interceptors", () => {
     // Capture the interceptors when they're set up
     vi.mocked(axios.interceptors.request.use).mockImplementation(
       (onFulfilled, onRejected) => {
-        requestInterceptor = onFulfilled as any;
-        requestErrorInterceptor = onRejected as any;
+        requestInterceptor = onFulfilled as (
+          config: AxiosRequestConfig,
+        ) => AxiosRequestConfig;
+        requestErrorInterceptor = onRejected as (
+          error: AxiosRequestErrorType,
+        ) => Promise<AxiosRequestErrorType>;
         return 1; // Mock interceptor ID
       },
     );
 
     vi.mocked(axios.interceptors.response.use).mockImplementation(
       (onFulfilled, onRejected) => {
-        responseInterceptor = onFulfilled as any;
-        responseErrorInterceptor = onRejected as any;
+        responseInterceptor = onFulfilled as (
+          response: AxiosResponse,
+        ) => AxiosResponse;
+        responseErrorInterceptor = onRejected as (
+          error: AxiosResponseErrorType,
+        ) => Promise<AxiosResponse | AxiosResponseErrorType>;
         return 2; // Mock interceptor ID
       },
     );
@@ -86,7 +109,7 @@ describe("Spotify Interceptors", () => {
     const setupInterceptors = () => {
       const requestHandler = async (config: AxiosRequestConfig) => {
         // Add request timestamp for timeout tracking
-        (config as any).timestamp = Date.now();
+        (config as InternalAxiosRequestConfig).timestamp = Date.now();
 
         // Only add auth headers for Spotify API requests
         if (config.url && config.url.includes("api.spotify.com")) {
@@ -101,7 +124,7 @@ describe("Spotify Interceptors", () => {
         return config;
       };
 
-      const requestErrorHandler = (error: any) => {
+      const requestErrorHandler = (error: AxiosRequestErrorType) => {
         return Promise.reject(error);
       };
 
@@ -109,14 +132,14 @@ describe("Spotify Interceptors", () => {
         return response;
       };
 
-      const responseErrorHandler = async (error: any) => {
+      const responseErrorHandler = async (error: AxiosResponseErrorType) => {
         // Handle 401 unauthorized errors (expired token)
         if (error.response && error.response.status === 401) {
           // Get the original request config
           const originalRequest = error.config;
 
           // Only try to refresh once to avoid infinite loops
-          if (!originalRequest._retry) {
+          if (originalRequest && !originalRequest._retry) {
             originalRequest._retry = true;
 
             try {
@@ -125,7 +148,9 @@ describe("Spotify Interceptors", () => {
 
               // Update the Authorization header
               const token = tokenModule.getAccessToken();
-              originalRequest.headers.Authorization = `Bearer ${token}`;
+              if (originalRequest.headers) {
+                originalRequest.headers.Authorization = `Bearer ${token}`;
+              }
 
               // Retry the request
               return axios(originalRequest);
@@ -221,7 +246,7 @@ describe("Spotify Interceptors", () => {
         status: 200,
         statusText: "OK",
         headers: {},
-        config: {} as any,
+        config: {} as AxiosRequestConfig,
       };
 
       const result = responseInterceptor(response);
@@ -231,23 +256,25 @@ describe("Spotify Interceptors", () => {
     });
 
     it("should handle 401 errors by refreshing token and retrying", async () => {
-      const originalRequest = {
+      const originalRequest: AxiosRequestConfig & { _retry?: boolean } = {
         headers: {},
         _retry: false,
       };
 
       // Create 401 error
-      const error: Partial<AxiosError> = {
-        config: originalRequest as any,
+      const error: AxiosResponseErrorType = {
+        config: originalRequest,
         response: {
           status: 401,
           data: { error: "invalid_token" },
           statusText: "Unauthorized",
           headers: {},
-          config: {} as any,
+          config: {} as AxiosRequestConfig,
         } as AxiosResponse,
         isAxiosError: true,
         message: "Request failed with status code 401",
+        name: "AxiosError",
+        toJSON: () => ({}),
       };
 
       // Mock refreshAccessToken to succeed
@@ -259,7 +286,7 @@ describe("Spotify Interceptors", () => {
 
       // Modify the mock axios function for this test
       const originalAxios = axios;
-      (axios as any) = vi.fn().mockResolvedValueOnce({
+      (axios as unknown) = vi.fn().mockResolvedValueOnce({
         data: { success: true },
         status: 200,
       });
@@ -274,28 +301,30 @@ describe("Spotify Interceptors", () => {
         expect(originalRequest._retry).toBe(true);
       } finally {
         // Restore axios
-        (axios as any) = originalAxios;
+        (axios as unknown) = originalAxios;
       }
     });
 
     it("should not retry 401 errors that have already been retried", async () => {
-      const originalRequest = {
+      const originalRequest: AxiosRequestConfig & { _retry?: boolean } = {
         headers: {},
         _retry: true, // Already retried
       };
 
       // Create 401 error
-      const error: Partial<AxiosError> = {
-        config: originalRequest as any,
+      const error: AxiosResponseErrorType = {
+        config: originalRequest,
         response: {
           status: 401,
           data: { error: "invalid_token" },
           statusText: "Unauthorized",
           headers: {},
-          config: {} as any,
+          config: {} as AxiosRequestConfig,
         } as AxiosResponse,
         isAxiosError: true,
         message: "Request failed with status code 401",
+        name: "AxiosError",
+        toJSON: () => ({}),
       };
 
       // Handle the error should reject
@@ -306,16 +335,18 @@ describe("Spotify Interceptors", () => {
     });
 
     it("should pass through non-401 errors", async () => {
-      const error: Partial<AxiosError> = {
+      const error: AxiosResponseErrorType = {
         response: {
           status: 404,
           statusText: "Not Found",
           headers: {},
           data: {},
-          config: {} as any,
+          config: {} as AxiosRequestConfig,
         } as AxiosResponse,
         isAxiosError: true,
         message: "Request failed with status code 404",
+        name: "AxiosError",
+        toJSON: () => ({}),
       };
 
       // Handle the error should reject with the original error
@@ -323,9 +354,11 @@ describe("Spotify Interceptors", () => {
     });
 
     it("should handle network errors or errors without response", async () => {
-      const error: Partial<AxiosError> = {
+      const error: AxiosResponseErrorType = {
         isAxiosError: true,
         message: "Network Error",
+        name: "AxiosError",
+        toJSON: () => ({}),
       };
 
       // Handle the error should reject with the original error

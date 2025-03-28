@@ -2,6 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ApplicationSettingsForm } from "../../../../components/settings/ApplicationSettingsForm";
+import type { UseFormReturn } from "react-hook-form";
+import * as z from "zod";
+import { settingsFormSchema } from "../../../../components/settings/settingsFormSchema";
 
 // Mock the ToggleTheme component
 vi.mock("../../../../components/ToggleTheme", () => ({
@@ -20,7 +23,7 @@ describe("ApplicationSettingsForm Component", () => {
   const setupTest = () => {
     return render(
       <ApplicationSettingsForm
-        form={mockControl as any}
+        form={mockControl as UseFormReturn<z.infer<typeof settingsFormSchema>>}
         setSettingsChanged={mockSetSettingsChanged}
       />,
     );

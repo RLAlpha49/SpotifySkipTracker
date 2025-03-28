@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
+import React from "react";
 import { describe, expect, it } from "vitest";
 import { OverviewTab } from "../../../../components/statistics/OverviewTab";
+import type { StatisticsData } from "../../../../types/statistics";
 
 // Mock the NoDataMessage component
 vi.mock("../../../../components/statistics/NoDataMessage", () => ({
@@ -11,7 +13,7 @@ vi.mock("../../../../components/statistics/NoDataMessage", () => ({
 
 describe("OverviewTab Component", () => {
   // Mock data for testing
-  const mockStatistics = {
+  const mockStatistics: Partial<StatisticsData> = {
     totalUniqueTracks: 150,
     totalUniqueArtists: 45,
     repeatListeningRate: 0.25,
@@ -69,7 +71,7 @@ describe("OverviewTab Component", () => {
     const { container } = render(
       <OverviewTab
         loading={false}
-        statistics={mockStatistics as any}
+        statistics={mockStatistics as Partial<StatisticsData>}
         statsSummary={mockStatsSummary}
       />,
     );
@@ -93,7 +95,7 @@ describe("OverviewTab Component", () => {
     render(
       <OverviewTab
         loading={false}
-        statistics={mockStatistics as any}
+        statistics={mockStatistics as Partial<StatisticsData>}
         statsSummary={mockStatsSummary}
       />,
     );
@@ -113,7 +115,7 @@ describe("OverviewTab Component", () => {
     const { container } = render(
       <OverviewTab
         loading={false}
-        statistics={mockStatistics as any}
+        statistics={mockStatistics as Partial<StatisticsData>}
         statsSummary={mockStatsSummary}
       />,
     );

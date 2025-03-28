@@ -1,4 +1,4 @@
-import { ipcMain, nativeTheme } from "electron";
+import { ipcMain, IpcMainInvokeEvent, nativeTheme } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   THEME_MODE_CURRENT_CHANNEL,
@@ -22,7 +22,11 @@ vi.mock("electron", () => ({
 
 describe("Theme Listeners", () => {
   // Store handlers for testing
-  const handlers: Record<string, (event?: any, ...args: any[]) => any> = {};
+  type ThemeHandler = (
+    event?: IpcMainInvokeEvent,
+    ...args: unknown[]
+  ) => unknown;
+  const handlers: Record<string, ThemeHandler> = {};
 
   beforeEach(() => {
     vi.clearAllMocks();

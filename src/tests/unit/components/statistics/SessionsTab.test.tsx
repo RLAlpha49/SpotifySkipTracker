@@ -1,6 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { SessionsTab } from "../../../../components/statistics/SessionsTab";
+import type { SessionListItem } from "../../../../types/sessions";
+import type { StatisticsData } from "../../../../types/statistics";
 
 // Mock the NoDataMessage component
 vi.mock("../../../../components/statistics/NoDataMessage", () => ({
@@ -62,7 +65,7 @@ vi.mock("@/components/ui/chart", () => ({
 
 describe("SessionsTab Component", () => {
   // Mock data for testing
-  const mockRecentSessions = [
+  const mockRecentSessions: SessionListItem[] = [
     {
       id: "session1",
       formattedDate: "Mar 15, 2023",
@@ -106,7 +109,7 @@ describe("SessionsTab Component", () => {
     },
   ];
 
-  const mockStatistics = {
+  const mockStatistics: StatisticsData = {
     sessions: [
       {
         id: "session1",
@@ -145,7 +148,7 @@ describe("SessionsTab Component", () => {
         skippedTracks: 2,
       },
     ],
-  } as any;
+  };
 
   it("should render loading skeletons when loading is true", () => {
     const { container } = render(
@@ -179,7 +182,7 @@ describe("SessionsTab Component", () => {
     render(
       <SessionsTab
         loading={false}
-        statistics={{ sessions: [] } as any}
+        statistics={{ sessions: [] }}
         recentSessions={[]}
       />,
     );
@@ -190,7 +193,7 @@ describe("SessionsTab Component", () => {
   });
 
   it("should render recent sessions in list view by default", () => {
-    const { container } = render(
+    render(
       <SessionsTab
         loading={false}
         statistics={mockStatistics}
@@ -199,7 +202,9 @@ describe("SessionsTab Component", () => {
     );
 
     // Check that we have cards
-    const cards = container.querySelectorAll('[data-slot="card"]');
+    const cards = screen.queryAllByText(
+      /Recent Listening Sessions|Session Metrics/,
+    );
     expect(cards.length).toBeGreaterThan(0);
 
     // Check for scroll areas
@@ -208,7 +213,7 @@ describe("SessionsTab Component", () => {
   });
 
   it("should display skip rates and completion rates for each session", () => {
-    const { container } = render(
+    render(
       <SessionsTab
         loading={false}
         statistics={mockStatistics}
@@ -281,6 +286,15 @@ describe("SessionsTab Component", () => {
   });
 
   it("should display session insights and metrics cards", () => {
+    render(
+      <SessionsTab
+        loading={false}
+        statistics={mockStatistics}
+        recentSessions={mockRecentSessions}
+      />,
+    );
+
+    // Check that we have cards
     const { container } = render(
       <SessionsTab
         loading={false}

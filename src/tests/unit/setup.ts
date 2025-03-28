@@ -105,7 +105,7 @@ vi.mock("react-hook-form", async () => {
         onBlur: vi.fn(),
         ref: vi.fn(),
       })),
-      handleSubmit: vi.fn((cb) => vi.fn()),
+      handleSubmit: vi.fn(() => vi.fn()),
       trigger: vi.fn(),
       clearErrors: vi.fn(),
       resetField: vi.fn(),
@@ -124,7 +124,7 @@ vi.mock("react-hook-form", async () => {
     })),
     useForm: vi.fn().mockReturnValue({
       register: vi.fn(),
-      handleSubmit: vi.fn((cb) => vi.fn()),
+      handleSubmit: vi.fn(() => vi.fn()),
       formState: { errors: {} },
       control: {
         _defaultValues: {},

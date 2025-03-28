@@ -106,8 +106,8 @@ describe("Statistics Collector", () => {
     // Create a mock implementation of the setInterval function
     const originalSetInterval = global.setInterval;
 
-    let intervalCallback: Function | null = null;
-    global.setInterval = vi.fn((callback: Function, ms: number) => {
+    let intervalCallback: (() => Promise<void>) | null = null;
+    global.setInterval = vi.fn((callback: () => Promise<void>) => {
       intervalCallback = callback;
       return 123 as unknown as NodeJS.Timeout; // Return a mock timer ID
     });

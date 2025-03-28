@@ -1,6 +1,8 @@
+import React from "react";
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ArtistsTab } from "../../../../components/statistics/ArtistsTab";
+import type { StatisticsData } from "../../../../types/statistics";
 
 // Mock the NoDataMessage component
 vi.mock("../../../../components/statistics/NoDataMessage", () => ({
@@ -111,7 +113,7 @@ describe("ArtistsTab Component", () => {
 
     // Case 2: Empty artist metrics
     const { container: container2 } = render(
-      <ArtistsTab loading={false} statistics={{ artistMetrics: {} } as any} />,
+      <ArtistsTab loading={false} statistics={{ artistMetrics: {} }} />,
     );
 
     // Check for no data message again
@@ -123,7 +125,10 @@ describe("ArtistsTab Component", () => {
 
   it("should render artist metrics in progress bar view by default", () => {
     const { container } = render(
-      <ArtistsTab loading={false} statistics={mockStatistics as any} />,
+      <ArtistsTab
+        loading={false}
+        statistics={mockStatistics as StatisticsData}
+      />,
     );
 
     // Check for section titles in the container text
@@ -146,7 +151,10 @@ describe("ArtistsTab Component", () => {
 
   it("should display track counts and skip rates for each artist", () => {
     const { container } = render(
-      <ArtistsTab loading={false} statistics={mockStatistics as any} />,
+      <ArtistsTab
+        loading={false}
+        statistics={mockStatistics as StatisticsData}
+      />,
     );
 
     // Check for track counts in the container text
@@ -164,7 +172,10 @@ describe("ArtistsTab Component", () => {
 
   it("should switch from progress bar view to pie chart view when toggle is clicked", () => {
     const { container } = render(
-      <ArtistsTab loading={false} statistics={mockStatistics as any} />,
+      <ArtistsTab
+        loading={false}
+        statistics={mockStatistics as StatisticsData}
+      />,
     );
 
     // Find and click the pie chart toggle by aria-label attribute
@@ -213,7 +224,10 @@ describe("ArtistsTab Component", () => {
 
   it("should switch the view of 'Artists with Highest Skip Rates' section when toggle is clicked", () => {
     const { container } = render(
-      <ArtistsTab loading={false} statistics={mockStatistics as any} />,
+      <ArtistsTab
+        loading={false}
+        statistics={mockStatistics as StatisticsData}
+      />,
     );
 
     // Find and click the bar chart toggle by aria-label
@@ -236,7 +250,10 @@ describe("ArtistsTab Component", () => {
 
   it("should display progress bars for top artists", () => {
     const { container } = render(
-      <ArtistsTab loading={false} statistics={mockStatistics as any} />,
+      <ArtistsTab
+        loading={false}
+        statistics={mockStatistics as StatisticsData}
+      />,
     );
 
     // Check for progress bar elements

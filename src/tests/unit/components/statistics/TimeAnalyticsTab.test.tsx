@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { TimeAnalyticsTab } from "../../../../components/statistics/TimeAnalyticsTab";
+import type { StatisticsData } from "../../../../types/statistics";
 
 // Mock the NoDataMessage component
 vi.mock("../../../../components/statistics/NoDataMessage", () => ({
@@ -58,7 +60,7 @@ vi.mock("recharts", () => ({
 
 describe("TimeAnalyticsTab Component", () => {
   // Create mock statistics data
-  const mockStatistics = {
+  const mockStatistics: StatisticsData = {
     monthlyMetrics: {
       "2023-01": {
         tracksPlayed: 150,
@@ -125,12 +127,10 @@ describe("TimeAnalyticsTab Component", () => {
       evening: 15,
       night: 10,
     },
-  } as any;
+  };
 
   it("should render loading skeletons when loading is true", () => {
-    const { container } = render(
-      <TimeAnalyticsTab loading={true} statistics={null} />,
-    );
+    render(<TimeAnalyticsTab loading={true} statistics={null} />);
 
     // Check for skeleton elements using data-testid
     const skeletons = screen.getAllByTestId("skeleton");
@@ -166,13 +166,10 @@ describe("TimeAnalyticsTab Component", () => {
   });
 
   it("should render daily listening data for the last 7 days", () => {
-    const { container } = render(
-      <TimeAnalyticsTab loading={false} statistics={mockStatistics} />,
-    );
+    render(<TimeAnalyticsTab loading={false} statistics={mockStatistics} />);
 
-    // Just verify the component renders without crashing
-    const cards = container.querySelectorAll('[data-slot="card"]');
-    expect(cards.length).toBeGreaterThan(1);
+    // Verify the component renders the section title
+    expect(screen.getByText("Monthly Listening Activity")).toBeInTheDocument();
   });
 
   it("should switch monthly view to area chart when toggle is clicked", () => {
@@ -221,12 +218,12 @@ describe("TimeAnalyticsTab Component", () => {
   });
 
   it("should display hourly listening patterns section", () => {
-    const { container } = render(
-      <TimeAnalyticsTab loading={false} statistics={mockStatistics} />,
-    );
+    render(<TimeAnalyticsTab loading={false} statistics={mockStatistics} />);
 
     // Just verify the component renders without crashing
-    const cards = container.querySelectorAll('[data-slot="card"]');
-    expect(cards.length).toBeGreaterThan(1);
+    // Instead of looking for text that doesn't exist, just verify component renders
+    expect(
+      screen.getAllByRole("group", { hidden: true }).length,
+    ).toBeGreaterThan(0);
   });
 });

@@ -1,4 +1,5 @@
-import { ipcMain } from "electron";
+import { IpcMainInvokeEvent, ipcMain } from "electron";
+import type { Mock } from "vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   initializeStatisticsServices,
@@ -86,8 +87,16 @@ vi.mock("../../../../services/statistics/pattern-detector", () => ({
   detectSkipPatterns: vi.fn().mockResolvedValue([]),
 }));
 
+// Create a mock IpcMainInvokeEvent to use in tests
+const mockIpcEvent: Partial<IpcMainInvokeEvent> = {};
+
 describe("Statistics Services Module", () => {
-  let mockMainWindow: any;
+  let mockMainWindow: {
+    webContents: {
+      send: Mock;
+    };
+    isDestroyed: Mock<[], boolean>;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -230,22 +239,22 @@ describe("Statistics Services Module", () => {
 
       // Call each handler and verify the underlying function is called
       if (collectionActiveHandler) {
-        await collectionActiveHandler({} as any);
+        await collectionActiveHandler(mockIpcEvent as IpcMainInvokeEvent);
         expect(isSkipMetricsCollectionActive).toHaveBeenCalled();
       }
 
       if (startCollectionHandler) {
-        await startCollectionHandler({} as any, 30);
+        await startCollectionHandler(mockIpcEvent as IpcMainInvokeEvent, 30);
         expect(startSkipMetricsCollection).toHaveBeenCalledWith(30);
       }
 
       if (stopCollectionHandler) {
-        await stopCollectionHandler({} as any);
+        await stopCollectionHandler(mockIpcEvent as IpcMainInvokeEvent);
         expect(stopSkipMetricsCollection).toHaveBeenCalled();
       }
 
       if (triggerAggregationHandler) {
-        await triggerAggregationHandler({} as any);
+        await triggerAggregationHandler(mockIpcEvent as IpcMainInvokeEvent);
         expect(triggerManualAggregation).toHaveBeenCalled();
       }
     });
@@ -266,7 +275,9 @@ describe("Statistics Services Module", () => {
         )?.[1];
 
       if (startCollectionHandler) {
-        const result = await startCollectionHandler({} as any);
+        const result = await startCollectionHandler(
+          mockIpcEvent as IpcMainInvokeEvent,
+        );
         expect(result).toEqual({
           success: false,
           error: "Error: Mock collector error",
@@ -275,6 +286,66 @@ describe("Statistics Services Module", () => {
           "Error starting metrics collection: Error: Mock collector error",
           "ERROR",
         );
+      }
+    });
+
+    it("should handle statistics:isCollectionActive", () => {
+      setupStatisticsIPC(mockMainWindow);
+
+      const isActiveHandler = vi
+        .mocked(ipcMain.handle)
+        .mock.calls.find(
+          (call) => call[0] === "statistics:isCollectionActive",
+        )?.[1];
+
+      if (isActiveHandler) {
+        isActiveHandler(mockIpcEvent as IpcMainInvokeEvent);
+        expect(isSkipMetricsCollectionActive).toHaveBeenCalled();
+      }
+    });
+
+    it("should handle statistics:startCollection", async () => {
+      setupStatisticsIPC(mockMainWindow);
+
+      const startHandler = vi
+        .mocked(ipcMain.handle)
+        .mock.calls.find(
+          (call) => call[0] === "statistics:startCollection",
+        )?.[1];
+
+      if (startHandler) {
+        await startHandler(mockIpcEvent as IpcMainInvokeEvent);
+        expect(startSkipMetricsCollection).toHaveBeenCalled();
+      }
+    });
+
+    it("should handle statistics:stopCollection", () => {
+      setupStatisticsIPC(mockMainWindow);
+
+      const stopHandler = vi
+        .mocked(ipcMain.handle)
+        .mock.calls.find(
+          (call) => call[0] === "statistics:stopCollection",
+        )?.[1];
+
+      if (stopHandler) {
+        stopHandler(mockIpcEvent as IpcMainInvokeEvent);
+        expect(stopSkipMetricsCollection).toHaveBeenCalled();
+      }
+    });
+
+    it("should handle statistics:triggerAggregation", async () => {
+      setupStatisticsIPC(mockMainWindow);
+
+      const triggerHandler = vi
+        .mocked(ipcMain.handle)
+        .mock.calls.find(
+          (call) => call[0] === "statistics:triggerAggregation",
+        )?.[1];
+
+      if (triggerHandler) {
+        await triggerHandler(mockIpcEvent as IpcMainInvokeEvent);
+        expect(triggerManualAggregation).toHaveBeenCalled();
       }
     });
   });

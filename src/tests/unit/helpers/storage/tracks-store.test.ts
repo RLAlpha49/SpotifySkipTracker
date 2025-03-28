@@ -405,7 +405,7 @@ describe("Tracks Storage", () => {
       });
 
       // Act
-      const result = removeSkippedTrack("track1");
+      removeSkippedTrack("track1");
 
       // Assert
       expect(mockConsoleError).toHaveBeenCalled();

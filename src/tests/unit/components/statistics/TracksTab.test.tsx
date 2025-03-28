@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { TracksTab } from "../../../../components/statistics/TracksTab";
+import type { StatisticsData } from "../../../../types/statistics";
 
 // Mock the NoDataMessage component
 vi.mock("../../../../components/statistics/NoDataMessage", () => ({
@@ -50,7 +52,7 @@ vi.mock("@/components/ui/chart", () => ({
   ChartTooltip: ({ content }: { content: React.ReactNode }) => (
     <div data-testid="chart-tooltip">{content}</div>
   ),
-  ChartTooltipContent: ({ formatter, labelFormatter }: any) => (
+  ChartTooltipContent: () => (
     <div data-testid="chart-tooltip-content">Tooltip Content</div>
   ),
 }));
@@ -64,7 +66,7 @@ vi.mock("@/components/ui/skeleton", () => ({
 
 describe("TracksTab Component", () => {
   // Mock data for testing
-  const mockStatistics = {
+  const mockStatistics: Partial<StatisticsData> = {
     trackMetrics: {
       track1: {
         name: "Track One",
@@ -134,7 +136,10 @@ describe("TracksTab Component", () => {
 
     // Case 2: Empty track metrics
     render(
-      <TracksTab loading={false} statistics={{ trackMetrics: {} } as any} />,
+      <TracksTab
+        loading={false}
+        statistics={{ trackMetrics: {} } as Partial<StatisticsData>}
+      />,
     );
 
     // Check for no data message again
@@ -142,7 +147,12 @@ describe("TracksTab Component", () => {
   });
 
   it("should render track metrics in list view by default", () => {
-    render(<TracksTab loading={false} statistics={mockStatistics as any} />);
+    render(
+      <TracksTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
+    );
 
     // Check for section titles
     expect(screen.getByText(/Most Played Tracks/i)).toBeInTheDocument();
@@ -161,7 +171,12 @@ describe("TracksTab Component", () => {
   });
 
   it("should display play counts for each track", () => {
-    render(<TracksTab loading={false} statistics={mockStatistics as any} />);
+    render(
+      <TracksTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
+    );
 
     // Check for play count displays
     expect(screen.getByText("20 plays")).toBeInTheDocument(); // Track Four
@@ -172,7 +187,12 @@ describe("TracksTab Component", () => {
   });
 
   it("should display completion percentages for each track", () => {
-    render(<TracksTab loading={false} statistics={mockStatistics as any} />);
+    render(
+      <TracksTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
+    );
 
     // Check for completion percentage values
     expect(screen.getByText("95%")).toBeInTheDocument(); // Track Four
@@ -183,7 +203,12 @@ describe("TracksTab Component", () => {
   });
 
   it("should display repeated indicator for tracks that have been repeated", () => {
-    render(<TracksTab loading={false} statistics={mockStatistics as any} />);
+    render(
+      <TracksTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
+    );
 
     // Check for the repeated indicator icons for both repeated tracks
     const repeatedElements = screen.getAllByText(/Repeated/i);
@@ -191,7 +216,12 @@ describe("TracksTab Component", () => {
   });
 
   it("should display skip rates in the most skipped tracks section", () => {
-    render(<TracksTab loading={false} statistics={mockStatistics as any} />);
+    render(
+      <TracksTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
+    );
 
     // Check for the skip rates for each track in the most skipped section
     // Track One: 8/10 = 80%
@@ -210,7 +240,12 @@ describe("TracksTab Component", () => {
   });
 
   it("should switch from list view to bar chart view when toggle is clicked", () => {
-    render(<TracksTab loading={false} statistics={mockStatistics as any} />);
+    render(
+      <TracksTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
+    );
 
     // Find and click the bar chart toggle
     const barChartToggle = screen.getByLabelText("Bar chart");
@@ -234,7 +269,12 @@ describe("TracksTab Component", () => {
   });
 
   it("should display progress bars for each track in most played list", () => {
-    render(<TracksTab loading={false} statistics={mockStatistics as any} />);
+    render(
+      <TracksTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
+    );
 
     // Check for progress elements
     const progressElements = screen.getAllByRole("progressbar");

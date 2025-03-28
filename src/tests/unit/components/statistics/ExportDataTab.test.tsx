@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ExportDataTab } from "../../../../components/statistics/ExportDataTab";
+import type { StatisticsData } from "../../../../types/statistics";
 
 // Mock the toast from sonner
 vi.mock("sonner", () => ({
@@ -44,7 +46,7 @@ vi.stubGlobal("window", {
 });
 
 // Sample statistics data for testing
-const mockStatistics = {
+const mockStatistics: Partial<StatisticsData> = {
   skippedTracks: {
     total: 100,
     unique: 50,
@@ -89,7 +91,10 @@ describe("ExportDataTab Component", () => {
 
   it("should render tabs and export options when statistics are available", () => {
     const { container } = render(
-      <ExportDataTab loading={false} statistics={mockStatistics as any} />,
+      <ExportDataTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
     );
 
     // Check for tabs container
@@ -108,7 +113,10 @@ describe("ExportDataTab Component", () => {
     });
 
     const { container } = render(
-      <ExportDataTab loading={false} statistics={mockStatistics as any} />,
+      <ExportDataTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
     );
 
     // Find any button that might be for export
@@ -126,7 +134,10 @@ describe("ExportDataTab Component", () => {
     mockExportToCSV.mockRejectedValue(new Error("Failed to export"));
 
     const { container } = render(
-      <ExportDataTab loading={false} statistics={mockStatistics as any} />,
+      <ExportDataTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
     );
 
     // Just verify the component rendered
@@ -140,7 +151,10 @@ describe("ExportDataTab Component", () => {
     });
 
     const { container } = render(
-      <ExportDataTab loading={false} statistics={mockStatistics as any} />,
+      <ExportDataTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
     );
 
     // Find tab buttons
@@ -158,7 +172,10 @@ describe("ExportDataTab Component", () => {
     });
 
     const { container } = render(
-      <ExportDataTab loading={false} statistics={mockStatistics as any} />,
+      <ExportDataTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
     );
 
     // Just verify the component rendered
@@ -167,7 +184,10 @@ describe("ExportDataTab Component", () => {
 
   it("should render export buttons", async () => {
     const { container } = render(
-      <ExportDataTab loading={false} statistics={mockStatistics as any} />,
+      <ExportDataTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
     );
 
     // Check for buttons

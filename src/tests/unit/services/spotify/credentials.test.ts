@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as credentialsModule from "@/services/spotify/credentials";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock Electron
 vi.mock("electron", () => ({
@@ -8,10 +8,19 @@ vi.mock("electron", () => ({
   },
 }));
 
+// Define expanded interface for the credentials module with test helper
+interface CredentialsModuleWithReset {
+  setCredentials: (clientId: string, clientSecret: string) => void;
+  getCredentials: () => { clientId: string; clientSecret: string };
+  hasCredentials: () => boolean;
+  ensureCredentialsSet: () => void;
+  __resetCredentials: () => void;
+}
+
 // Mock the credentials module
 vi.mock("@/services/spotify/credentials", async () => {
   // Create a mock storage for credentials
-  let storage = {
+  const storage = {
     clientId: "",
     clientSecret: "",
   };
@@ -51,7 +60,7 @@ describe("Spotify Credentials Service", () => {
     hasCredentials,
     ensureCredentialsSet,
     __resetCredentials,
-  } = credentialsModule as any; // Cast to any to access the __resetCredentials
+  } = credentialsModule as unknown as CredentialsModuleWithReset;
 
   beforeEach(() => {
     // Reset the module between tests

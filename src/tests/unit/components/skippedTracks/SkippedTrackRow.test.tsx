@@ -23,14 +23,18 @@ vi.mock("lucide-react", async () => {
 
 // Mock the Tooltip component
 vi.mock("../../../../components/ui/tooltip", () => ({
+  // eslint-disable-next-line react/prop-types
   Tooltip: ({ children }) => <div data-testid="tooltip">{children}</div>,
+  // eslint-disable-next-line react/prop-types
   TooltipProvider: ({ children }) => (
     <div data-testid="tooltip-provider">{children}</div>
   ),
+  // eslint-disable-next-line react/prop-types
   TooltipContent: ({ children }) => (
     <div data-testid="tooltip-content">{children}</div>
   ),
-  TooltipTrigger: ({ children, asChild }) => (
+  // eslint-disable-next-line react/prop-types
+  TooltipTrigger: ({ children }) => (
     <div data-testid="tooltip-trigger">{children}</div>
   ),
 }));
@@ -63,9 +67,11 @@ vi.mock("../../../../components/skippedTracks/utils", () => ({
 
 // Mock dropdown menu components
 vi.mock("../../../../components/ui/dropdown-menu", () => ({
+  // eslint-disable-next-line react/prop-types
   DropdownMenu: ({ children }) => (
     <div data-testid="dropdown-menu">{children}</div>
   ),
+  // eslint-disable-next-line react/prop-types
   DropdownMenuTrigger: ({ children }) => (
     <div data-testid="dropdown-trigger">{children}</div>
   ),
@@ -73,6 +79,7 @@ vi.mock("../../../../components/ui/dropdown-menu", () => ({
 
 // Mock Button component
 vi.mock("../../../../components/ui/button", () => ({
+  // eslint-disable-next-line react/prop-types
   Button: ({ children, onClick }) => (
     <button data-testid="button" onClick={onClick}>
       {children}
@@ -82,11 +89,13 @@ vi.mock("../../../../components/ui/button", () => ({
 
 // Mock TableRow and TableCell components
 vi.mock("../../../../components/ui/table", () => ({
+  // eslint-disable-next-line react/prop-types
   TableRow: ({ children, className }) => (
     <tr data-testid="table-row" className={className}>
       {children}
     </tr>
   ),
+  // eslint-disable-next-line react/prop-types
   TableCell: ({ children, className }) => (
     <td data-testid="table-cell" className={className}>
       {children}

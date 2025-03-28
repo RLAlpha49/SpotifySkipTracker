@@ -6,16 +6,21 @@ import TrackActionsMenu from "../../../../components/skippedTracks/TrackActionsM
 // Mock the Radix UI Dropdown Menu components with working click handlers
 vi.mock("@radix-ui/react-dropdown-menu", () => {
   return {
+    // eslint-disable-next-line react/prop-types
     Root: ({ children }) => <div data-testid="dropdown-root">{children}</div>,
+    // eslint-disable-next-line react/prop-types
     Trigger: ({ children }) => (
       <div data-testid="dropdown-trigger">{children}</div>
     ),
+    // eslint-disable-next-line react/prop-types
     Portal: ({ children }) => (
       <div data-testid="dropdown-portal">{children}</div>
     ),
+    // eslint-disable-next-line react/prop-types
     Content: ({ children }) => (
       <div data-testid="dropdown-content">{children}</div>
     ),
+    // eslint-disable-next-line react/prop-types
     Item: ({ children, className, onSelect, onClick }) => (
       <div
         data-testid="dropdown-item"
@@ -56,11 +61,13 @@ vi.mock("lucide-react", async () => {
 
 // Mock the UI dropdown-menu components
 vi.mock("../../../../components/ui/dropdown-menu", () => ({
+  // eslint-disable-next-line react/prop-types
   DropdownMenuContent: ({ children, align }) => (
     <div data-testid="dropdown-menu-content" data-align={align}>
       {children}
     </div>
   ),
+  // eslint-disable-next-line react/prop-types
   DropdownMenuItem: ({ children, className, onClick }) => (
     <button
       data-testid="dropdown-menu-item"

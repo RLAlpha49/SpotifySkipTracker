@@ -1,17 +1,45 @@
+import React from "react";
 import { describe, expect, it, vi } from "vitest";
+
+// Define types for router-related structures
+interface Route {
+  path: string;
+  component: React.ComponentType<unknown>;
+  getParentRoute: () => RootRoute;
+}
+
+interface RootRoute {
+  addChildren: (routes: Route[]) => { children: Route[] };
+}
+
+// Define Suspense props
+interface SuspenseProps {
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}
 
 // Mock TanStack router
 vi.mock("@tanstack/react-router", async () => {
   const actual = await vi.importActual("@tanstack/react-router");
   return {
-    ...(actual as any),
-    createRoute: vi.fn(({ getParentRoute, path, component }) => ({
-      path,
-      component,
-      getParentRoute,
-    })),
+    ...(actual as object),
+    createRoute: vi.fn(
+      ({
+        getParentRoute,
+        path,
+        component,
+      }: {
+        getParentRoute: () => unknown;
+        path: string;
+        component: React.ComponentType;
+      }) => ({
+        path,
+        component,
+        getParentRoute,
+      }),
+    ),
     createRootRoute: vi.fn(() => ({
-      addChildren: (children: any[]) => ({
+      addChildren: (children: Route[]) => ({
         children,
       }),
     })),
@@ -22,22 +50,24 @@ vi.mock("@tanstack/react-router", async () => {
 vi.mock("react", async () => {
   const actual = await vi.importActual("react");
   return {
-    ...(actual as any),
-    lazy: (factory: any) => () => null,
-    Suspense: ({ children }: any) => <>{children}</>,
+    ...(actual as object),
+    lazy: () => () => null,
+    Suspense: ({ children }: SuspenseProps) => <>{children}</>,
   };
 });
 
 // Mock the routes module
 vi.mock("../../../routes/__root", () => ({
   RootRoute: {
-    addChildren: vi.fn((routes) => ({ children: routes })),
+    addChildren: vi.fn((routes: Route[]) => ({ children: routes })),
   },
 }));
 
 // Mock the routes with their properties
 vi.mock("../../../routes/routes", () => {
-  const RootRoute = { addChildren: vi.fn((routes) => ({ children: routes })) };
+  const RootRoute = {
+    addChildren: vi.fn((routes: Route[]) => ({ children: routes })),
+  };
 
   const HomeRoute = {
     path: "/",

@@ -1,7 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
+import type { UseFormReturn } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
+import * as z from "zod";
 import { ApiCredentialsForm } from "../../../../components/settings/ApiCredentialsForm";
+import { settingsFormSchema } from "../../../../components/settings/settingsFormSchema";
 
 // Setup mock functions for control and onChange
 const mockControl = {
@@ -15,7 +18,7 @@ describe("ApiCredentialsForm Component", () => {
   const setupTest = () => {
     return render(
       <ApiCredentialsForm
-        form={mockControl as any}
+        form={mockControl as UseFormReturn<z.infer<typeof settingsFormSchema>>}
         setSettingsChanged={mockSetSettingsChanged}
       />,
     );

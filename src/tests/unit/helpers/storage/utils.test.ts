@@ -61,7 +61,7 @@ describe("Storage Utilities", () => {
       "spotify-skip-tracker-2023-01-01.log",
       "spotify-skip-tracker-2023-01-02.log",
       "spotify-skip-tracker-2023-01-03.log",
-    ] as any);
+    ] as unknown as string[]);
 
     vi.mocked(fs.statSync).mockImplementation((filePath) => {
       const fileName = filePath.toString();

@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from "electron";
+import { BrowserWindow, ipcMain, IpcMainInvokeEvent } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   WINDOW_CLOSE_CHANNEL,
@@ -26,7 +26,11 @@ describe("Window Listeners", () => {
   } as unknown as BrowserWindow;
 
   // Store handlers for testing
-  const handlers: Record<string, (event?: any, ...args: any[]) => any> = {};
+  type WindowHandler = (
+    event?: IpcMainInvokeEvent,
+    ...args: unknown[]
+  ) => unknown;
+  const handlers: Record<string, WindowHandler> = {};
 
   beforeEach(() => {
     vi.clearAllMocks();

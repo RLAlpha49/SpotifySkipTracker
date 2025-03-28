@@ -78,9 +78,27 @@ vi.mock("../../../layouts/MainLayout", () => {
   };
 });
 
+// Define types for the react-router Link component props
+interface LinkProps {
+  to: string;
+  children: React.ReactNode;
+  className?: string;
+  onClick?: (e: React.MouseEvent) => void;
+}
+
+// Define types for ScrollArea props
+interface ScrollAreaProps {
+  children: React.ReactNode;
+}
+
+// Define types for Suspense props
+interface SuspenseProps {
+  children: React.ReactNode;
+}
+
 // Mock dependencies
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({ to, children, className, onClick }: any) => (
+  Link: ({ to, children, className, onClick }: LinkProps) => (
     <a
       href={to}
       className={className}
@@ -93,7 +111,7 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 vi.mock("@/components/ui/scroll-area", () => ({
-  ScrollArea: ({ children }: any) => (
+  ScrollArea: ({ children }: ScrollAreaProps) => (
     <div data-testid="scroll-area">{children}</div>
   ),
 }));
@@ -110,9 +128,10 @@ vi.mock("@/components/ToggleTheme", () => ({
 vi.mock("react", async () => {
   const actual = await vi.importActual("react");
   return {
-    ...(actual as any),
-    lazy: (factory: any) => factory(),
-    Suspense: ({ children }: any) => <>{children}</>,
+    ...(actual as object),
+    lazy: (factory: () => Promise<{ default: React.ComponentType<unknown> }>) =>
+      factory(),
+    Suspense: ({ children }: SuspenseProps) => <>{children}</>,
   };
 });
 

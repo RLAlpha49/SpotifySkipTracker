@@ -3,12 +3,14 @@ import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { SkippedTracksBulkActions } from "../../../../components/skippedTracks/SkippedTracksBulkActions";
 import { shouldSuggestRemoval } from "../../../../components/skippedTracks/utils";
+import type { SkippedTrack } from "../../../../types/spotify";
 
 // Mock React's Suspense component before imports
 vi.mock("react", async () => {
   const actual = await vi.importActual("react");
   return {
     ...actual,
+
     Suspense: ({ children }) => children,
   };
 });
@@ -20,6 +22,7 @@ vi.mock("../../../../components/skippedTracks/utils", () => ({
 
 // Mock UI components
 vi.mock("../../../../components/ui/button", () => ({
+  // eslint-disable-next-line react/prop-types
   Button: ({ children, onClick, disabled, variant, size, className }) => (
     <button
       onClick={onClick}
@@ -35,26 +38,31 @@ vi.mock("../../../../components/ui/button", () => ({
 }));
 
 vi.mock("../../../../components/ui/card", () => ({
+  // eslint-disable-next-line react/prop-types
   Card: ({ children, className }) => (
     <div data-testid="card" className={className}>
       {children}
     </div>
   ),
+  // eslint-disable-next-line react/prop-types
   CardContent: ({ children, className }) => (
     <div data-testid="card-content" className={className}>
       {children}
     </div>
   ),
+  // eslint-disable-next-line react/prop-types
   CardFooter: ({ children, className }) => (
     <div data-testid="card-footer" className={className}>
       {children}
     </div>
   ),
+  // eslint-disable-next-line react/prop-types
   CardHeader: ({ children, className }) => (
     <div data-testid="card-header" className={className}>
       {children}
     </div>
   ),
+  // eslint-disable-next-line react/prop-types
   CardTitle: ({ children, className }) => (
     <h3 data-testid="card-title" className={className}>
       {children}
@@ -64,13 +72,17 @@ vi.mock("../../../../components/ui/card", () => ({
 
 // Mock Tooltip component
 vi.mock("../../../../components/ui/tooltip", () => ({
+  // eslint-disable-next-line react/prop-types
   Tooltip: ({ children }) => <div data-testid="tooltip">{children}</div>,
+  // eslint-disable-next-line react/prop-types
   TooltipContent: ({ children }) => (
     <div data-testid="tooltip-content">{children}</div>
   ),
+  // eslint-disable-next-line react/prop-types
   TooltipProvider: ({ children }) => (
     <div data-testid="tooltip-provider">{children}</div>
   ),
+  // eslint-disable-next-line react/prop-types
   TooltipTrigger: ({ children }) => (
     <div data-testid="tooltip-trigger">{children}</div>
   ),
@@ -129,9 +141,9 @@ describe("SkippedTracksBulkActions Component", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (shouldSuggestRemoval as any).mockImplementation(
-      (track, threshold) => track.skipCount >= threshold,
-    );
+    (
+      shouldSuggestRemoval as jest.Mock<boolean, [SkippedTrack, number]>
+    ).mockImplementation((track, threshold) => track.skipCount >= threshold);
   });
 
   it("should render buttons and call action handlers when clicked", () => {
@@ -165,7 +177,9 @@ describe("SkippedTracksBulkActions Component", () => {
   });
 
   it("should disable Remove Highlighted button when no tracks are highlighted", () => {
-    (shouldSuggestRemoval as any).mockImplementation(() => false);
+    (
+      shouldSuggestRemoval as jest.Mock<boolean, [SkippedTrack, number]>
+    ).mockImplementation(() => false);
     render(<SkippedTracksBulkActions {...defaultProps} />);
 
     const removeButton = screen

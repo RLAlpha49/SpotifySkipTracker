@@ -18,6 +18,7 @@ vi.mock("lucide-react", async () => {
 
 // Mock UI components
 vi.mock("../../../../components/ui/button", () => ({
+  // eslint-disable-next-line react/prop-types
   Button: ({ children, onClick, disabled, className, variant, size }) => (
     <button
       data-testid="button"
@@ -33,6 +34,7 @@ vi.mock("../../../../components/ui/button", () => ({
 }));
 
 vi.mock("../../../../components/ui/badge", () => ({
+  // eslint-disable-next-line react/prop-types
   Badge: ({ children, className, variant }) => (
     <span data-testid="badge" className={className} data-variant={variant}>
       {children}
@@ -42,14 +44,18 @@ vi.mock("../../../../components/ui/badge", () => ({
 
 // Mock the Tooltip component
 vi.mock("../../../../components/ui/tooltip", () => ({
+  // eslint-disable-next-line react/prop-types
   Tooltip: ({ children }) => <div data-testid="tooltip">{children}</div>,
+  // eslint-disable-next-line react/prop-types
   TooltipProvider: ({ children }) => (
     <div data-testid="tooltip-provider">{children}</div>
   ),
+  // eslint-disable-next-line react/prop-types
   TooltipContent: ({ children }) => (
     <div data-testid="tooltip-content">{children}</div>
   ),
-  TooltipTrigger: ({ children, asChild }) => (
+  // eslint-disable-next-line react/prop-types
+  TooltipTrigger: ({ children }) => (
     <div data-testid="tooltip-trigger">{children}</div>
   ),
 }));
@@ -74,7 +80,7 @@ describe("SkippedTracksHeader Component", () => {
     expect(badges[0]).toHaveTextContent("30");
 
     // Get the parent text element for calendar info
-    const calendarInfoElement = screen.getByText((content, element) => {
+    const calendarInfoElement = screen.getByText((content) => {
       return (
         content.includes("Tracks you've skipped within the last") &&
         content.includes("days")

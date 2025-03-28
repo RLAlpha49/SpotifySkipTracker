@@ -1,6 +1,8 @@
+import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ListeningPatternsTab } from "../../../../components/statistics/ListeningPatternsTab";
+import type { StatisticsData } from "../../../../types/statistics";
 
 // Mock the NoDataMessage component
 vi.mock("../../../../components/statistics/NoDataMessage", () => ({
@@ -69,7 +71,7 @@ vi.mock("@/components/ui/chart", () => ({
 
 describe("ListeningPatternsTab Component", () => {
   // Mock data for testing
-  const mockStatistics = {
+  const mockStatistics: StatisticsData = {
     artistMetrics: {
       artist1: {
         name: "Artist One",
@@ -113,7 +115,7 @@ describe("ListeningPatternsTab Component", () => {
     },
     dailyDistribution: [10, 15, 20, 25, 30, 40, 20], // Sun to Sat
     sessions: [],
-  } as any;
+  };
 
   it("should render loading skeletons when loading is true", () => {
     const { container } = render(

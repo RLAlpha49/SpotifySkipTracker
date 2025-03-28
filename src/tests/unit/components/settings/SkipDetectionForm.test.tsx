@@ -1,13 +1,17 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
+import type { UseFormReturn } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
+import * as z from "zod";
+import { settingsFormSchema } from "../../../../components/settings/settingsFormSchema";
 import { SkipDetectionForm } from "../../../../components/settings/SkipDetectionForm";
 
 // Mock the Slider component
 vi.mock("../../../../components/ui/Slider", () => {
   // Return a component implementation
   return {
-    Slider: ({ onValueChange, defaultValue, ...props }) => {
+    // eslint-disable-next-line react/prop-types
+    Slider: ({ onValueChange, ...props }) => {
       // This will be rendered, making the data-value attribute visible in the test
       return (
         <div data-testid="slider-mock" data-value="50" {...props}>
@@ -36,7 +40,7 @@ describe("SkipDetectionForm Component", () => {
   const setupTest = () => {
     return render(
       <SkipDetectionForm
-        form={mockControl as any}
+        form={mockControl as UseFormReturn<z.infer<typeof settingsFormSchema>>}
         setSettingsChanged={mockSetSettingsChanged}
         skipProgress={50}
         setSkipProgress={mockSetSkipProgress}

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { RootRoute } from "../../../routes/__root";
 
@@ -12,7 +13,7 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 vi.mock("../../../layouts/MainLayout", () => ({
-  default: ({ children }: any) => (
+  default: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="main-layout">
       <div>Main Layout Wrapper</div>
       {children}

@@ -1,6 +1,8 @@
 import { render } from "@testing-library/react";
+import React from "react";
 import { describe, expect, it } from "vitest";
 import { DevicesTab } from "../../../../components/statistics/DevicesTab";
+import type { StatisticsData } from "../../../../types/statistics";
 
 // Mock the NoDataMessage component
 vi.mock("../../../../components/statistics/NoDataMessage", () => ({
@@ -18,7 +20,7 @@ vi.mock("../../../../components/ui/scroll-area", () => ({
 
 describe("DevicesTab Component", () => {
   // Mock data for testing with various device types
-  const mockStatistics = {
+  const mockStatistics: Partial<StatisticsData> = {
     deviceMetrics: {
       device1: {
         deviceName: "My iPhone",
@@ -74,7 +76,10 @@ describe("DevicesTab Component", () => {
 
     // Case 2: Empty device metrics
     const { container: container2 } = render(
-      <DevicesTab loading={false} statistics={{ deviceMetrics: {} } as any} />,
+      <DevicesTab
+        loading={false}
+        statistics={{ deviceMetrics: {} } as Partial<StatisticsData>}
+      />,
     );
 
     // Check for no data message again
@@ -86,7 +91,10 @@ describe("DevicesTab Component", () => {
 
   it("should render device metrics when data is available", () => {
     const { container } = render(
-      <DevicesTab loading={false} statistics={mockStatistics as any} />,
+      <DevicesTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
     );
 
     // Check for section titles
@@ -113,7 +121,10 @@ describe("DevicesTab Component", () => {
 
   it("should display formatted listening times for each device", () => {
     const { container } = render(
-      <DevicesTab loading={false} statistics={mockStatistics as any} />,
+      <DevicesTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
     );
 
     // Check for formatted time values in container text
@@ -124,7 +135,10 @@ describe("DevicesTab Component", () => {
 
   it("should display formatted skip rates with appropriate color classes", () => {
     const { container } = render(
-      <DevicesTab loading={false} statistics={mockStatistics as any} />,
+      <DevicesTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
     );
 
     // Check for formatted skip rate values in container text
@@ -135,7 +149,10 @@ describe("DevicesTab Component", () => {
 
   it("should display tracks played for each device", () => {
     const { container } = render(
-      <DevicesTab loading={false} statistics={mockStatistics as any} />,
+      <DevicesTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
     );
 
     // Check for tracks played values in container text
@@ -146,7 +163,10 @@ describe("DevicesTab Component", () => {
 
   it("should display peak usage hour labels", () => {
     const { container } = render(
-      <DevicesTab loading={false} statistics={mockStatistics as any} />,
+      <DevicesTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
     );
 
     // Check for peak usage hour labels in container text
@@ -162,7 +182,10 @@ describe("DevicesTab Component", () => {
 
   it("should display progressbars for each device", () => {
     const { container } = render(
-      <DevicesTab loading={false} statistics={mockStatistics as any} />,
+      <DevicesTab
+        loading={false}
+        statistics={mockStatistics as Partial<StatisticsData>}
+      />,
     );
 
     // Check for progress elements

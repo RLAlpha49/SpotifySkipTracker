@@ -1,3 +1,4 @@
+import React from "react";
 import { SkippedTrack } from "@/types/spotify";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -12,11 +13,11 @@ vi.mock("../../../../components/skippedTracks/SkippedTrackRow", () => ({
     onUnlikeTrack,
     onRemoveTrackData,
   }: {
-    track: any;
+    track: SkippedTrack;
     timeframeInDays: number;
     shouldSuggestRemoval: boolean;
-    onUnlikeTrack: (track: any) => Promise<void>;
-    onRemoveTrackData: (track: any) => Promise<void>;
+    onUnlikeTrack: (track: SkippedTrack) => Promise<void>;
+    onRemoveTrackData: (track: SkippedTrack) => Promise<void>;
   }) => (
     <tr data-testid={`track-row-${track.id}`}>
       <td>

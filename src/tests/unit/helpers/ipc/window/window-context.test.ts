@@ -15,6 +15,14 @@ const mockIpcRenderer = {
   invoke: vi.fn(),
 };
 
+// Define a more specific type for the window with Electron modules
+interface ElectronWindow extends Window {
+  require: (module: string) => {
+    contextBridge: typeof mockContextBridge;
+    ipcRenderer: typeof mockIpcRenderer;
+  };
+}
+
 describe("Window Context", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -26,7 +34,7 @@ describe("Window Context", () => {
         contextBridge: mockContextBridge,
         ipcRenderer: mockIpcRenderer,
       }),
-    } as any;
+    } as unknown as ElectronWindow;
   });
 
   afterEach(() => {

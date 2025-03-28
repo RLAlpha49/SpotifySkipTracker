@@ -48,7 +48,7 @@ describe("Electron Main Process", () => {
     vi.mocked(isMonitoringActive).mockReturnValue(true);
 
     // Simulate the quit handler directly
-    const quitHandler = (event?: Event) => {
+    const quitHandler = () => {
       saveLog("Application quit", "DEBUG");
       if (isMonitoringActive()) {
         stopPlaybackMonitoring();
@@ -69,7 +69,7 @@ describe("Electron Main Process", () => {
     vi.mocked(isMonitoringActive).mockReturnValue(false);
 
     // Simulate the quit handler directly
-    const quitHandler = (event?: Event) => {
+    const quitHandler = () => {
       saveLog("Application quit", "DEBUG");
       if (isMonitoringActive()) {
         stopPlaybackMonitoring();

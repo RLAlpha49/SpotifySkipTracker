@@ -1,4 +1,5 @@
-import { app, ipcMain, shell } from "electron";
+import { app, ipcMain, IpcMainInvokeEvent, shell } from "electron";
+import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setupSpotifyIPC } from "../../../../electron/main/spotify-ipc";
 import {
@@ -122,8 +123,16 @@ vi.mock("../../../../services/spotify/token", () => ({
   setTokens: vi.fn(),
 }));
 
+// Create a mock IpcMainInvokeEvent to use in tests
+const mockIpcEvent: Partial<IpcMainInvokeEvent> = {};
+
 describe("Spotify IPC Module", () => {
-  let mockMainWindow: any;
+  let mockMainWindow: {
+    webContents: {
+      send: Mock;
+    };
+    isDestroyed: Mock<[], boolean>;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -275,7 +284,7 @@ describe("Spotify IPC Module", () => {
 
         if (authenticateHandler) {
           await authenticateHandler(
-            {} as any,
+            mockIpcEvent as IpcMainInvokeEvent,
             {
               clientId: "test-client-id",
               clientSecret: "test-client-secret",
@@ -299,7 +308,7 @@ describe("Spotify IPC Module", () => {
 
         if (authenticateHandler) {
           await authenticateHandler(
-            {} as any,
+            mockIpcEvent as IpcMainInvokeEvent,
             {
               clientId: "test-client-id",
               clientSecret: "test-client-secret",
@@ -319,7 +328,9 @@ describe("Spotify IPC Module", () => {
           .mock.calls.find((call) => call[0] === "spotify:logout")?.[1];
 
         if (logoutHandler) {
-          const result = await logoutHandler({} as any);
+          const result = await logoutHandler(
+            mockIpcEvent as IpcMainInvokeEvent,
+          );
 
           expect(clearTokens).toHaveBeenCalled();
           expect(clearSpotifyAuthData).toHaveBeenCalled();
@@ -340,7 +351,7 @@ describe("Spotify IPC Module", () => {
         expect(isAuthenticatedHandler).toBeDefined();
 
         if (isAuthenticatedHandler) {
-          await isAuthenticatedHandler({} as any);
+          await isAuthenticatedHandler(mockIpcEvent as IpcMainInvokeEvent);
           // We don't check the result
         }
       });
@@ -360,7 +371,7 @@ describe("Spotify IPC Module", () => {
         expect(getCurrentPlaybackHandler).toBeDefined();
 
         if (getCurrentPlaybackHandler) {
-          await getCurrentPlaybackHandler({} as any);
+          await getCurrentPlaybackHandler(mockIpcEvent as IpcMainInvokeEvent);
           // Don't check the result
         }
       });
@@ -375,7 +386,9 @@ describe("Spotify IPC Module", () => {
           .mock.calls.find((call) => call[0] === "spotify:pausePlayback")?.[1];
 
         if (pausePlaybackHandler) {
-          const result = await pausePlaybackHandler({} as any);
+          const result = await pausePlaybackHandler(
+            mockIpcEvent as IpcMainInvokeEvent,
+          );
 
           expect(isTokenValid).toHaveBeenCalled();
           expect(pause).toHaveBeenCalled();
@@ -393,7 +406,9 @@ describe("Spotify IPC Module", () => {
           .mock.calls.find((call) => call[0] === "spotify:resumePlayback")?.[1];
 
         if (resumePlaybackHandler) {
-          const result = await resumePlaybackHandler({} as any);
+          const result = await resumePlaybackHandler(
+            mockIpcEvent as IpcMainInvokeEvent,
+          );
 
           expect(isTokenValid).toHaveBeenCalled();
           expect(play).toHaveBeenCalled();
@@ -419,7 +434,9 @@ describe("Spotify IPC Module", () => {
           )?.[1];
 
         if (getSkippedTracksHandler) {
-          const result = await getSkippedTracksHandler({} as any);
+          const result = await getSkippedTracksHandler(
+            mockIpcEvent as IpcMainInvokeEvent,
+          );
 
           expect(getSettings).toHaveBeenCalled();
           expect(getSkippedTracks).toHaveBeenCalled();
@@ -447,7 +464,9 @@ describe("Spotify IPC Module", () => {
           )?.[1];
 
         if (refreshSkippedTracksHandler) {
-          const result = await refreshSkippedTracksHandler({} as any);
+          const result = await refreshSkippedTracksHandler(
+            mockIpcEvent as IpcMainInvokeEvent,
+          );
 
           expect(getSettings).toHaveBeenCalled();
           expect(getSkippedTracks).toHaveBeenCalled();
@@ -475,7 +494,10 @@ describe("Spotify IPC Module", () => {
             artist: "Test Artist",
           };
 
-          const result = await updateSkippedTrackHandler({} as any, mockTrack);
+          const result = await updateSkippedTrackHandler(
+            mockIpcEvent as IpcMainInvokeEvent,
+            mockTrack,
+          );
 
           expect(updateSkippedTrack).toHaveBeenCalledWith(mockTrack);
           expect(result).toBe(true);
@@ -498,7 +520,7 @@ describe("Spotify IPC Module", () => {
           const mockTrackId = "track-123";
 
           const result = await removeFromSkippedDataHandler(
-            {} as any,
+            mockIpcEvent as IpcMainInvokeEvent,
             mockTrackId,
           );
 
@@ -526,7 +548,10 @@ describe("Spotify IPC Module", () => {
             timeframeInDays: 60,
           };
 
-          const result = await saveSettingsHandler({} as any, mockSettings);
+          const result = await saveSettingsHandler(
+            mockIpcEvent as IpcMainInvokeEvent,
+            mockSettings,
+          );
 
           expect(saveSettings).toHaveBeenCalledWith(mockSettings);
           expect(result).toBe(true);
@@ -549,7 +574,9 @@ describe("Spotify IPC Module", () => {
           .mock.calls.find((call) => call[0] === "spotify:getSettings")?.[1];
 
         if (getSettingsHandler) {
-          const result = await getSettingsHandler({} as any);
+          const result = await getSettingsHandler(
+            mockIpcEvent as IpcMainInvokeEvent,
+          );
 
           expect(getSettings).toHaveBeenCalled();
           expect(result).toEqual(mockSettings);
@@ -567,7 +594,9 @@ describe("Spotify IPC Module", () => {
           .mock.calls.find((call) => call[0] === "spotify:resetSettings")?.[1];
 
         if (resetSettingsHandler) {
-          const result = await resetSettingsHandler({} as any);
+          const result = await resetSettingsHandler(
+            mockIpcEvent as IpcMainInvokeEvent,
+          );
 
           expect(resetSettings).toHaveBeenCalled();
           expect(result).toBe(true);
@@ -589,7 +618,7 @@ describe("Spotify IPC Module", () => {
         expect(startMonitoringHandler).toBeDefined();
 
         if (startMonitoringHandler) {
-          await startMonitoringHandler({} as any);
+          await startMonitoringHandler(mockIpcEvent as IpcMainInvokeEvent);
 
           // At minimum, verify that some notifications were sent to the UI
           expect(mockMainWindow.webContents.send).toHaveBeenCalled();
@@ -607,7 +636,9 @@ describe("Spotify IPC Module", () => {
           .mock.calls.find((call) => call[0] === "spotify:stopMonitoring")?.[1];
 
         if (stopMonitoringHandler) {
-          const result = await stopMonitoringHandler({} as any);
+          const result = await stopMonitoringHandler(
+            mockIpcEvent as IpcMainInvokeEvent,
+          );
 
           expect(stopPlaybackMonitoring).toHaveBeenCalled();
           expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
@@ -633,7 +664,9 @@ describe("Spotify IPC Module", () => {
           )?.[1];
 
         if (isMonitoringActiveHandler) {
-          const result = await isMonitoringActiveHandler({} as any);
+          const result = await isMonitoringActiveHandler(
+            mockIpcEvent as IpcMainInvokeEvent,
+          );
 
           expect(isMonitoringActive).toHaveBeenCalled();
           expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
@@ -657,7 +690,9 @@ describe("Spotify IPC Module", () => {
           .mock.calls.find((call) => call[0] === "spotify:restartApp")?.[1];
 
         if (restartAppHandler) {
-          const result = await restartAppHandler({} as any);
+          const result = await restartAppHandler(
+            mockIpcEvent as IpcMainInvokeEvent,
+          );
 
           expect(result).toBe(true);
 
@@ -681,7 +716,9 @@ describe("Spotify IPC Module", () => {
           )?.[1];
 
         if (openLogsDirectoryHandler) {
-          const result = await openLogsDirectoryHandler({} as any);
+          const result = await openLogsDirectoryHandler(
+            mockIpcEvent as IpcMainInvokeEvent,
+          );
 
           expect(shell.openPath).toHaveBeenCalledWith("/mock/path/to/logs");
           expect(result).toBe(true);
@@ -698,7 +735,9 @@ describe("Spotify IPC Module", () => {
           )?.[1];
 
         if (openSkipsDirectoryHandler) {
-          const result = await openSkipsDirectoryHandler({} as any);
+          const result = await openSkipsDirectoryHandler(
+            mockIpcEvent as IpcMainInvokeEvent,
+          );
 
           expect(shell.openPath).toHaveBeenCalledWith(
             "/mock/path/to/skips.json",
@@ -716,7 +755,10 @@ describe("Spotify IPC Module", () => {
 
         if (openURLHandler) {
           const mockURL = "https://spotify.com";
-          const result = await openURLHandler({} as any, mockURL);
+          const result = await openURLHandler(
+            mockIpcEvent as IpcMainInvokeEvent,
+            mockURL,
+          );
 
           expect(shell.openExternal).toHaveBeenCalledWith(mockURL);
           expect(result).toBe(true);
