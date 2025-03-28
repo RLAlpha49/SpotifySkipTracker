@@ -24,44 +24,111 @@ jobs:
       - name: Create reports directory
         run: mkdir -p reports
 
-      # Run tests in sections to provide better visibility into failures
+      # Pages Tests
       - name: Run Page Tests
         run: npm run test -- src/tests/unit/pages
         continue-on-error: true
 
+      - name: Upload Page Tests Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: page-test-reports
+          path: reports/
+          retention-days: 7
+
+      - name: Clear reports directory
+        run: rm -rf reports/* && mkdir -p reports
+
+      # Components Tests
       - name: Run Component Tests
         run: npm run test -- src/tests/unit/components
         continue-on-error: true
 
+      - name: Upload Component Tests Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: component-test-reports
+          path: reports/
+          retention-days: 7
+
+      - name: Clear reports directory
+        run: rm -rf reports/* && mkdir -p reports
+
+      # Routes Tests
       - name: Run Routes Tests
         run: npm run test -- src/tests/unit/routes
         continue-on-error: true
 
+      - name: Upload Routes Tests Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: routes-test-reports
+          path: reports/
+          retention-days: 7
+
+      - name: Clear reports directory
+        run: rm -rf reports/* && mkdir -p reports
+
+      # Layouts Tests
       - name: Run Layouts Tests
         run: npm run test -- src/tests/unit/layouts
         continue-on-error: true
 
+      - name: Upload Layouts Tests Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layouts-test-reports
+          path: reports/
+          retention-days: 7
+
+      - name: Clear reports directory
+        run: rm -rf reports/* && mkdir -p reports
+
+      # Helpers Tests
       - name: Run Helpers Tests
         run: npm run test -- src/tests/unit/helpers
         continue-on-error: true
 
+      - name: Upload Helpers Tests Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: helpers-test-reports
+          path: reports/
+          retention-days: 7
+
+      - name: Clear reports directory
+        run: rm -rf reports/* && mkdir -p reports
+
+      # Services Tests
       - name: Run Services Tests
         run: npm run test -- src/tests/unit/services
         continue-on-error: true
 
+      - name: Upload Services Tests Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: services-test-reports
+          path: reports/
+          retention-days: 7
+
+      - name: Clear reports directory
+        run: rm -rf reports/* && mkdir -p reports
+
+      # Electron Tests
       - name: Run Electron Tests
         run: npm run test -- src/tests/unit/electron
         continue-on-error: true
 
-      # Run a final complete test to ensure overall pass/fail status
-      - name: Verify All Tests Pass
-        run: npm run test
-
-      # Upload test result artifacts
-      - name: Upload test reports
+      - name: Upload Electron Tests Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports
+          name: electron-test-reports
           path: reports/
           retention-days: 7

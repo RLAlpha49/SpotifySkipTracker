@@ -21,7 +21,7 @@ export default defineConfig({
       "dot",
       ["junit", { outputFile: "reports/junit.xml" }],
       ["json", { outputFile: "reports/test-results.json" }],
-      ["html", { outputFile: "reports/html-report" }],
+      ["html", { outputFile: "reports/index.html" }],
     ],
     outputFile: {
       json: "./reports/json-results.json",
