@@ -127,6 +127,9 @@ jobs:
       - name: Check for package updates
         id: check-updates
         run: |
+          # Create a copy of package.json for checking updates
+          cp package.json /tmp/package.json.check
+
           # Capture npm run update output for updates
           UPDATE_OUTPUT=$(npm run update -- --packageFile /tmp/package.json.check)
 
@@ -158,9 +161,9 @@ jobs:
         id: update-packages
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.update-packages == true) || (github.event_name != 'workflow_dispatch' && steps.check-updates.outputs.has_updates == 'true') }}
         run: |
-          # Just prepare the update info without actually modifying files yet
-          # Capture npm run update output for updates info only
+          # Create a copy of package.json for checking updates
           cp package.json /tmp/package.json.before
+          cp package.json /tmp/package.json.check
 
           # Capture update info in structured format without modifying files
           UPDATE_INFO=$(npm run update -- --jsonUpgraded --packageFile /tmp/package.json.check)
