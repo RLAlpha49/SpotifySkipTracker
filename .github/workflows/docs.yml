@@ -1,21 +1,16 @@
-name: Documentation
+name: Generate Documentation
 
 on:
   push:
+    branches: ["master"]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
+  contents: write
 
 jobs:
   build-docs:
-    name: Build and Deploy Documentation
+    name: Build and Push Documentation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -33,14 +28,9 @@ jobs:
       - name: Generate TypeDoc Documentation
         run: npm run docs
 
-      - name: Setup GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload GitHub Pages Artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to Documentation Branch
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          path: "./docs"
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          folder: docs
+          branch: documentation
+          clean: true
