@@ -4,6 +4,10 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "babel-plugin-react-compiler"
+      - dependency-name: "typedoc"
+      - dependency-name: "typedoc-plugin-missing-exports"
 
   - package-ecosystem: "github-actions"
     directory: ".github/workflows"
