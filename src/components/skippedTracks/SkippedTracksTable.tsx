@@ -1,5 +1,7 @@
 /**
- * Skipped Tracks Analysis Table Component
+ * @packageDocumentation
+ * @module SkippedTracksTable
+ * @description Skipped Tracks Analysis Table Component
  *
  * Provides a comprehensive tabular visualization of the user's skipped tracks data
  * with sorting, contextual styling, and empty/loading states. This component forms
@@ -82,6 +84,7 @@ interface SkippedTracksTableProps {
  * @param props.onUnlikeTrack - Function to handle track removal from library
  * @param props.onRemoveTrackData - Function to handle skip data deletion
  * @returns React component for skipped tracks table
+ * @source
  */
 export function SkippedTracksTable({
   tracks,

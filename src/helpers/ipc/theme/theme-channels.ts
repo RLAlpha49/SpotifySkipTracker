@@ -1,5 +1,7 @@
 /**
- * Theme Management IPC Channel Constants
+ * @packageDocumentation
+ * @module theme-channels
+ * @description Theme Management IPC Channel Constants
  *
  * Defines standardized channel identifiers for theme control operations
  * in the Electron IPC communication system.

@@ -1,5 +1,7 @@
 /**
- * Token Storage Service Module
+ * @packageDocumentation
+ * @module auth/storage
+ * @description Token Storage Service Module
  *
  * This module serves as the unified entry point for the token storage subsystem,
  * exposing a clean, consolidated API for all authentication token operations while
@@ -31,6 +33,7 @@
  * module structure.
  *
  * @module TokenStorageService
+ * @source
  */
 
 // Re-export storage constants and utilities

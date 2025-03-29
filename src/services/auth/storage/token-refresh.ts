@@ -1,5 +1,7 @@
 /**
- * Token Refresh Management Module
+ * @packageDocumentation
+ * @module auth/storage/token-refresh
+ * @description Token Refresh Management Module
  *
  * Provides automatic access token refresh functionality for the OAuth authentication
  * system, ensuring continuous API access without requiring user re-authentication.
@@ -51,6 +53,7 @@ let scheduleTokenRefreshFnRegistered = false;
  * // During token system initialization
  * import { setTokens } from "./token-operations";
  * initTokenRefresh(setTokens);
+ * @source
  */
 export function initTokenRefresh(
   setTokensFn: (tokens: AuthTokens) => void,
@@ -88,6 +91,7 @@ export function initTokenRefresh(
  *
  * // This will automatically refresh the token 5 minutes before expiry
  * // (assuming REFRESH_MARGIN is set to 300 seconds)
+ * @source
  */
 export function scheduleTokenRefresh(expiresIn: number): void {
   // Clear any existing timer
@@ -132,6 +136,7 @@ export function scheduleTokenRefresh(expiresIn: number): void {
  * } catch (error) {
  *   handleError(error);
  * }
+ * @source
  */
 export async function refreshAccessToken(): Promise<boolean> {
   try {

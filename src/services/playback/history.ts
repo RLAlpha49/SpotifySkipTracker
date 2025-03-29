@@ -1,5 +1,7 @@
 /**
- * Playback History Management Module
+ * @packageDocumentation
+ * @module playback/history
+ * @description Playback History Management Module
  *
  * Manages comprehensive track history data collection, storage, and analysis
  * with a focus on track skipping behavior and listening patterns over time.
@@ -107,6 +109,7 @@ interface SkippedTrackWithEvents extends ExtendedSkippedTrack {
  *   await updateRecentTracks();
  *   console.log('Recent tracks history updated from Spotify');
  * }
+ * @source
  */
 export async function updateRecentTracks(): Promise<void> {
   try {
@@ -155,6 +158,7 @@ export async function updateRecentTracks(): Promise<void> {
  *   console.log(`Loaded ${tracks.length} skipped tracks from storage`);
  *   return tracks;
  * }
+ * @source
  */
 export async function getSkippedTracks(): Promise<SkippedTrack[]> {
   try {
@@ -172,6 +176,7 @@ export async function getSkippedTracks(): Promise<SkippedTrack[]> {
  * detailed contextual information, analysis results, and metadata.
  * This structure provides the foundation for sophisticated skip
  * analytics and pattern recognition.
+ * @source
  */
 export interface SkipInfo {
   /** Spotify track ID */
@@ -290,6 +295,7 @@ export interface SkipInfo {
  *   Date.now(),                  // Current timestamp
  *   0.25                         // 25% progress
  * );
+ * @source
  */
 export async function recordSkippedTrack(
   trackIdOrInfo: string | SkipInfo,

@@ -1,5 +1,7 @@
 /**
- * Dashboard Statistics Overview Component
+ * @packageDocumentation
+ * @module StatisticsSummary
+ * @description Dashboard Statistics Overview Component
  *
  * Delivers a comprehensive visual summary of key listening statistics
  * with responsive card-based layout and dynamic data visualization.
@@ -77,6 +79,7 @@ interface StatisticsSummaryProps {
  *
  * @param props - Component properties
  * @returns React component with statistics dashboard layout
+ * @source
  */
 export function StatisticsSummary({
   isLoading = false,

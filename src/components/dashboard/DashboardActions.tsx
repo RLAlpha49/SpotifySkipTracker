@@ -1,5 +1,7 @@
 /**
- * Dashboard Quick Actions Panel
+ * @packageDocumentation
+ * @module DashboardActions
+ * @description Dashboard Quick Actions Panel
  *
  * Provides a centralized interface for performing common operations related to
  * data management and navigation throughout the application. This component serves
@@ -78,6 +80,7 @@ interface DashboardActionsProps {
  * @param props.isExporting - Whether export operation is running
  * @param props.isClearing - Whether clear operation is running
  * @returns React component with action buttons in a card layout
+ * @source
  */
 export function DashboardActions({
   onRefreshData,

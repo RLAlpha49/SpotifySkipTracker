@@ -1,8 +1,12 @@
 /**
- * Global Type Definitions
+ * @packageDocumentation
+ * @module global
+ * @description Global Type Definitions
  *
  * Centralized type declarations for cross-module interfaces,
  * window extensions for IPC communication, and Spotify API structures.
+ *
+ * @source
  */
 
 import { LogLevel } from "@/types/logging";
@@ -18,6 +22,8 @@ import { StatisticsAPI } from "./types/statistics-api";
 /**
  * Theme management interface
  * Provides methods for controlling UI appearance modes
+ *
+ * @notExported
  */
 interface ThemeModeContext {
   toggle: () => Promise<boolean>;
@@ -30,6 +36,8 @@ interface ThemeModeContext {
 /**
  * Electron window controls interface
  * Encapsulates window management operations
+ *
+ * @notExported
  */
 interface ElectronWindow {
   minimize: () => Promise<void>;
@@ -37,6 +45,11 @@ interface ElectronWindow {
   close: () => Promise<void>;
 }
 
+/**
+ * Global window interface
+ *
+ * @notExported
+ */
 declare global {
   interface Window {
     themeMode: ThemeModeContext;

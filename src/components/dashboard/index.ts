@@ -1,5 +1,7 @@
 /**
- * Dashboard Component Export Module
+ * @packageDocumentation
+ * @module dashboard
+ * @description Dashboard Component Export Module
  *
  * Central export point for all dashboard-related components, providing
  * a clean public API for importing dashboard functionality throughout

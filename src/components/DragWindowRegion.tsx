@@ -1,5 +1,7 @@
 /**
- * Electron Window Titlebar Component
+ * @packageDocumentation
+ * @module DragWindowRegion
+ * @description Electron Window Titlebar Component
  *
  * Custom window titlebar implementation for Electron applications that provides:
  * - Draggable region for window movement
@@ -49,13 +51,14 @@ interface DragWindowRegionProps {
  * @param props - Component properties
  * @param props.title - Optional title content to display
  * @returns React component for window titlebar
+ * @source
  */
 export default function DragWindowRegion({ title }: DragWindowRegionProps) {
   return (
     <div className="flex w-screen items-stretch justify-between">
       <div className="draglayer w-full">
         {title && (
-          <div className="flex flex-1 p-2 text-xs whitespace-nowrap text-gray-400 select-none">
+          <div className="flex flex-1 select-none whitespace-nowrap p-2 text-xs text-gray-400">
             {title}
           </div>
         )}
@@ -77,6 +80,7 @@ export default function DragWindowRegion({ title }: DragWindowRegionProps) {
  * the corresponding window action when clicked.
  *
  * @returns React component with window control buttons
+ * @source
  */
 function WindowButtons() {
   return (

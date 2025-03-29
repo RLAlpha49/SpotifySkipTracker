@@ -1,5 +1,7 @@
 /**
- * Main Application Layout Component
+ * @packageDocumentation
+ * @module MainLayout
+ * @description Main Application Layout Component
  *
  * Serves as the primary structural container for the entire application,
  * establishing a consistent visual hierarchy and navigation system.
@@ -55,6 +57,7 @@ interface MainLayoutProps {
  * @param props - Component properties
  * @param props.children - Content to render in the main scrollable area
  * @returns MainLayout component with consistent app structure
+ * @source
  */
 export default function MainLayout({ children }: MainLayoutProps) {
   // Use useMatch to check each route directly

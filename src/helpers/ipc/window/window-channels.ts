@@ -1,5 +1,7 @@
 /**
- * Window Control IPC Channel Constants
+ * @packageDocumentation
+ * @module window-channels
+ * @description Window Control IPC Channel Constants
  *
  * Defines standardized channel identifiers for window management operations
  * in the Electron IPC communication system.

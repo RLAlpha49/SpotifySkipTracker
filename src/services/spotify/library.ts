@@ -1,5 +1,7 @@
 /**
- * Spotify Library Management Service
+ * @packageDocumentation
+ * @module spotify/library
+ * @description Spotify Library Management Service
  *
  * This module provides functionality for interacting with the user's Spotify library,
  * focusing on track management operations such as checking saved status, liking,
@@ -50,6 +52,7 @@ import { ensureValidToken, getAccessToken } from "./token";
  * @param trackId Spotify track ID to check
  * @param silent Whether to suppress error logs
  * @returns Promise resolving to true if track is in library
+ * @source
  */
 export async function isTrackInLibrary(
   trackId: string,
@@ -89,6 +92,7 @@ export async function isTrackInLibrary(
  * @param trackId Spotify track ID to add
  * @param silent Whether to suppress error logs
  * @returns Promise resolving to true if successful
+ * @source
  */
 export async function likeTrack(
   trackId: string,
@@ -128,6 +132,7 @@ export async function likeTrack(
  * @param trackId Spotify track ID to remove
  * @param silent Whether to suppress error logs
  * @returns Promise resolving to true if successful
+ * @source
  */
 export async function unlikeTrack(
   trackId: string,

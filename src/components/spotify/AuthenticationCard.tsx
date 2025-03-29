@@ -1,5 +1,7 @@
 /**
- * Spotify Authentication Management Component
+ * @packageDocumentation
+ * @module AuthenticationCard
+ * @description Spotify Authentication Management Component
  *
  * Provides a user interface for handling Spotify API authentication status
  * and actions. This card visually communicates the current authentication
@@ -64,6 +66,7 @@ interface AuthenticationCardProps {
  * @param props.onLogin - Function to handle login request
  * @param props.onLogout - Function to handle logout request
  * @returns React component for authentication management
+ * @source
  */
 export function AuthenticationCard({
   isAuthenticated,

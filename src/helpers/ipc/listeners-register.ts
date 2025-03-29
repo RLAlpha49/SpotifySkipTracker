@@ -1,5 +1,7 @@
 /**
- * IPC Listener Registration Hub
+ * @packageDocumentation
+ * @module listeners-register
+ * @description IPC Listener Registration Hub
  *
  * Centralizes and orchestrates the initialization of all inter-process
  * communication channels between the main Electron process and renderer processes.
@@ -27,6 +29,7 @@ import { addWindowEventListeners } from "./window/window-listeners";
  * Registers all IPC event listeners for the application
  *
  * @param mainWindow - The main BrowserWindow instance to attach listeners to
+ * @source
  */
 export default function registerListeners(mainWindow: BrowserWindow): void {
   addWindowEventListeners(mainWindow);

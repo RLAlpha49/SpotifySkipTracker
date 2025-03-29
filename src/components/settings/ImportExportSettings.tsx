@@ -1,5 +1,7 @@
 /**
- * Settings Import/Export Management Component
+ * @packageDocumentation
+ * @module ImportExportSettings
+ * @description Settings Import/Export Management Component
  *
  * Provides functionality for backing up and restoring application settings
  * through JSON file export and import. This component enables users to save
@@ -57,6 +59,7 @@ interface ImportExportSettingsProps {
  * @param props.currentSettings - Current settings configuration to export
  * @param props.onImport - Callback function invoked when settings are imported
  * @returns React component for settings backup and restore
+ * @source
  */
 export function ImportExportSettings({
   currentSettings,
@@ -185,7 +188,7 @@ export function ImportExportSettings({
 
       <Card className="border-muted-foreground/20 shadow-sm">
         <CardContent className="p-6">
-          <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
+          <div className="flex flex-col space-y-4 sm:flex-row sm:space-x-4 sm:space-y-0">
             <div className="flex-1">
               <div className="flex items-center space-x-2">
                 <h3 className="text-base font-medium">Export Settings</h3>

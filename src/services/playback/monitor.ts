@@ -1,5 +1,7 @@
 /**
- * Spotify Playback Monitoring Core Service
+ * @packageDocumentation
+ * @module playback/monitor
+ * @description Spotify Playback Monitoring Core Service
  *
  * This module forms the heart of the application's playback tracking system, providing
  * real-time monitoring of Spotify playback state with sophisticated error handling,
@@ -109,6 +111,7 @@ let isInBackoffMode = false;
  *   pollingInterval: 3000,
  *   progressUpdateInterval: 500
  * });
+ * @source
  */
 export function setMonitoringConfig(
   config: Partial<PlaybackMonitorConfig>,
@@ -161,6 +164,7 @@ export function setMonitoringConfig(
  *   ...config,
  *   pollingInterval: 2000
  * });
+ * @source
  */
 export function getMonitoringConfig(): PlaybackMonitorConfig {
   return { ...currentConfig };
@@ -181,6 +185,8 @@ export function getMonitoringConfig(): PlaybackMonitorConfig {
  * - Creating unnecessary network traffic during connectivity problems
  *
  * @private Internal function not exported from the module
+ * @source
+ * @notExported
  */
 function resetBackoff(): void {
   consecutiveErrors = 0;
@@ -285,6 +291,8 @@ function applyBackoffStrategy(): number {
  * startPlaybackMonitoring(mainWindow, clientId, clientSecret, {
  *   pollingInterval: 2000 // Poll every 2 seconds
  * });
+ * @source
+ * @notExported
  */
 export function startPlaybackMonitoring(
   mainWindow: BrowserWindow,
@@ -452,6 +460,7 @@ export function startPlaybackMonitoring(
  * stopPlaybackMonitoring();
  * setMonitoringConfig({ pollingInterval: 5000 });
  * startPlaybackMonitoring(mainWindow, clientId, clientSecret);
+ * @source
  */
 export function stopPlaybackMonitoring(): boolean {
   try {
@@ -505,6 +514,8 @@ export function stopPlaybackMonitoring(): boolean {
  *
  * // Update UI based on monitoring status
  * updateMonitoringStatusButton(isMonitoringActive());
+ * @source
+ * @notExported
  */
 export function isMonitoringActive(): boolean {
   return monitoringInterval !== null;
@@ -535,6 +546,8 @@ export function isMonitoringActive(): boolean {
  *
  * @param mainWindow - Electron BrowserWindow that will receive progress updates
  * @private Internal function not exported from the module
+ * @source
+ * @notExported
  */
 function startProgressUpdateInterval(mainWindow: BrowserWindow): void {
   // Clear any existing interval
@@ -638,6 +651,8 @@ function startProgressUpdateInterval(mainWindow: BrowserWindow): void {
  * @param mainWindow - Electron BrowserWindow that will receive state updates
  * @returns Promise that resolves when polling cycle completes
  * @private Internal function not exported from the module
+ * @source
+ * @notExported
  */
 async function monitorPlayback(mainWindow: BrowserWindow): Promise<void> {
   try {

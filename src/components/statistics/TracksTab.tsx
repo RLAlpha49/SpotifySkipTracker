@@ -1,5 +1,7 @@
 /**
- * Track Statistics Analysis Component
+ * @packageDocumentation
+ * @module TracksTab
+ * @description Track Statistics Analysis Component
  *
  * Provides detailed visualization and analysis of track-level listening statistics,
  * focusing on play counts, completion rates, and skip patterns. This component
@@ -80,6 +82,7 @@ interface TracksTabProps {
  * @param props.loading - Whether data is being loaded
  * @param props.statistics - Complete statistics data object
  * @returns React component with track statistics visualizations
+ * @source
  */
 export function TracksTab({ loading, statistics }: TracksTabProps) {
   // Add state for chart types

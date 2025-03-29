@@ -1,5 +1,7 @@
 /**
- * Application Settings Management System
+ * @packageDocumentation
+ * @module settings-store
+ * @description Application Settings Management System
  *
  * Provides persistence and retrieval of user preferences and application
  * configuration with smart defaults and validation handling.
@@ -43,6 +45,7 @@ const defaultSettings: SettingsSchema = {
  *
  * @param settings - Application settings to save
  * @returns Boolean indicating success or failure
+ * @source
  */
 export function saveSettings(settings: SettingsSchema): boolean {
   try {
@@ -68,6 +71,7 @@ export function saveSettings(settings: SettingsSchema): boolean {
  * Retrieves application settings from disk
  *
  * @returns Current application settings or defaults if not found
+ * @source
  */
 export function getSettings(): SettingsSchema {
   try {
@@ -87,6 +91,7 @@ export function getSettings(): SettingsSchema {
  * Resets all settings to their default values
  *
  * @returns Boolean indicating success or failure
+ * @source
  */
 export function resetSettings(): boolean {
   try {

@@ -1,5 +1,7 @@
 /**
- * Authentication Token Compatibility Layer Module
+ * @packageDocumentation
+ * @module auth/storage/token-store
+ * @description Authentication Token Compatibility Layer Module
  *
  * Provides a backward-compatible interface that maintains the original token
  * management API while delegating to the new modular token services. This module
@@ -62,6 +64,7 @@ export { REFRESH_MARGIN } from "./token-state";
  * });
  *
  * @deprecated Use setTokens from token-operations directly
+ * @source
  */
 export function setTokens(tokens: AuthTokens): void {
   setTokensOp(tokens);
@@ -81,6 +84,7 @@ export function setTokens(tokens: AuthTokens): void {
  * showLoginScreen();
  *
  * @deprecated Use clearTokens from token-operations directly
+ * @source
  */
 export function clearTokens(): void {
   clearTokensOp();
@@ -104,6 +108,7 @@ export function clearTokens(): void {
  * }
  *
  * @deprecated Use getAccessToken from token-operations directly
+ * @source
  */
 export function getAccessToken(): string | null {
   return getAccessTokenOp();
@@ -125,6 +130,7 @@ export function getAccessToken(): string | null {
  * console.log("Has refresh token:", !!refreshToken);
  *
  * @deprecated Use getRefreshToken from token-operations directly
+ * @source
  */
 export function getRefreshToken(): string | null {
   return getRefreshTokenOp();
@@ -149,6 +155,7 @@ export function getRefreshToken(): string | null {
  * }
  *
  * @deprecated Use isAuthenticated from token-operations directly
+ * @source
  */
 export function isAuthenticated(): boolean {
   return isAuthenticatedOp();
@@ -173,6 +180,7 @@ export function isAuthenticated(): boolean {
  * }
  *
  * @deprecated Use getTokenExpiry from token-operations directly
+ * @source
  */
 export function getTokenExpiry(): number | null {
   return getTokenExpiryOp();
@@ -198,6 +206,7 @@ export function getTokenExpiry(): number | null {
  * }
  *
  * @deprecated Use refreshAccessToken from token-refresh directly
+ * @source
  */
 export async function refreshAccessToken(): Promise<boolean> {
   return refreshAccessTokenOp();
@@ -218,6 +227,7 @@ export async function refreshAccessToken(): Promise<boolean> {
  * console.log("Token system initialized");
  *
  * @deprecated Use initTokenStore from token-init directly
+ * @source
  */
 export function initTokenStore(): void {
   initTokenStoreOp();

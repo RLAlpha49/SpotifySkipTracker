@@ -1,5 +1,7 @@
 /**
- * Settings Reset Confirmation Dialog Component
+ * @packageDocumentation
+ * @module ResetSettingsDialog
+ * @description Settings Reset Confirmation Dialog Component
  *
  * Provides a confirmation interface before resetting application settings
  * to their default values. This component ensures users do not accidentally
@@ -53,6 +55,7 @@ interface ResetSettingsDialogProps {
  * @param props - Component properties
  * @param props.onReset - Function to call when reset is confirmed
  * @returns React component with reset button and confirmation dialog
+ * @source
  */
 export function ResetSettingsDialog({ onReset }: ResetSettingsDialogProps) {
   return (

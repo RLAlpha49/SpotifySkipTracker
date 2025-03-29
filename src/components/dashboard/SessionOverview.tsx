@@ -1,5 +1,7 @@
 /**
- * Listening Session Analysis Component
+ * @packageDocumentation
+ * @module SessionOverview
+ * @description Listening Session Analysis Component
  *
  * Visualizes the user's recent listening sessions with comprehensive metrics
  * about duration, track count, and skip behavior. This component provides
@@ -79,6 +81,7 @@ interface SessionOverviewProps {
  * @param props.sessions - Array of session data to display
  * @param props.maxItems - Maximum number of sessions to show
  * @returns React component with recent sessions overview
+ * @source
  */
 export function SessionOverview({
   isLoading = false,

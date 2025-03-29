@@ -1,5 +1,7 @@
 /**
- * Secure IPC Communication Bridge
+ * @packageDocumentation
+ * @module context-exposer
+ * @description Secure IPC Communication Bridge
  *
  * Establishes a robust and secure inter-process communication system between
  * the application's main process (Node.js/Electron) and renderer process (browser).

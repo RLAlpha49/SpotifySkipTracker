@@ -1,5 +1,7 @@
 /**
- * Skipped Tracks Page Header Component
+ * @packageDocumentation
+ * @module SkippedTracksHeader
+ * @description Skipped Tracks Page Header Component
  *
  * Provides the main header section for the Skipped Tracks page with
  * contextual information about the current analysis parameters and
@@ -73,6 +75,7 @@ interface SkippedTracksHeaderProps {
  * @param props.onRefresh - Function to handle data refresh
  * @param props.onOpenSkipsDirectory - Function to open data folder
  * @returns React component for page header
+ * @source
  */
 export function SkippedTracksHeader({
   timeframeInDays,
@@ -93,7 +96,7 @@ export function SkippedTracksHeader({
             <Calendar className="h-4 w-4" />
             <span>
               Tracks you&apos;ve skipped within the last{" "}
-              <Badge variant="outline" className="mr-0.5 ml-0.5 font-mono">
+              <Badge variant="outline" className="ml-0.5 mr-0.5 font-mono">
                 {timeframeInDays}
               </Badge>{" "}
               days
@@ -105,7 +108,7 @@ export function SkippedTracksHeader({
               Tracks skipped{" "}
               <Badge
                 variant="outline"
-                className="mr-0.5 ml-0.5 font-mono text-xs"
+                className="ml-0.5 mr-0.5 font-mono text-xs"
               >
                 {skipThreshold}+
               </Badge>{" "}

@@ -1,5 +1,7 @@
 /**
- * Spotify Skip Tracker - Main Process Entry Point
+ * @packageDocumentation
+ * @module main
+ * @description Main Process Entry Point
  *
  * Core module controlling the Electron application lifecycle and coordinating modules.
  * Delegates specific functionality to specialized modules for better maintainability.

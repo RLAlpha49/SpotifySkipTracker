@@ -1,5 +1,7 @@
 /**
- * Spotify Renderer Service
+ * @packageDocumentation
+ * @module spotify.service
+ * @description Spotify Renderer Service
  *
  * This module provides a type-safe interface for communication between the renderer
  * and main processes to access Spotify API functionality. It serves as the bridge
@@ -72,6 +74,7 @@ class SpotifyService {
    *
    * @param credentials - Optional Spotify credentials (uses stored if omitted)
    * @returns Promise resolving to authentication success status
+   * @source
    */
   public async authenticate(
     credentials?: SpotifyCredentials,
@@ -88,6 +91,7 @@ class SpotifyService {
    * Terminates Spotify session and clears stored tokens
    *
    * @returns Promise resolving to logout success status
+   * @source
    */
   public async logout(): Promise<boolean> {
     try {
@@ -102,6 +106,7 @@ class SpotifyService {
    * Verifies if user has valid Spotify authentication
    *
    * @returns Promise resolving to authentication status
+   * @source
    */
   public async isAuthenticated(): Promise<boolean> {
     try {
@@ -116,6 +121,7 @@ class SpotifyService {
    * Retrieves current Spotify playback state
    *
    * @returns Promise resolving to playback data or null if inactive
+   * @source
    */
   public async getCurrentPlayback(): Promise<SpotifyPlaybackInfo | null> {
     try {
@@ -130,6 +136,7 @@ class SpotifyService {
    * Retrieves skip tracking data for all monitored tracks
    *
    * @returns Promise resolving to array of tracked tracks
+   * @source
    */
   public async getSkippedTracks(): Promise<SkippedTrack[]> {
     try {
@@ -144,6 +151,7 @@ class SpotifyService {
    * Updates skip tracking data from storage
    *
    * @returns Promise resolving to refreshed tracks array
+   * @source
    */
   public async refreshSkippedTracks(): Promise<SkippedTrack[]> {
     try {
@@ -159,6 +167,7 @@ class SpotifyService {
    *
    * @param settings - Configuration settings to store
    * @returns Promise resolving to save operation success status
+   * @source
    */
   public async saveSettings(settings: SpotifySettings): Promise<boolean> {
     try {
@@ -173,6 +182,7 @@ class SpotifyService {
    * Retrieves application settings
    *
    * @returns Promise resolving to current settings or defaults
+   * @source
    */
   public async getSettings(): Promise<SpotifySettings> {
     try {
@@ -191,6 +201,7 @@ class SpotifyService {
    * Initiates Spotify playback monitoring
    *
    * @returns Promise resolving to operation success status
+   * @source
    */
   public async startMonitoring(): Promise<boolean> {
     try {
@@ -205,6 +216,7 @@ class SpotifyService {
    * Terminates Spotify playback monitoring
    *
    * @returns Promise resolving to operation success status
+   * @source
    */
   public async stopMonitoring(): Promise<boolean> {
     try {
@@ -219,6 +231,7 @@ class SpotifyService {
    * Checks if playback monitoring is currently active
    *
    * @returns Promise resolving to monitoring state
+   * @source
    */
   public async isMonitoringActive(): Promise<boolean> {
     try {
@@ -233,6 +246,7 @@ class SpotifyService {
    * Pauses Spotify playback
    *
    * @returns Promise resolving to operation success status
+   * @source
    */
   public async pausePlayback(): Promise<boolean> {
     try {
@@ -247,6 +261,7 @@ class SpotifyService {
    * Resumes Spotify playback
    *
    * @returns Promise resolving to operation success status
+   * @source
    */
   public async resumePlayback(): Promise<boolean> {
     try {
@@ -261,6 +276,7 @@ class SpotifyService {
    * Skips to previous track in queue
    *
    * @returns Promise resolving to operation success status
+   * @source
    */
   public async skipToPreviousTrack(): Promise<boolean> {
     try {
@@ -275,6 +291,7 @@ class SpotifyService {
    * Skips to next track in queue
    *
    * @returns Promise resolving to operation success status
+   * @source
    */
   public async skipToNextTrack(): Promise<boolean> {
     try {

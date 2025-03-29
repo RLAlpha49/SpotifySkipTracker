@@ -1,5 +1,7 @@
 /**
- * Spotify API Request Interceptor Service
+ * @packageDocumentation
+ * @module spotify/interceptors
+ * @description Spotify API Request Interceptor Service
  *
  * This module provides a configured Axios instance with request and response interceptors
  * specifically designed for Spotify API communication. It handles common API scenarios such as
@@ -26,6 +28,7 @@
  * ```
  *
  * @module SpotifyInterceptors
+ * @source
  */
 
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";

@@ -1,5 +1,7 @@
 /**
- * Skip Pattern Detection Service
+ * @packageDocumentation
+ * @module statistics/pattern-detector
+ * @description Skip Pattern Detection Service
  *
  * This module implements advanced pattern recognition algorithms that analyze
  * listening and skip behavior to identify meaningful insights about user preferences
@@ -47,6 +49,21 @@ import {
 
 /**
  * Pattern threshold configurations
+ *
+ * Defines the configurable thresholds used throughout the pattern detection algorithms
+ * to identify significant patterns and filter out statistical noise. These values
+ * determine the sensitivity and specificity of pattern detection.
+ *
+ * Each threshold controls a different aspect of pattern detection:
+ * - CONFIDENCE_THRESHOLD: Minimum confidence required to report a pattern
+ * - STREAK_THRESHOLD: Minimum consecutive skips to qualify as a streak
+ * - TIME_FACTOR_THRESHOLD: Minimum ratio above average to flag a time slot
+ * - MIN_OCCURRENCES: Minimum number of instances required for pattern validity
+ * - IMMEDIATE_SKIP_THRESHOLD: Maximum track percentage played for "immediate" skips
+ * - NEAR_END_THRESHOLD: Minimum track percentage played for "near-end" skips
+ *
+ * These thresholds can be adjusted to tune the sensitivity of the detection system
+ * based on user preferences or application requirements.
  */
 const PATTERN_THRESHOLDS = {
   // The minimum confidence score (0-1) required to consider a pattern significant
@@ -69,7 +86,26 @@ const PATTERN_THRESHOLDS = {
 };
 
 /**
- * Detected pattern types
+ * Enumeration of all supported pattern types detected by the system
+ *
+ * Defines the standardized categorization system for all patterns detected
+ * by the pattern detection algorithms. Each pattern type represents a distinct
+ * category of user behavior or preference that can be identified through
+ * skip data analysis.
+ *
+ * Pattern types include:
+ * - ARTIST_AVERSION: Consistently skipping tracks by specific artists
+ * - TIME_OF_DAY: Skipping patterns related to specific times or days
+ * - CONTEXT_SPECIFIC: Skip patterns in specific playlists or albums
+ * - IMMEDIATE_SKIP: Skipping tracks very early in playback
+ * - PREVIEW_BEHAVIOR: Patterns in preview listening behavior
+ * - PLAYLIST_JUMPING: Frequently switching between playlists
+ * - SKIP_STREAK: Sequences of consecutive rapid skips
+ * - GENRE_PREFERENCE: Genre-based skip patterns
+ * - MOOD_BASED: Emotional or mood-based skip patterns
+ *
+ * This enumeration ensures consistent typing and identification of patterns
+ * throughout the application, from detection to storage and presentation.
  */
 export enum PatternType {
   ARTIST_AVERSION = "artist_aversion",
@@ -84,7 +120,24 @@ export enum PatternType {
 }
 
 /**
- * Pattern detection result structure
+ * Standardized structure for detected patterns
+ *
+ * Defines the comprehensive data structure used to represent detected patterns
+ * uniformly across the application. This interface ensures all patterns contain
+ * the necessary metadata for confidence assessment, presentation, and tracking.
+ *
+ * Properties:
+ * - type: The categorized pattern type from PatternType enum
+ * - confidence: Normalized score (0-1) indicating pattern reliability
+ * - description: Human-readable explanation of the pattern
+ * - occurrences: Number of times this pattern has been observed
+ * - relatedItems: Array of related entities (artists, tracks, contexts)
+ * - details: Extended pattern-specific data for deeper analysis
+ * - firstDetected: ISO timestamp when pattern was first identified
+ * - lastDetected: ISO timestamp when pattern was most recently observed
+ *
+ * This structure supports pattern persistence, trend analysis over time,
+ * and rich presentation of insights to users.
  */
 export interface DetectedPattern {
   type: PatternType;
@@ -98,7 +151,22 @@ export interface DetectedPattern {
 }
 
 /**
- * Ensures the statistics directory exists
+ * Ensures the statistics directory exists in the user data folder
+ *
+ * Creates and verifies the dedicated storage location for pattern detection data.
+ * This function centralizes path construction and directory creation, ensuring
+ * consistent data storage across the application.
+ *
+ * The path is constructed using Electron's app.getPath API to locate the
+ * user-specific application data directory. This ensures pattern data is:
+ * - Persisted between application sessions
+ * - Isolated to the specific user account
+ * - Stored in the OS-appropriate location
+ *
+ * @returns The absolute path to the statistics directory
+ * @private Internal utility function not exported from module
+ * @source
+ * @notExported
  */
 function ensureStatisticsDir() {
   const statsDir = join(app.getPath("userData"), "data", "statistics");
@@ -107,8 +175,43 @@ function ensureStatisticsDir() {
 }
 
 /**
- * Detects skip patterns from the collected data
- * @returns Array of detected skip patterns
+ * Detects patterns in the user's skip behavior using multi-dimensional analysis
+ *
+ * Coordinates the entire pattern detection process by:
+ * 1. Retrieving necessary data (artist metrics, time patterns, skipped tracks)
+ * 2. Running specialized detection algorithms for different pattern types
+ * 3. Consolidating, filtering, and sorting the detected patterns
+ * 4. Persisting patterns to disk for later analysis and trend detection
+ *
+ * The detection process employs multiple specialized algorithms to identify
+ * different types of patterns, including:
+ * - Artist aversion (consistently skipping specific artists)
+ * - Time-based patterns (skipping at certain times/days)
+ * - Immediate skip behaviors (skipping tracks very early)
+ * - Skip streak detection (consecutive rapid skips)
+ * - Context-specific behaviors (skipping in specific playlists/albums)
+ *
+ * Each pattern is assigned a confidence score, filtered based on configurable
+ * thresholds, and sorted by confidence for presentation.
+ *
+ * @returns Promise resolving to an object containing:
+ *   - success: Whether the pattern detection completed successfully
+ *   - data: Array of detected patterns meeting confidence thresholds
+ *   - error: Error message if detection failed (only if success is false)
+ *
+ * @example
+ * // Get all detected patterns with confidence scores
+ * const patterns = await detectSkipPatterns();
+ * if (patterns.success && patterns.data.length > 0) {
+ *   // Process high-confidence patterns first
+ *   const highConfidencePatterns = patterns.data
+ *     .filter(p => p.confidence > 0.8);
+ *
+ *   // Display insights to user
+ *   displayPatternInsights(highConfidencePatterns);
+ * }
+ *
+ * @source
  */
 export async function detectSkipPatterns() {
   try {
@@ -176,6 +279,25 @@ export async function detectSkipPatterns() {
   }
 }
 
+/**
+ * Comprehensive metrics data for artist-level skip analysis
+ *
+ * Collects and aggregates skip statistics at the artist level to enable
+ * artist-based pattern detection and preference analysis. This data structure
+ * provides a complete statistical profile of a user's interaction with an artist.
+ *
+ * Properties:
+ * - artistName: The name of the artist these metrics belong to
+ * - totalSkips: Total number of times tracks by this artist were skipped
+ * - uniqueTracksSkipped: Array of track IDs skipped by the user
+ * - skipRatio: Proportion of plays that resulted in skips (0-1)
+ * - manualSkips: Number of skips explicitly triggered by the user
+ * - autoSkips: Number of skips triggered automatically (e.g., end of preview)
+ * - averagePlayPercentage: Average position in tracks when skipped (0-1)
+ *
+ * This interface is used extensively in artist aversion pattern detection
+ * and for generating artist-specific insights.
+ */
 interface ArtistMetricsData {
   artistName: string;
   totalSkips: number;
@@ -187,7 +309,67 @@ interface ArtistMetricsData {
 }
 
 /**
- * Detect patterns where user consistently skips certain artists
+ * Time-based skip distribution and pattern data
+ *
+ * Contains aggregated temporal distributions of skip behavior, enabling
+ * analysis of time-based patterns in user listening habits. This structure
+ * captures how skip behavior varies across different time dimensions.
+ *
+ * Properties:
+ * - hourlyDistribution: Skip counts for each hour of the day (0-23)
+ * - peakSkipHours: Array of hours with significantly high skip counts
+ * - dayOfWeekDistribution: Skip counts for each day of the week (0-6)
+ * - dayDistribution: Alternative day-based distribution
+ * - peakSkipDays: Array of days with significantly high skip counts
+ * - skipsByTimeOfDay: Categorized skips by time period (morning, afternoon, etc.)
+ *
+ * This interface supports temporal pattern detection, including time-of-day
+ * and day-of-week skip patterns that may reveal contextual listening habits.
+ */
+interface TimePatterns {
+  hourlyDistribution: number[];
+  peakSkipHours: number[];
+  dayOfWeekDistribution?: number[] | null;
+  dayDistribution?: number[] | null;
+  peakSkipDays?: number[];
+  skipsByTimeOfDay?: Record<string, number>;
+}
+
+/**
+ * Detects patterns where users consistently skip specific artists
+ *
+ * Analyzes artists with high skip ratios to identify potential artist aversion
+ * patterns. This algorithm identifies artists that the user consistently avoids
+ * or dislikes based on their skip behavior across multiple tracks by the same artist.
+ *
+ * The detection process involves:
+ * 1. Filtering artists with sufficient data points (minimum tracks and skips)
+ * 2. Identifying artists with skip ratios exceeding thresholds
+ * 3. Calculating confidence scores based on consistency and frequency
+ * 4. Generating human-readable pattern descriptions
+ *
+ * Artist aversion patterns are particularly valuable for:
+ * - Improving personalized recommendations by avoiding disliked artists
+ * - Identifying taste changes over time
+ * - Understanding explicit vs. implicit preferences
+ *
+ * @param artistMetrics - Object mapping artist IDs to their skip metrics data
+ * @returns Array of detected artist aversion patterns that meet confidence thresholds
+ *
+ * @example
+ * // Detection of artist aversion patterns
+ * const artistMetrics = await aggregateArtistSkipMetrics();
+ * const aversionPatterns = detectArtistAversionPatterns(artistMetrics);
+ *
+ * // Example pattern result:
+ * // {
+ * //   type: "artist_aversion",
+ * //   confidence: 0.85,
+ * //   description: "Frequently skips tracks by Artist Name",
+ * //   ...additional pattern data
+ * // }
+ * @source
+ * @notExported
  */
 function detectArtistAversionPatterns(
   artistMetrics: Record<string, ArtistMetricsData>,
@@ -235,17 +417,40 @@ function detectArtistAversionPatterns(
   return patterns;
 }
 
-interface TimePatterns {
-  hourlyDistribution: number[];
-  peakSkipHours: number[];
-  dayOfWeekDistribution?: number[] | null;
-  dayDistribution?: number[] | null;
-  peakSkipDays?: number[];
-  skipsByTimeOfDay?: Record<string, number>;
-}
-
 /**
- * Detect patterns related to time of day skip behavior
+ * Detects patterns related to skip behavior at specific times of day or days of week
+ *
+ * Analyzes temporal distribution of skips to identify periods when users are
+ * more likely to skip tracks. This detection algorithm recognizes both:
+ * - Time-of-day patterns (e.g., skipping more during morning commute)
+ * - Day-of-week patterns (e.g., skipping more on Mondays)
+ *
+ * The algorithm performs several analytical steps:
+ * 1. Identifying peak skip hours that significantly exceed average
+ * 2. Formatting time periods in readable format (e.g., "9AM, 5PM")
+ * 3. Analyzing day-of-week distributions to find patterns
+ * 4. Calculating confidence based on statistical significance of the pattern
+ *
+ * Time patterns can reveal insights about:
+ * - Listening context (work, commute, relaxation, etc.)
+ * - Attention patterns during different parts of the day
+ * - Weekly routines and their impact on music preferences
+ *
+ * @param timePatterns - Object containing hourly and daily skip distribution data
+ * @returns Array of detected time-based patterns that meet confidence thresholds
+ *
+ * @example
+ * // Detecting time-of-day skip patterns
+ * const timeData = await analyzeTimeBasedPatterns();
+ * const timePatterns = detectTimeOfDayPatterns(timeData);
+ *
+ * // Sample result patterns:
+ * // [
+ * //   { type: "time_of_day", description: "Tends to skip more tracks during 8AM, 5PM", ... },
+ * //   { type: "time_of_day", description: "Skips more tracks on Monday", ... }
+ * // ]
+ * @source
+ * @notExported
  */
 function detectTimeOfDayPatterns(
   timePatterns: TimePatterns,
@@ -350,8 +555,25 @@ function detectTimeOfDayPatterns(
   return patterns;
 }
 
-// Use the SkipEvent interface for specific skip events within a track
-// Export this interface since it's referenced in SkippedTrack
+/**
+ * Represents a single skip event with detailed contextual information
+ *
+ * Captures comprehensive metadata about an individual track skip, including
+ * timing information, playback progress, skip type classification, and the
+ * context in which the skip occurred. This data structure is fundamental to
+ * pattern detection algorithms.
+ *
+ * Properties:
+ * - timestamp: ISO datetime string when the skip occurred
+ * - progress: Percentage (0-1) of track played before skipping
+ * - playDuration: Optional milliseconds the track played before skip
+ * - isManualSkip: Whether the skip was user-initiated vs. automatic
+ * - skipType: Classification of the skip (preview, standard, near_end)
+ * - context: Details about the playback environment (playlist, album, etc.)
+ *
+ * Skip events are analyzed individually and in aggregate to detect patterns
+ * across temporal, content, and behavioral dimensions.
+ */
 export interface SkipEvent {
   timestamp: string;
   progress: number;
@@ -366,7 +588,40 @@ export interface SkipEvent {
 }
 
 /**
- * Detect patterns of immediate skips
+ * Detects patterns where users consistently skip tracks very early in playback
+ *
+ * Analyzes skip events to identify when tracks are habitually skipped during the
+ * initial portion of playback. This reveals potential immediate aversion patterns,
+ * particularly when grouped by artist or other attributes.
+ *
+ * The algorithm focuses on:
+ * 1. Identifying tracks skipped within the immediate skip threshold (default: first 10%)
+ * 2. Grouping immediate skips by artist to detect potential artist-level patterns
+ * 3. Calculating average progress before skipping to determine pattern severity
+ * 4. Creating confidence scores that consider frequency, consistency, and immediacy
+ *
+ * Immediate skip patterns are valuable for:
+ * - Identifying strong negative preferences
+ * - Detecting intro-specific issues (intros that trigger skips)
+ * - Distinguishing between preview skips and content-based skips
+ *
+ * @param skippedTracks - Array of tracks with skip event data
+ * @returns Array of detected immediate skip patterns meeting confidence thresholds
+ *
+ * @example
+ * // Detect immediate skip patterns from skip data
+ * const skipData = await getSkippedTracks();
+ * const immediatePatterns = detectImmediateSkipPatterns(skipData);
+ *
+ * // Example result:
+ * // {
+ * //   type: "immediate_skip",
+ * //   confidence: 0.82,
+ * //   description: "Immediately skips tracks by Artist X",
+ * //   details: { avgSkipProgress: 0.05, trackCount: 8, ... }
+ * // }
+ * @source
+ * @notExported
  */
 function detectImmediateSkipPatterns(
   skippedTracks: SkippedTrack[],
@@ -451,7 +706,46 @@ function detectImmediateSkipPatterns(
 }
 
 /**
- * Detect patterns of consecutive skips (skip streaks)
+ * Detects patterns of consecutive rapid skips (skip streaks)
+ *
+ * Analyzes the chronological sequence of skip events to identify periods when
+ * the user rapidly skips multiple tracks in succession. This reveals potentially
+ * important behavioral patterns related to browsing, mood, or content quality.
+ *
+ * The multi-step detection algorithm:
+ * 1. Reconstructs the timeline of all skip events across tracks
+ * 2. Identifies consecutive skips occurring within short time windows (30 seconds)
+ * 3. Groups these events into "streak" objects with relevant metadata
+ * 4. Analyzes streak frequency, length, and consistency
+ * 5. Calculates confidence scores based on streak metrics
+ *
+ * Skip streak patterns can indicate:
+ * - Browsing behavior (searching for specific tracks)
+ * - Mood-based rejection (e.g., seeking more upbeat tracks)
+ * - Playlist or recommendation quality issues
+ * - Listening context disruptions
+ *
+ * @param skippedTracks - Array of tracks with skip event data
+ * @returns Array of detected skip streak patterns meeting confidence thresholds
+ *
+ * @example
+ * // Detect skip streak patterns
+ * const tracks = await getSkippedTracks();
+ * const streakPatterns = detectSkipStreakPatterns(tracks);
+ *
+ * // Example result:
+ * // {
+ * //   type: "skip_streak",
+ * //   confidence: 0.75,
+ * //   description: "Often skips 4 tracks in a row",
+ * //   details: {
+ * //     streakCount: 12,
+ * //     avgStreakLength: 4.2,
+ * //     recentStreaks: [...]
+ * //   }
+ * // }
+ * @source
+ * @notExported
  */
 function detectSkipStreakPatterns(
   skippedTracks: SkippedTrack[],
@@ -624,7 +918,49 @@ function detectSkipStreakPatterns(
 }
 
 /**
- * Detect patterns related to specific listening contexts
+ * Detects patterns related to specific listening contexts (playlists, albums, etc.)
+ *
+ * Analyzes skip events to identify correlations between skip behavior and the
+ * context in which tracks are played. This reveals important insights about how
+ * content organization and presentation affects user engagement.
+ *
+ * The detection algorithm:
+ * 1. Aggregates skip events by their context (playlist, album, etc.)
+ * 2. Calculates skip statistics for each unique context
+ * 3. Identifies contexts with statistically significant skip rates
+ * 4. Generates appropriate descriptions based on context type
+ *
+ * Context-specific patterns can reveal:
+ * - Ineffective playlist curation or sequencing
+ * - Mismatch between context theme and user expectations
+ * - Content organization issues affecting listening experience
+ * - Specific contexts that consistently trigger skip behavior
+ *
+ * @param skippedTracks - Array of tracks with skip event data
+ * @returns Array of detected context-specific patterns meeting confidence thresholds
+ *
+ * @example
+ * // Detect context-specific skip patterns
+ * const tracks = await getSkippedTracks();
+ * const contextPatterns = detectContextSpecificPatterns(tracks);
+ *
+ * // Example results:
+ * // [
+ * //   {
+ * //     type: "context_specific",
+ * //     description: "Frequently skips tracks in playlist \"Workout Mix\"",
+ * //     confidence: 0.82,
+ * //     ...
+ * //   },
+ * //   {
+ * //     type: "context_specific",
+ * //     description: "Frequently skips tracks when listening to album \"Greatest Hits\"",
+ * //     confidence: 0.75,
+ * //     ...
+ * //   }
+ * // ]
+ * @source
+ * @notExported
  */
 function detectContextSpecificPatterns(
   skippedTracks: SkippedTrack[],
@@ -709,7 +1045,40 @@ function detectContextSpecificPatterns(
 }
 
 /**
- * Helper function to calculate confidence score for a pattern
+ * Calculates a normalized confidence score for detected patterns
+ *
+ * Generates a standardized confidence score (0-1) that represents how reliable
+ * and significant a detected pattern is. This score is used to filter out noise
+ * and prioritize patterns for presentation to users.
+ *
+ * The confidence algorithm incorporates multiple factors:
+ * 1. Base confidence factor (pattern-specific measure of strength)
+ * 2. Diversity factor (how many unique items exhibit the pattern)
+ * 3. Frequency factor (how often the pattern occurs)
+ *
+ * The formula applies different weights to each factor:
+ * - 60% weight to the base pattern-specific factor
+ * - 20% weight to the diversity of affected items
+ * - 20% weight to the frequency of occurrence
+ *
+ * The result is capped at 0.95 to acknowledge inherent uncertainty in all patterns.
+ *
+ * @param baseFactor - The primary confidence measure (0-1) specific to the pattern type
+ * @param uniqueItems - Number of unique items (tracks, artists, etc.) exhibiting the pattern
+ * @param occurrences - Total number of times the pattern has been observed
+ * @returns A normalized confidence score between 0 and 0.95
+ *
+ * @example
+ * // Calculate confidence for an artist aversion pattern
+ * const skipRatio = 0.85; // User skips 85% of tracks by this artist
+ * const uniqueTracks = 12; // Pattern observed across 12 different tracks
+ * const totalSkips = 25;  // Total of 25 skip events for this artist
+ *
+ * const confidence = calculateConfidence(skipRatio, uniqueTracks, totalSkips);
+ * // Returns a value like 0.82 representing high confidence
+ *
+ * @source
+ * @notExported
  */
 function calculateConfidence(
   baseFactor: number,

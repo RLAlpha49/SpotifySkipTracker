@@ -1,5 +1,7 @@
 /**
- * Recent Skipped Tracks Dashboard Module
+ * @packageDocumentation
+ * @module RecentTracks
+ * @description Recent Skipped Tracks Dashboard Module
  *
  * Visualizes the most recently skipped tracks with contextual information and metrics.
  * Presents skip patterns with time context, skip frequency, and track details in
@@ -92,6 +94,7 @@ interface RecentTracksProps {
  * @param props.tracks - Array of track data to display
  * @param props.maxItems - Maximum number of tracks to show in the list
  * @returns React component displaying recent skipped tracks
+ * @source
  */
 export function RecentTracks({
   isLoading = false,

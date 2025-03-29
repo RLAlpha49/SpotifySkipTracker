@@ -1,5 +1,7 @@
 /**
- * Skip Data Clearing Confirmation Dialog Component
+ * @packageDocumentation
+ * @module ClearDataDialog
+ * @description Skip Data Clearing Confirmation Dialog Component
  *
  * Provides a specialized confirmation dialog for the operation of clearing all
  * skip tracking data while preserving the tracks in the user's Spotify library.
@@ -63,6 +65,7 @@ interface ClearDataDialogProps {
  * @param props.onOpenChange - Function to control dialog visibility
  * @param props.onConfirm - Function to execute when clearing is confirmed
  * @returns React component for data clearing confirmation dialog
+ * @source
  */
 export default function ClearDataDialog({
   open,

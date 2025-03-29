@@ -1,5 +1,7 @@
 /**
- * Device Usage Statistics Analysis Component
+ * @packageDocumentation
+ * @module DevicesTab
+ * @description Device Usage Statistics Analysis Component
  *
  * Provides comprehensive analytics on how the user's listening habits vary
  * across different devices. This component visualizes device-specific metrics
@@ -73,6 +75,7 @@ interface DevicesTabProps {
  * @param props.loading - Whether data is being loaded
  * @param props.statistics - Complete statistics data object
  * @returns React component with device usage analytics
+ * @source
  */
 export function DevicesTab({ loading, statistics }: DevicesTabProps) {
   if (loading) {

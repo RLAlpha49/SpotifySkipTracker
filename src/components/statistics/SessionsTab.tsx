@@ -1,5 +1,7 @@
 /**
- * Listening Session Analysis Component
+ * @packageDocumentation
+ * @module SessionsTab
+ * @description Listening Session Analysis Component
  *
  * Provides detailed visualization and analysis of listening sessions,
  * including duration, device distribution, and skip behavior patterns.
@@ -112,6 +114,7 @@ interface SessionsTabProps {
  * @param props.statistics - Complete statistics data object
  * @param props.recentSessions - Array of processed recent session data
  * @returns React component with session statistics visualizations
+ * @source
  */
 export function SessionsTab({
   loading,

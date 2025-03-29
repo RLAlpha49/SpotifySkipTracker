@@ -1,5 +1,7 @@
 /**
- * General Application Settings Configuration Component
+ * @packageDocumentation
+ * @module ApplicationSettingsForm
+ * @description General Application Settings Configuration Component
  *
  * Provides a comprehensive interface for configuring core application
  * behavior, including monitoring, polling frequency, theme selection,
@@ -86,6 +88,7 @@ interface ApplicationSettingsFormProps {
  * @param props.form - React Hook Form instance for form state management
  * @param props.setSettingsChanged - Function to notify parent of form changes
  * @returns React component for managing general application settings
+ * @source
  */
 export function ApplicationSettingsForm({
   form,

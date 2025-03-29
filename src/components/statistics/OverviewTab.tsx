@@ -1,5 +1,7 @@
 /**
- * Statistics Overview Dashboard Component
+ * @packageDocumentation
+ * @module OverviewTab
+ * @description Statistics Overview Dashboard Component
  *
  * Provides a high-level summary of the user's listening statistics through
  * a collection of metric cards displaying key data points. This component
@@ -96,6 +98,7 @@ interface OverviewTabProps {
  * @param props.statistics - Complete statistics data object
  * @param props.statsSummary - Processed summary statistics for display
  * @returns React component with statistics overview dashboard
+ * @source
  */
 export function OverviewTab({
   loading,

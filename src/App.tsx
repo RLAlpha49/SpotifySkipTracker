@@ -1,5 +1,7 @@
 /**
- * Root React Component
+ * @packageDocumentation
+ * @module App
+ * @description Root React Component
  *
  * Entry point for the renderer process that initializes the application UI.
  * Handles routing configuration and global UI components.
@@ -19,6 +21,7 @@ import { Toaster } from "@/components/ui/sonner";
  * Integrates routing and global notification systems.
  *
  * @returns React component tree
+ * @source
  */
 export default function App() {
   useEffect(() => {

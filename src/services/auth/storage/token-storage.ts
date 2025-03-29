@@ -1,5 +1,7 @@
 /**
- * Legacy Token Storage Persistence Module
+ * @packageDocumentation
+ * @module auth/storage/token-storage
+ * @description Legacy Token Storage Persistence Module
  *
  * Provides a backward-compatible interface for token management operations,
  * previously used for persistent token storage but now operating as an
@@ -49,6 +51,7 @@ export const TOKEN_EXPIRY_KEY = "spotify_token_expiry";
  * }
  *
  * @deprecated Use getAccessToken, getRefreshToken, etc. from token-operations instead
+ * @source
  */
 export function readTokenStorage(): TokenStorage {
   return { ...memoryTokenStorage };
@@ -70,6 +73,7 @@ export function readTokenStorage(): TokenStorage {
  * });
  *
  * @deprecated Use setTokens from token-operations instead
+ * @source
  */
 export function writeTokenStorage(data: TokenStorage): void {
   Object.assign(memoryTokenStorage, data);
@@ -90,6 +94,7 @@ export function writeTokenStorage(data: TokenStorage): void {
  * storeTokenValue(ACCESS_TOKEN_KEY, "new-access-token");
  *
  * @deprecated Use setTokens from token-operations instead
+ * @source
  */
 export function storeTokenValue(key: string, value: TokenValue): void {
   memoryTokenStorage[key] = value;
@@ -112,6 +117,7 @@ export function storeTokenValue(key: string, value: TokenValue): void {
  * }
  *
  * @deprecated Use getAccessToken, getRefreshToken, etc. from token-operations instead
+ * @source
  */
 export function retrieveTokenValue<T extends TokenValue>(
   key: string,
@@ -132,6 +138,7 @@ export function retrieveTokenValue<T extends TokenValue>(
  * removeTokenValue(ACCESS_TOKEN_KEY);
  *
  * @deprecated Use clearTokens from token-operations instead
+ * @source
  */
 export function removeTokenValue(key: string): void {
   delete memoryTokenStorage[key];
@@ -148,6 +155,7 @@ export function removeTokenValue(key: string): void {
  * clearTokenStorage();
  *
  * @deprecated Use clearTokens from token-operations instead
+ * @source
  */
 export function clearTokenStorage(): void {
   Object.keys(memoryTokenStorage).forEach((key) => {

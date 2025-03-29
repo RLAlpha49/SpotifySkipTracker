@@ -1,5 +1,7 @@
 /**
- * OAuth Callback Server Module
+ * @packageDocumentation
+ * @module auth/server
+ * @description OAuth Callback Server Module
  *
  * This module implements a specialized HTTP server for handling OAuth 2.0 redirects
  * from Spotify's authorization service. It captures the authorization code, performs
@@ -65,6 +67,7 @@ let server: Server | null = null;
  *   (tokens) => handleSuccessfulAuth(tokens),
  *   (error) => handleAuthError(error)
  * );
+ * @source
  */
 export function createCallbackServer(
   options: CallbackHandlerOptions,
@@ -185,6 +188,7 @@ export function createCallbackServer(
  * @example
  * // Close the server when canceling authentication
  * shutdownServer();
+ * @source
  */
 export function shutdownServer(): void {
   if (server) {
@@ -208,6 +212,8 @@ export function shutdownServer(): void {
  *
  * @returns Formatted HTML string for the success page
  * @private Internal function not exported from the module
+ * @notExported
+ * @source
  */
 function getSuccessHtml(): string {
   return `
@@ -266,6 +272,8 @@ function getSuccessHtml(): string {
  * @param errorMessage - The specific error message to display
  * @returns Formatted HTML string for the error page
  * @private Internal function not exported from the module
+ * @notExported
+ * @source
  */
 function getErrorHtml(errorMessage: string): string {
   return `

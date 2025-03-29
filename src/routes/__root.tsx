@@ -1,5 +1,7 @@
 /**
- * Root Route Definition and Base Layout Container
+ * @packageDocumentation
+ * @module __root
+ * @description Root Route Definition and Base Layout Container
  *
  * Establishes the foundation of the application's routing hierarchy by providing:
  * - The parent route from which all application routes inherit
@@ -50,6 +52,7 @@ export const RootRoute = createRootRoute({
  * - Consistent padding and spacing
  *
  * @returns React component tree with layout wrapper and dynamic outlet
+ * @source
  */
 function Root() {
   return (

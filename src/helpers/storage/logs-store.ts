@@ -1,5 +1,7 @@
 /**
- * Application Logging System
+ * @packageDocumentation
+ * @module logs-store
+ * @description Application Logging System
  *
  * Provides a comprehensive logging infrastructure for tracking application events,
  * debugging issues, and maintaining audit trails of system activity.
@@ -36,6 +38,7 @@ const DEDUPLICATION_WINDOW_MS = 5000; // 5 seconds window for deduplication
  * @param level - Severity level of the log (default: INFO)
  * @param allowRotation - Whether to perform log rotation if needed (default: true)
  * @returns Boolean indicating success or failure
+ * @source
  */
 export function saveLog(
   message: string,
@@ -162,6 +165,7 @@ export function saveLog(
  *
  * @param count - Number of log lines to return (default: 100)
  * @returns Array of log lines
+ * @source
  */
 export function getLogs(count?: number): string[] {
   try {
@@ -190,6 +194,7 @@ export function getLogs(count?: number): string[] {
  * Deletes all archived log files and clears the current log file
  *
  * @returns Boolean indicating success or failure
+ * @source
  */
 export function clearLogs(): boolean {
   try {
@@ -230,6 +235,7 @@ export function clearLogs(): boolean {
  * Gets a list of available log files
  *
  * @returns Array of log file information with name and last modified date
+ * @source
  */
 export function getAvailableLogFiles(): {
   name: string;
@@ -284,6 +290,7 @@ export function getAvailableLogFiles(): {
  * @param fileName - Name of the log file to read
  * @param count - Maximum number of lines to return
  * @returns Array of log lines
+ * @source
  */
 export function getLogsFromFile(
   fileName: string,

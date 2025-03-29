@@ -1,5 +1,7 @@
 /**
- * Advanced Music Listening Analytics Dashboard
+ * @packageDocumentation
+ * @module StatisticsPage
+ * @description Advanced Music Listening Analytics Dashboard
  *
  * Visualizes and analyzes user's Spotify listening patterns with multi-dimensional
  * data exploration capabilities. Transforms raw listening data into actionable
@@ -73,6 +75,11 @@ import {
 import React, { useEffect, useMemo, useState } from "react";
 import { toast, Toaster } from "sonner";
 
+/**
+ * StatisticsPage component
+ *
+ * @source
+ */
 export default function StatisticsPage() {
   const [loading, setLoading] = useState(true);
   const [statistics, setStatistics] = useState<StatisticsData | null>(null);

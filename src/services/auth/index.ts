@@ -1,5 +1,7 @@
 /**
- * Authentication Service Module
+ * @packageDocumentation
+ * @module auth
+ * @description Authentication Service Module
  *
  * This module serves as the central hub for all Spotify authentication operations,
  * integrating multiple specialized components into a cohesive authentication system.
@@ -34,6 +36,7 @@
  * public interface to the rest of the application.
  *
  * @module AuthenticationService
+ * @source
  */
 
 import { AuthTokens } from "@/types/auth";
@@ -76,6 +79,7 @@ export { cancelAuthFlow, startAuthFlow } from "./oauth";
  *   expiresIn: 3600
  * });
  * console.log("User is now authenticated and tokens are stored securely");
+ * @source
  */
 export async function setTokens(tokens: AuthTokens): Promise<void> {
   const mod = await import("./storage/token-operations");
@@ -107,6 +111,7 @@ export async function setTokens(tokens: AuthTokens): Promise<void> {
  *   // Handle unauthenticated state
  *   showLoginPrompt();
  * }
+ * @source
  */
 export async function getAccessToken(): Promise<string | null> {
   const mod = await import("./storage/token-operations");
@@ -138,6 +143,7 @@ export async function getAccessToken(): Promise<string | null> {
  *     console.log("Successfully refreshed access token");
  *   }
  * }
+ * @source
  */
 export async function getRefreshToken(): Promise<string | null> {
   const mod = await import("./storage/token-operations");
@@ -168,6 +174,7 @@ export async function getRefreshToken(): Promise<string | null> {
  *     await refreshAccessToken();
  *   }
  * }
+ * @source
  */
 export async function getTokenExpiry(): Promise<number | null> {
   const mod = await import("./storage/token-operations");
@@ -197,6 +204,7 @@ export async function getTokenExpiry(): Promise<number | null> {
  *   showLoginScreen();
  *   displayMessage("You have been logged out successfully");
  * });
+ * @source
  */
 export async function clearTokens(): Promise<void> {
   const mod = await import("./storage/token-operations");
@@ -229,6 +237,7 @@ export async function clearTokens(): Promise<void> {
  *   showLoginButton();
  *   hideUserContent();
  * }
+ * @source
  */
 export async function isAuthenticated(): Promise<boolean> {
   const mod = await import("./storage/token-operations");
@@ -261,6 +270,7 @@ export async function isAuthenticated(): Promise<boolean> {
  *   // Refresh failed, re-authenticate
  *   showLoginPrompt("Your session has expired. Please log in again.");
  * }
+ * @source
  */
 export async function refreshAccessToken(): Promise<boolean> {
   const mod = await import("./storage/token-refresh");
@@ -288,6 +298,7 @@ export async function refreshAccessToken(): Promise<boolean> {
  * // Schedule refresh after receiving new tokens
  * await scheduleTokenRefresh(3600); // 1 hour token
  * console.log("Token refresh scheduled for shortly before expiration");
+ * @source
  */
 export async function scheduleTokenRefresh(expiresIn: number): Promise<void> {
   const mod = await import("./storage/token-refresh");

@@ -1,5 +1,7 @@
 /**
- * Playback Monitoring Service Module
+ * @packageDocumentation
+ * @module playback
+ * @description Playback Monitoring Service Module
  *
  * Provides the central entry point for the Spotify playback monitoring subsystem,
  * exposing a clean, simplified API for starting and controlling Spotify
@@ -44,6 +46,7 @@
  * import { stopPlaybackMonitoring } from './services/playback';
  *
  * stopPlaybackMonitoring();
+ * @source
  */
 
 // Export core monitoring control functions

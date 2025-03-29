@@ -1,5 +1,7 @@
 /**
- * Spotify API Constants
+ * @packageDocumentation
+ * @module spotify/constants
+ * @description Spotify API Constants
  *
  * This module contains all the constant values used throughout the Spotify API integration.
  * It centralizes critical configuration values such as endpoints, retry settings, and
@@ -11,6 +13,7 @@
  * - Authentication scopes required for the application's functionality
  *
  * @module SpotifyConstants
+ * @source
  */
 
 // API endpoints

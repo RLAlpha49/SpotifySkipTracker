@@ -1,5 +1,7 @@
 /**
- * Spotify Playback Control Service
+ * @packageDocumentation
+ * @module spotify/playback
+ * @description Spotify Playback Control Service
  *
  * This module provides comprehensive functionality for controlling and monitoring
  * Spotify playback, enabling the application to interact with the user's active
@@ -62,6 +64,7 @@ import { ensureValidToken, getAccessToken } from "./token";
  * @param detailed Whether to include additional playback state details
  * @returns Promise resolving to playback state or null if not playing
  * @throws Error if the request fails
+ * @source
  */
 export async function getCurrentPlayback(
   detailed: boolean = false,
@@ -109,6 +112,7 @@ export async function getCurrentPlayback(
  * @param trackId The Spotify track ID to retrieve
  * @returns Promise resolving to the track data or null if not found
  * @throws Error if the request fails
+ * @source
  */
 export async function getTrack(trackId: string): Promise<SpotifyTrack | null> {
   await ensureValidToken();
@@ -142,6 +146,7 @@ export async function getTrack(trackId: string): Promise<SpotifyTrack | null> {
  * @param limit Maximum number of tracks to return (default: 5)
  * @returns Promise resolving to recently played track data
  * @throws Error if the request fails
+ * @source
  */
 export async function getRecentlyPlayedTracks(
   limit: number = 5,
@@ -172,6 +177,7 @@ export async function getRecentlyPlayedTracks(
  * Pauses the user's playback
  *
  * @throws Error if the request fails
+ * @source
  */
 export async function pause(): Promise<void> {
   await ensureValidToken();
@@ -208,6 +214,7 @@ export async function pause(): Promise<void> {
  * Resumes the user's playback
  *
  * @throws Error if the request fails
+ * @source
  */
 export async function play(): Promise<void> {
   await ensureValidToken();
@@ -244,6 +251,7 @@ export async function play(): Promise<void> {
  * Skips to the previous track
  *
  * @throws Error if the request fails
+ * @source
  */
 export async function skipToPrevious(): Promise<void> {
   await ensureValidToken();
@@ -265,6 +273,7 @@ export async function skipToPrevious(): Promise<void> {
  * Skips to the next track
  *
  * @throws Error if the request fails
+ * @source
  */
 export async function skipToNext(): Promise<void> {
   await ensureValidToken();

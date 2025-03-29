@@ -1,5 +1,7 @@
 /**
- * Windows Installer Event Handling Module
+ * @packageDocumentation
+ * @module installer-events
+ * @description Windows Installer Event Handling Module
  *
  * Handles Squirrel.Windows installation events for proper desktop integration.
  * This module manages shortcut creation/removal and other Windows-specific
@@ -27,6 +29,7 @@ import path from "path";
  *
  * @param command - The Squirrel command received from the installer (from process.argv)
  * @returns {boolean} True if an event was handled, false otherwise
+ * @source
  */
 export function handleSquirrelEvent(command?: string): boolean {
   if (process.platform !== "win32" || !command) {
@@ -86,6 +89,7 @@ export function handleSquirrelEvent(command?: string): boolean {
  * This function should be called at the very beginning of app startup.
  *
  * @returns {boolean} True if a Squirrel event was handled and the app should exit
+ * @source
  */
 export function checkForSquirrelEvents(): boolean {
   if (process.platform !== "win32") {

@@ -1,5 +1,7 @@
 /**
- * Spotify API Credentials Manager
+ * @packageDocumentation
+ * @module spotify/credentials
+ * @description Spotify API Credentials Manager
  *
  * This module handles the secure management of Spotify API credentials (client ID and secret)
  * required for all API operations. It provides functions for setting, retrieving, and validating
@@ -36,6 +38,7 @@ let sharedClientSecret: string = "";
  *
  * @param clientId - Spotify application client ID
  * @param clientSecret - Spotify application client secret
+ * @source
  */
 export function setCredentials(clientId: string, clientSecret: string): void {
   sharedClientId = clientId;
@@ -47,6 +50,7 @@ export function setCredentials(clientId: string, clientSecret: string): void {
  * Checks if shared credentials are set
  *
  * @returns true if both client ID and client secret are set
+ * @source
  */
 export function hasCredentials(): boolean {
   return Boolean(sharedClientId && sharedClientSecret);
@@ -56,6 +60,7 @@ export function hasCredentials(): boolean {
  * Gets the currently set credentials
  *
  * @returns Object containing client ID and secret
+ * @source
  */
 export function getCredentials(): { clientId: string; clientSecret: string } {
   return { clientId: sharedClientId, clientSecret: sharedClientSecret };
@@ -65,6 +70,7 @@ export function getCredentials(): { clientId: string; clientSecret: string } {
  * Ensures that credentials are set before making API calls
  *
  * @throws Error if credentials are not set
+ * @source
  */
 export function ensureCredentialsSet(): void {
   if (!hasCredentials()) {

@@ -1,5 +1,7 @@
 /**
- * Secure Authentication Token Management System
+ * @packageDocumentation
+ * @module token-store
+ * @description Secure Authentication Token Management System
  *
  * Provides industrial-strength security for storing sensitive Spotify API credentials
  * using military-grade encryption techniques and secure storage practices.
@@ -46,6 +48,8 @@ interface TokenData {
  * Resolves the token storage file path
  *
  * @returns Absolute path to token storage file
+ * @notExported
+ * @source
  */
 function getTokenFilePath(): string {
   const userDataPath = app.getPath("userData");
@@ -63,6 +67,8 @@ function getTokenFilePath(): string {
  * Resolves the encryption key file path
  *
  * @returns Absolute path to encryption key file
+ * @notExported
+ * @source
  */
 function getEncryptionKeyPath(): string {
   const userDataPath = app.getPath("userData");
@@ -80,6 +86,8 @@ function getEncryptionKeyPath(): string {
  * Retrieves or generates encryption key
  *
  * @returns Buffer containing 256-bit encryption key
+ * @notExported
+ * @source
  */
 function getEncryptionKey(): Buffer {
   const keyPath = getEncryptionKeyPath();
@@ -101,6 +109,8 @@ function getEncryptionKey(): Buffer {
  *
  * @param text - Plain text content to encrypt
  * @returns Object containing encrypted data and initialization vector
+ * @notExported
+ * @source
  */
 function encrypt(text: string): { encryptedData: string; iv: string } {
   const key = getEncryptionKey();
@@ -124,6 +134,8 @@ function encrypt(text: string): { encryptedData: string; iv: string } {
  * @param iv - Initialization vector in hex format
  * @returns Decrypted text content
  * @throws Error when encrypted data is invalid
+ * @notExported
+ * @source
  */
 function decrypt(encryptedData: string, iv: string): string {
   const key = getEncryptionKey();
@@ -153,6 +165,7 @@ function decrypt(encryptedData: string, iv: string): string {
  *
  * @param tokenData - Token data to encrypt and store
  * @returns Boolean indicating operation success
+ * @source
  */
 export function saveTokens(tokenData: TokenData): boolean {
   try {
@@ -184,6 +197,7 @@ export function saveTokens(tokenData: TokenData): boolean {
  * Retrieves and decrypts authentication tokens
  *
  * @returns TokenData object if available, null if not found or on error
+ * @source
  */
 export function loadTokens(): TokenData | null {
   try {
@@ -215,6 +229,7 @@ export function loadTokens(): TokenData | null {
  * Removes authentication tokens from storage
  *
  * @returns Boolean indicating operation success
+ * @source
  */
 export function clearTokens(): boolean {
   try {

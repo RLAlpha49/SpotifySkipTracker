@@ -1,5 +1,7 @@
 /**
- * Skip Detection Analytics Module
+ * @packageDocumentation
+ * @module playback/skip-detection
+ * @description Skip Detection Analytics Module
  *
  * Provides sophisticated algorithms for detecting and classifying different types
  * of track skips, allowing for detailed analysis of user listening behavior.
@@ -81,6 +83,7 @@ let consecutiveQuickSkips = 0;
  * } else {
  *   console.log('Track completed normally');
  * }
+ * @source
  */
 export function analyzePositionBasedSkip(
   previousState: PlaybackState,
@@ -181,6 +184,7 @@ export function analyzePositionBasedSkip(
  *     previousState.lastProgress / previousState.currentTrackDuration
  *   );
  * }
+ * @source
  */
 export function recordSkipForPatternAnalysis(
   trackId: string,
@@ -226,6 +230,7 @@ export function recordSkipForPatternAnalysis(
  * @example
  * // Reset pattern analysis when user changes device or stops listening
  * resetSkipPatternAnalysis();
+ * @source
  */
 export function resetSkipPatternAnalysis(): void {
   recentSkips.length = 0;
@@ -289,6 +294,7 @@ export enum SkipType {
  *   `Skip was ${manualAnalysis.isManual ? 'manual' : 'automatic'} ` +
  *   `(${manualAnalysis.confidence.toFixed(2)} confidence): ${manualAnalysis.reason}`
  * );
+ * @source
  */
 export function detectManualVsAutoSkip(
   state: PlaybackState,
@@ -368,6 +374,7 @@ export function detectManualVsAutoSkip(
  *     return;
  *   }
  * }
+ * @source
  */
 export function handleTrackChangeEdgeCases(
   previousState: PlaybackState,

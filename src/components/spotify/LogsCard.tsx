@@ -1,5 +1,7 @@
 /**
- * Application Logging and Diagnostics Console Component
+ * @packageDocumentation
+ * @module LogsCard
+ * @description Application Logging and Diagnostics Console Component
  *
  * Provides a comprehensive interface for monitoring, filtering, and managing
  * application logs. This component serves as the primary debugging and diagnostic
@@ -97,6 +99,7 @@ interface LogsCardProps {
  * @param props.onClearLogs - Function to clear logs
  * @param props.onOpenLogsDirectory - Function to open logs directory
  * @returns React component for log visualization and management
+ * @source
  */
 export function LogsCard({
   logs,

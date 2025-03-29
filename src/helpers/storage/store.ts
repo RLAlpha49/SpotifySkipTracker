@@ -1,5 +1,7 @@
 /**
- * Central Storage Management System
+ * @packageDocumentation
+ * @module store
+ * @description Central Storage Management System
  *
  * Acts as the primary entry point and facade for all storage-related operations
  * in the Spotify Skip Tracker application. This module implements a modular

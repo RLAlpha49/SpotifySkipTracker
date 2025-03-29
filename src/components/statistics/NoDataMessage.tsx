@@ -1,5 +1,7 @@
 /**
- * Statistics Empty State Component
+ * @packageDocumentation
+ * @module NoDataMessage
+ * @description Empty State Message Component
  *
  * Provides a visually appealing and informative empty state display
  * when statistical data is not yet available for visualization. This
@@ -48,6 +50,7 @@ interface NoDataMessageProps {
  * @param props - Component properties
  * @param props.message - Custom message explaining the empty state
  * @returns React component for statistics empty state
+ * @source
  */
 export function NoDataMessage({ message }: NoDataMessageProps) {
   /**

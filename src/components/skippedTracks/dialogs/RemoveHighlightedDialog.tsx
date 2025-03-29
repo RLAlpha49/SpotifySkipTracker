@@ -1,3 +1,25 @@
+/**
+ * @packageDocumentation
+ * @module RemoveHighlightedDialog
+ * @description Bulk Track Removal Confirmation Dialog Component
+ *
+ * Provides a specialized confirmation dialog for the critical operation of removing
+ * multiple highlighted tracks from the user's Spotify library. This dialog is
+ * designed to clearly communicate the consequences of the action and provide
+ * detailed information about the affected tracks.
+ *
+ * Features:
+ * - Clear visual warning indicators with appropriate color scheme
+ * - Count of tracks that will be removed
+ * - Explanation of removal criteria (skip threshold and timeframe)
+ * - Details about the permanent nature of the operation
+ * - Contextual information about the process duration
+ * - Option to safely cancel the operation
+ *
+ * This component is lazy-loaded to improve initial page load performance,
+ * as it's only needed when users choose to perform bulk removal operations.
+ */
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,26 +39,6 @@ import {
   X,
 } from "lucide-react";
 import React from "react";
-
-/**
- * Bulk Track Removal Confirmation Dialog Component
- *
- * Provides a specialized confirmation dialog for the critical operation of removing
- * multiple highlighted tracks from the user's Spotify library. This dialog is
- * designed to clearly communicate the consequences of the action and provide
- * detailed information about the affected tracks.
- *
- * Features:
- * - Clear visual warning indicators with appropriate color scheme
- * - Count of tracks that will be removed
- * - Explanation of removal criteria (skip threshold and timeframe)
- * - Details about the permanent nature of the operation
- * - Contextual information about the process duration
- * - Option to safely cancel the operation
- *
- * This component is lazy-loaded to improve initial page load performance,
- * as it's only needed when users choose to perform bulk removal operations.
- */
 
 /**
  * Props for the RemoveHighlightedDialog component
@@ -79,6 +81,7 @@ interface RemoveHighlightedDialogProps {
  * @param props.skipThreshold - Skip threshold that caused highlighting
  * @param props.timeframeInDays - Analysis timeframe in days
  * @returns React component for bulk track removal confirmation dialog
+ * @source
  */
 export default function RemoveHighlightedDialog({
   open,

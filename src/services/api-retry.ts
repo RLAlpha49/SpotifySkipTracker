@@ -1,5 +1,7 @@
 /**
- * API Retry Utility Module
+ * @packageDocumentation
+ * @module api-retry
+ * @description API Retry Utility Module
  *
  * This module provides robust functionality for retrying failed API requests with
  * configurable strategies to improve application reliability in unreliable network
@@ -50,6 +52,8 @@ import { saveLog } from "../helpers/storage/store";
  *   5,
  *   500
  * );
+ *
+ * @source
  */
 export async function retryApiCall<T>(
   apiCallFn: () => Promise<T>,

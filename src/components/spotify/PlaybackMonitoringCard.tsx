@@ -1,5 +1,7 @@
 /**
- * Spotify Playback Monitoring Control Component
+ * @packageDocumentation
+ * @module PlaybackMonitoringCard
+ * @description Spotify Playback Monitoring Control Component
  *
  * Provides a user interface for controlling and visualizing the status of
  * Spotify playback monitoring. This component serves as the primary control
@@ -91,6 +93,7 @@ interface PlaybackMonitoringCardProps {
  * @param props.statusMessage - Optional additional status information
  * @param props.errorDetails - Optional error details when in error state
  * @returns React component for monitoring control
+ * @source
  */
 export function PlaybackMonitoringCard({
   isAuthenticated,

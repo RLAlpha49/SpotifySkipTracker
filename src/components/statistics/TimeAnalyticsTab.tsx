@@ -1,5 +1,7 @@
 /**
- * Temporal Listening Patterns Analysis Component
+ * @packageDocumentation
+ * @module TimeAnalyticsTab
+ * @description Temporal Listening Analysis Component
  *
  * Provides in-depth visualization and analysis of listening patterns over
  * different time periods (hourly, daily, monthly). This component enables
@@ -82,6 +84,7 @@ interface TimeAnalyticsTabProps {
  * @param props.loading - Whether data is being loaded
  * @param props.statistics - Complete statistics data object
  * @returns React component with temporal listening pattern visualizations
+ * @source
  */
 export function TimeAnalyticsTab({
   loading,
@@ -1083,3 +1086,20 @@ export function TimeAnalyticsTab({
     </div>
   );
 }
+
+/**
+ * Determines color based on skip rate
+ *
+ * @param rate - Skip rate as a decimal (0-1)
+ * @returns CSS class string for the color
+ * @source
+ */
+
+/**
+ * Determines intensity based on relative time
+ *
+ * @param time - Listening time value
+ * @param maxTime - Maximum listening time in the dataset
+ * @returns CSS class string for the color
+ * @source
+ */

@@ -1,5 +1,7 @@
 /**
- * Application Window Management System
+ * @packageDocumentation
+ * @module window_helpers
+ * @description Application Window Management System
  *
  * Provides a clean, cross-platform interface for controlling the application window
  * state through secure IPC communication with the Electron main process.
@@ -22,6 +24,7 @@
  * Minimizes the application window
  *
  * @returns Promise that resolves when window is minimized
+ * @source
  */
 export async function minimizeWindow(): Promise<void> {
   await window.electronWindow.minimize();
@@ -32,6 +35,7 @@ export async function minimizeWindow(): Promise<void> {
  * Toggles between maximized and previous state
  *
  * @returns Promise that resolves when window state is changed
+ * @source
  */
 export async function maximizeWindow(): Promise<void> {
   await window.electronWindow.maximize();
@@ -41,6 +45,7 @@ export async function maximizeWindow(): Promise<void> {
  * Closes the application window
  *
  * @returns Promise that resolves when window close is initiated
+ * @source
  */
 export async function closeWindow(): Promise<void> {
   await window.electronWindow.close();

@@ -1,5 +1,7 @@
 /**
- * Window Management Module
+ * @packageDocumentation
+ * @module window
+ * @description Window Management Module
  *
  * Creates and configures the main application window
  * with appropriate security settings, platform-specific behaviors,
@@ -37,6 +39,7 @@ const inDevelopment = process.env.NODE_ENV === "development";
  * Sets up event handlers and IPC channels for window communication.
  *
  * @returns {BrowserWindow} Configured Electron browser window instance ready for use
+ * @source
  */
 export function createWindow(): BrowserWindow {
   // Configure menu based on environment

@@ -1,5 +1,7 @@
 /**
- * Skipped Tracks Data Management System
+ * @packageDocumentation
+ * @module tracks-store
+ * @description Skipped Tracks Data Management System
  *
  * Comprehensive solution for tracking, analyzing, and storing user listening behavior
  * with special focus on skipped tracks and completion patterns.
@@ -34,6 +36,7 @@ const skippedTracksFilePath = skipsPath;
  *
  * @param tracks - Array of track data with skip statistics
  * @returns Boolean indicating success or failure
+ * @source
  */
 export function saveSkippedTracks(tracks: SkippedTrack[]): boolean {
   try {
@@ -62,6 +65,7 @@ export function saveSkippedTracks(tracks: SkippedTrack[]): boolean {
  * Retrieves skipped tracks data from storage
  *
  * @returns Array of track data with skip statistics
+ * @source
  */
 export function getSkippedTracks(): SkippedTrack[] {
   try {
@@ -93,6 +97,7 @@ export function getSkippedTracks(): SkippedTrack[] {
  *
  * @param track - Track data to update
  * @returns Boolean indicating success or failure
+ * @source
  */
 export function updateSkippedTrack(track: SkippedTrack): boolean {
   try {
@@ -137,6 +142,7 @@ export function updateSkippedTrack(track: SkippedTrack): boolean {
  *
  * @param track - Track that was played without skipping
  * @returns Boolean indicating success or failure
+ * @source
  */
 export function updateNotSkippedTrack(track: SkippedTrack): boolean {
   try {
@@ -177,6 +183,7 @@ export function updateNotSkippedTrack(track: SkippedTrack): boolean {
  *
  * @param trackId - Spotify track ID to remove
  * @returns Boolean indicating success or failure
+ * @source
  */
 export function removeSkippedTrack(trackId: string): boolean {
   try {
@@ -203,6 +210,7 @@ export function removeSkippedTrack(trackId: string): boolean {
  *
  * @param timestamp - Timestamp string (ISO or numeric)
  * @returns Date object or null if invalid
+ * @source
  */
 export const parseTimestamp = (timestamp: string): Date | null => {
   if (!timestamp) return null;
@@ -224,6 +232,7 @@ export const parseTimestamp = (timestamp: string): Date | null => {
  *
  * @param days - Number of days to look back
  * @returns Tracks within the timeframe (including non-skipped tracks)
+ * @source
  */
 export function filterSkippedTracksByTimeframe(
   days: number = 30,

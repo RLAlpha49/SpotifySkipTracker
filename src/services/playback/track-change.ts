@@ -1,5 +1,7 @@
 /**
- * Track Change Detection and Processing Module
+ * @packageDocumentation
+ * @module playback/track-change
+ * @description Track Change Detection and Processing Module
  *
  * Implements sophisticated track change detection and analysis to accurately
  * identify transitions between tracks, distinguish between skips and completions,
@@ -67,6 +69,8 @@ const NAVIGATION_EXPIRY_TIME = 60000; // 60 seconds
  * @example
  * // Record a track in local history when it starts playing
  * addToLocalHistory('spotify:track:1234567890');
+ * @source
+ * @notExported
  */
 function addToLocalHistory(trackId: string): void {
   if (!trackId) return;
@@ -117,6 +121,8 @@ function addToLocalHistory(trackId: string): void {
  * if (wasGoingBack) {
  *   console.log('User navigated to a previous track (clicked prev button)');
  * }
+ * @source
+ * @notExported
  */
 function isBackwardNavigationInLocalHistory(
   newTrackId: string,
@@ -202,6 +208,7 @@ function isBackwardNavigationInLocalHistory(
  *   await handleTrackChange(newTrackId);
  *   updateUIForNewTrack();
  * }
+ * @source
  */
 export async function handleTrackChange(newTrackId: string): Promise<void> {
   try {
@@ -565,6 +572,7 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
  *   'Bohemian Rhapsody',
  *   'Queen'
  * );
+ * @source
  */
 export function logNowPlaying(
   trackId: string,

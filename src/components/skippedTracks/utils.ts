@@ -1,5 +1,7 @@
 /**
- * Skipped Tracks Analysis Utility Functions
+ * @packageDocumentation
+ * @module skippedTracksUtils
+ * @description Skipped Tracks Analysis Utility Functions
  *
  * This module provides specialized utility functions for analyzing, processing,
  * and formatting skipped track data throughout the application. These utilities
@@ -31,6 +33,7 @@ import { SkippedTrack } from "@/types/spotify";
  *
  * @param timestamp - Timestamp string in any supported format
  * @returns Standardized Date object or null if invalid
+ * @source
  */
 export const parseTimestamp = (timestamp: string): Date | null => {
   if (!timestamp) return null;
@@ -59,6 +62,7 @@ export const parseTimestamp = (timestamp: string): Date | null => {
  * @param track - Track data object containing skip history
  * @param timeframeInDays - Analysis window in days (e.g., 30 for last month)
  * @returns Number of times the track was skipped within the timeframe
+ * @source
  */
 export const getRecentSkipCount = (
   track: SkippedTrack,
@@ -90,6 +94,7 @@ export const getRecentSkipCount = (
  * @param skipThreshold - Minimum number of skips to trigger suggestion
  * @param timeframeInDays - Timeframe to consider for skip analysis
  * @returns Boolean indicating if the track meets removal criteria
+ * @source
  */
 export const shouldSuggestRemoval = (
   track: SkippedTrack,
@@ -116,6 +121,7 @@ export const shouldSuggestRemoval = (
  *
  * @param track - Track data object with play and skip counts
  * @returns Formatted percentage string (e.g., "75%")
+ * @source
  */
 export const calculateSkipRatio = (track: SkippedTrack): string => {
   const skipCount = track.skipCount || 0;
@@ -139,6 +145,7 @@ export const calculateSkipRatio = (track: SkippedTrack): string => {
  *
  * @param track - Track data object with skip timestamp history
  * @returns Most recent skip timestamp as a string
+ * @source
  */
 export const getMostRecentTimestamp = (track: SkippedTrack): string => {
   if (track.skipTimestamps && track.skipTimestamps.length > 0) {
@@ -166,6 +173,7 @@ export const getMostRecentTimestamp = (track: SkippedTrack): string => {
  *
  * @param dateString - ISO timestamp string or track object containing timestamps
  * @returns Localized, formatted date and time string
+ * @source
  */
 export const formatDate = (dateString: string | SkippedTrack): string => {
   // Handle case where the entire track is passed in
@@ -199,6 +207,7 @@ export const formatDate = (dateString: string | SkippedTrack): string => {
  * @param b - Second track to compare
  * @param timeframeInDays - Timeframe to consider for skip counting
  * @returns Sort comparison value: negative if a should come after b, positive if before
+ * @source
  */
 export const sortBySkipCount = (
   a: SkippedTrack,

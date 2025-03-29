@@ -1,5 +1,7 @@
 /**
- * Spotify API Credentials Configuration Component
+ * @packageDocumentation
+ * @module ApiCredentialsForm
+ * @description Spotify API Credentials Configuration Component
  *
  * Provides a user interface for managing Spotify Developer API authentication
  * credentials required for application functionality. This component collects
@@ -66,6 +68,7 @@ interface ApiCredentialsFormProps {
  * @param props.form - React Hook Form instance for form state management
  * @param props.setSettingsChanged - Function to notify parent of form changes
  * @returns React component for managing Spotify API credentials
+ * @source
  */
 export function ApiCredentialsForm({
   form,

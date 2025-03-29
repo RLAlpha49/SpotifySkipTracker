@@ -1,5 +1,7 @@
 /**
- * Statistics Aggregation Service
+ * @packageDocumentation
+ * @module statistics/aggregator
+ * @description Statistics Aggregation Service
  *
  * This module provides comprehensive data aggregation and analytics functionality
  * for processing raw listening data into meaningful statistical insights. It forms
@@ -36,8 +38,6 @@
  *
  * All aggregated data is structured for efficient retrieval by the UI
  * visualization components and export functionality.
- *
- * @module StatisticsAggregation
  */
 
 import { app } from "electron";
@@ -69,6 +69,9 @@ import { DailyMetrics } from "../../types/statistics";
  *
  * // Create date from numeric timestamp
  * const date2 = createSafeDate(1673793000000);
+ *
+ * @source
+ * @notExported
  */
 function createSafeDate(timestamp: string | number): Date | null {
   try {
@@ -104,6 +107,9 @@ function createSafeDate(timestamp: string | number): Date | null {
  * to determine the appropriate location following platform conventions.
  *
  * @returns Path to the statistics directory
+ *
+ * @source
+ * @notExported
  */
 function ensureStatisticsDir() {
   const statsDir = join(app.getPath("userData"), "data", "statistics");
@@ -129,6 +135,8 @@ function ensureStatisticsDir() {
  * @example
  * // Process and update daily metrics
  * await aggregateDailySkipMetrics();
+ *
+ * @source
  */
 export async function aggregateDailySkipMetrics() {
   try {
@@ -307,6 +315,8 @@ export async function aggregateDailySkipMetrics() {
 /**
  * Aggregates weekly skip metrics from daily metrics
  * @returns Object with weekly skip metrics
+ *
+ * @source
  */
 export async function aggregateWeeklySkipMetrics() {
   try {
@@ -475,6 +485,9 @@ export async function aggregateWeeklySkipMetrics() {
 
 /**
  * Gets the ISO week identifier (YYYY-Www) from a date
+ *
+ * @source
+ * @notExported
  */
 function getISOWeekIdentifier(date: Date): string {
   const weekNum = getISOWeek(date);
@@ -483,6 +496,9 @@ function getISOWeekIdentifier(date: Date): string {
 
 /**
  * Gets the ISO week number from a date
+ *
+ * @source
+ * @notExported
  */
 function getISOWeek(date: Date): number {
   const d = new Date(date.getTime());
@@ -505,6 +521,9 @@ function getISOWeek(date: Date): number {
 
 /**
  * Gets the start and end dates of the week containing the given date
+ *
+ * @source
+ * @notExported
  */
 function getWeekStartAndEndDates(date: Date): {
   startDate: Date;
@@ -528,6 +547,8 @@ function getWeekStartAndEndDates(date: Date): {
 /**
  * Aggregates skip data by artist
  * @returns Object with artist-level skip metrics
+ *
+ * @source
  */
 export async function aggregateArtistSkipMetrics() {
   try {
@@ -689,6 +710,8 @@ export async function aggregateArtistSkipMetrics() {
 /**
  * Calculates library-wide skip statistics from all collected data
  * @returns Object with library-wide skip metrics
+ *
+ * @source
  */
 export async function calculateLibrarySkipStatistics() {
   try {
@@ -855,6 +878,8 @@ export async function calculateLibrarySkipStatistics() {
 /**
  * Analyzes time-based skip patterns from the collected data
  * @returns Object with time-based skip pattern analysis
+ *
+ * @source
  */
 export async function analyzeTimeBasedPatterns() {
   try {
@@ -978,6 +1003,8 @@ export async function analyzeTimeBasedPatterns() {
 /**
  * Calculates advanced artist-level insights beyond basic metrics
  * @returns Object with advanced artist insights and recommendations
+ *
+ * @source
  */
 export async function calculateArtistInsights() {
   try {

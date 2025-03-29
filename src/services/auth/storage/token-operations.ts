@@ -1,5 +1,7 @@
 /**
- * Token Operations Service Module
+ * @packageDocumentation
+ * @module auth/storage/token-operations
+ * @description Token Operations Service Module
  *
  * Provides core token management operations including storage, retrieval,
  * validation, and lifecycle management for Spotify authentication tokens.
@@ -64,6 +66,7 @@ let scheduleTokenRefreshFn: ((expiresIn: number) => void) | null = null;
  *
  * // Register the function
  * setScheduleTokenRefreshFunction(scheduleRefresh);
+ * @source
  */
 export function setScheduleTokenRefreshFunction(
   fn: (expiresIn: number) => void,
@@ -94,6 +97,7 @@ export function setScheduleTokenRefreshFunction(
  *   refreshToken: "new-spotify-refresh-token",
  *   expiresIn: 3600
  * });
+ * @source
  */
 export function setTokens(tokens: AuthTokens): void {
   try {
@@ -144,6 +148,7 @@ export function setTokens(tokens: AuthTokens): void {
  * // During user logout
  * clearTokens();
  * showLoginScreen();
+ * @source
  */
 export function clearTokens(): void {
   try {
@@ -184,6 +189,7 @@ export function clearTokens(): void {
  * } else {
  *   // Handle unauthenticated state
  * }
+ * @source
  */
 export function getAccessToken(): string | null {
   const accessToken = getAccessTokenState();
@@ -223,6 +229,7 @@ export function getAccessToken(): string | null {
  * } else {
  *   // Cannot refresh, require re-authentication
  * }
+ * @source
  */
 export function getRefreshToken(): string | null {
   const refreshToken = getRefreshTokenState();
@@ -263,6 +270,7 @@ export function getRefreshToken(): string | null {
  *     // Token expires soon, refresh it
  *   }
  * }
+ * @source
  */
 export function getTokenExpiry(): number | null {
   const expiry = getTokenExpiryState();
@@ -303,6 +311,7 @@ export function getTokenExpiry(): number | null {
  *   // Show unauthenticated state
  *   showLoginButton();
  * }
+ * @source
  */
 export function isAuthenticated(): boolean {
   const accessToken = getAccessToken();

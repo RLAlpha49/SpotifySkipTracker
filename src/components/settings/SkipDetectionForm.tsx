@@ -1,5 +1,7 @@
 /**
- * Skip Detection Configuration Component
+ * @packageDocumentation
+ * @module SkipDetectionForm
+ * @description Skip Detection Configuration Component
  *
  * Provides a specialized interface for configuring how the application
  * detects and handles skipped tracks in Spotify playback. This component
@@ -81,6 +83,7 @@ interface SkipDetectionFormProps {
  * @param props.setSkipProgress - Function to update skip progress threshold
  * @param props.setSettingsChanged - Function to notify parent of form changes
  * @returns React component for configuring skip detection parameters
+ * @source
  */
 export function SkipDetectionForm({
   form,

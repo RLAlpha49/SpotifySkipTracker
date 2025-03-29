@@ -1,5 +1,7 @@
 /**
- * Spotify API Authentication Service
+ * @packageDocumentation
+ * @module spotify/auth
+ * @description Spotify API Authentication Service
  *
  * This module handles the OAuth 2.0 authentication process with Spotify's Web API,
  * including authorization URL generation, token exchange, and authentication flow management.
@@ -43,6 +45,7 @@ import { setTokens } from "./token";
  * @param scopes - Array of permission scopes or space-separated string
  * @param state - Optional state parameter for security validation
  * @returns Full authorization URL for redirect
+ * @source
  */
 export function getAuthorizationUrl(
   redirectUri: string,
@@ -73,6 +76,7 @@ export function getAuthorizationUrl(
  * @param redirectUri - OAuth callback URI (must match authorization request)
  * @returns Promise resolving to token response
  * @throws Error if token exchange fails
+ * @source
  */
 export async function exchangeCodeForTokens(
   code: string,

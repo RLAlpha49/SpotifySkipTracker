@@ -1,5 +1,7 @@
 /**
- * Spotify Playback Monitoring and Analytics Hub
+ * @packageDocumentation
+ * @module HomePage
+ * @description Spotify Playback Monitoring and Analytics Hub
  *
  * Central command center for real-time Spotify integration with dual-function interface:
  * - Live monitoring dashboard with playback controls and system status
@@ -144,6 +146,11 @@ const MonitoringLayout = lazy(() =>
   })),
 );
 
+/**
+ * HomePage component
+ *
+ * @source
+ */
 export default function HomePage() {
   const [playbackInfo, setPlaybackInfo] = useState<PlaybackInfo | null>(null);
   const [logs, setLogs] = useState<string[]>([]);

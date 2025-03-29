@@ -1,5 +1,7 @@
 /**
- * Track-Specific Actions Dropdown Menu Component
+ * @packageDocumentation
+ * @module TrackActionsMenu
+ * @description Track-Specific Actions Dropdown Menu Component
  *
  * Provides a contextual dropdown menu with track-specific actions for managing
  * individual tracks in the skipped tracks table. This component is lazy-loaded
@@ -54,6 +56,7 @@ interface TrackActionsMenuProps {
  * @param props.onUnlikeTrack - Function to handle track removal from library
  * @param props.onRemoveTrackData - Function to handle skip data deletion
  * @returns React component for track actions dropdown
+ * @source
  */
 export default function TrackActionsMenu({
   track,

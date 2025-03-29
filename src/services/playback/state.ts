@@ -1,5 +1,7 @@
 /**
- * Playback State Management Module
+ * @packageDocumentation
+ * @module playback/state
+ * @description Playback State Management Module
  *
  * Provides centralized state management for the playback monitoring system,
  * maintaining a consistent, reliable source of truth for all playback-related data.
@@ -75,6 +77,7 @@ let clientSecret: string = "";
  * // Reset state when stopping monitoring
  * stopPlaybackMonitoring();
  * resetPlaybackState();
+ * @source
  */
 export function resetPlaybackState(): void {
   playbackState = { ...initialState };
@@ -96,6 +99,7 @@ export function resetPlaybackState(): void {
  * if (state.isPlaying) {
  *   console.log(`Now playing: ${state.currentTrackName} by ${state.currentArtistName}`);
  * }
+ * @source
  */
 export function getPlaybackState(): PlaybackState {
   return playbackState;
@@ -128,6 +132,7 @@ export function getPlaybackState(): PlaybackState {
  *   currentAlbumName: 'Album Name',
  *   isPlaying: true
  * });
+ * @source
  */
 export function updatePlaybackState(updates: Partial<PlaybackState>): void {
   playbackState = {
@@ -149,6 +154,7 @@ export function updatePlaybackState(updates: Partial<PlaybackState>): void {
  * @example
  * // Set credentials during monitoring initialization
  * setCredentials('your-client-id', 'your-client-secret');
+ * @source
  */
 export function setCredentials(id: string, secret: string): void {
   clientId = id;
@@ -170,6 +176,7 @@ export function setCredentials(id: string, secret: string): void {
  * if (!clientId || !clientSecret) {
  *   console.error('Missing Spotify API credentials');
  * }
+ * @source
  */
 export function getCredentials(): { clientId: string; clientSecret: string } {
   return { clientId, clientSecret };
@@ -188,6 +195,7 @@ export function getCredentials(): { clientId: string; clientSecret: string } {
  * @example
  * // Record that we've just logged a track
  * setTrackLastLogged('spotify:track:1234567890', Date.now());
+ * @source
  */
 export function setTrackLastLogged(trackId: string, timestamp: number): void {
   trackLastLogged[trackId] = timestamp;
@@ -210,6 +218,7 @@ export function setTrackLastLogged(trackId: string, timestamp: number): void {
  * if (lastLogged > fiveMinutesAgo) {
  *   console.log('Track was logged less than 5 minutes ago');
  * }
+ * @source
  */
 export function getTrackLastLogged(trackId: string): number {
   return trackLastLogged[trackId] || 0;
@@ -229,6 +238,7 @@ export function getTrackLastLogged(trackId: string): number {
  * const recentTracks = await spotifyApi.getRecentlyPlayedTracks();
  * const trackIds = recentTracks.items.map(item => item.track.id);
  * setRecentTracks(trackIds);
+ * @source
  */
 export function setRecentTracks(recentTracks: string[]): void {
   playbackState.recentTracks = recentTracks;

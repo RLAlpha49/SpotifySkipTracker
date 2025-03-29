@@ -1,5 +1,7 @@
 /**
- * OAuth Session Management Module
+ * @packageDocumentation
+ * @module auth/session
+ * @description OAuth Session Management Module
  *
  * This module handles browser session data related to Spotify authentication,
  * providing specialized functionality for managing cookies, local storage, and
@@ -76,6 +78,7 @@ const SPOTIFY_COOKIES = [
  * // Force account selection by clearing existing auth data
  * await clearSpotifyAuthData();
  * startAuthFlow(mainWindow, clientId, clientSecret, redirectUri, true);
+ * @source
  */
 export async function clearSpotifyAuthData(): Promise<void> {
   try {

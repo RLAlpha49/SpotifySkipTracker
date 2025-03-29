@@ -1,5 +1,7 @@
 /**
- * Spotify User Profile Service
+ * @packageDocumentation
+ * @module spotify/user
+ * @description Spotify User Profile Service
  *
  * This module provides functionality for retrieving and managing user profile information
  * from the Spotify API. It handles fetching profile details such as display name,
@@ -42,6 +44,7 @@ import { ensureValidToken, getAccessToken } from "./token";
  *
  * @returns Promise resolving to user profile object
  * @throws Error if the request fails
+ * @source
  */
 export async function getCurrentUser(): Promise<SpotifyUserProfile> {
   await ensureValidToken();

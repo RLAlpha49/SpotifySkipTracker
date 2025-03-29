@@ -1,5 +1,7 @@
 /**
- * Skipped Tracks Analytics Dashboard
+ * @packageDocumentation
+ * @module SkippedTracksLayout
+ * @description Skipped Tracks Analytics Dashboard
  *
  * Provides a specialized interface for analyzing, filtering, and managing
  * the user's skipped track history with powerful data visualization tools.
@@ -66,6 +68,7 @@ interface SkippedTracksLayoutProps {
  * @param props.tracksTable - Content for the data table section
  * @param props.filters - Optional content for data filtering controls
  * @returns SkippedTracksLayout with responsive content arrangement
+ * @source
  */
 export function SkippedTracksLayout({
   isLoading = false,

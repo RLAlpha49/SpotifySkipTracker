@@ -1,5 +1,7 @@
 /**
- * Statistics Components Export Module
+ * @packageDocumentation
+ * @module statistics
+ * @description Statistics Components Export Module
  *
  * Central export point for all statistics-related components, dialogs,
  * and utility functions. This module provides a consolidated interface

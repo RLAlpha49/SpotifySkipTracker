@@ -1,5 +1,7 @@
 /**
- * Artist Listening Patterns Analysis Component
+ * @packageDocumentation
+ * @module ArtistsTab
+ * @description Artist Listening Patterns Analysis Component
  *
  * Provides detailed visualization and analysis of artist-specific listening patterns,
  * including play frequency, listening time, and skip behavior. This component
@@ -97,6 +99,7 @@ interface ArtistsTabProps {
  * @param props.loading - Whether data is being loaded
  * @param props.statistics - Complete statistics data object
  * @returns React component with artist statistics visualizations
+ * @source
  */
 export function ArtistsTab({ loading, statistics }: ArtistsTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -692,7 +695,7 @@ export function ArtistsTab({ loading, statistics }: ArtistsTabProps) {
             <>
               <div className="mb-4 flex flex-col gap-2 sm:flex-row">
                 <div className="relative flex-1">
-                  <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
+                  <Search className="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4" />
                   <Input
                     placeholder="Search artists..."
                     className="flex-1 pl-9"

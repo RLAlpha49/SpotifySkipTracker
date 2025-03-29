@@ -1,5 +1,7 @@
 /**
- * OAuth Authentication Flow Module
+ * @packageDocumentation
+ * @module auth/oauth
+ * @description OAuth Authentication Flow Module
  *
  * This module orchestrates the complete OAuth 2.0 authorization flow for Spotify,
  * coordinating multiple authentication components into a seamless authentication
@@ -88,6 +90,7 @@ let authPromiseReject: ((reason: Error) => void) | null = null;
  * }
  *
  * @throws Error if authentication fails or is canceled
+ * @source
  */
 export function startAuthFlow(
   parentWindow: BrowserWindow,
@@ -213,6 +216,7 @@ export function startAuthFlow(
  * app.on('before-quit', () => {
  *   cancelAuthFlow();
  * });
+ * @source
  */
 export function cancelAuthFlow(): void {
   if (authPromiseReject) {

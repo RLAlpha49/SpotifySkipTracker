@@ -1,5 +1,7 @@
 /**
- * Theme Management Context Bridge
+ * @packageDocumentation
+ * @module theme-context
+ * @description Theme Management Context Bridge
  *
  * Securely exposes theme control functionality to the renderer process through
  * Electron's contextBridge API, maintaining proper process isolation.
@@ -32,6 +34,7 @@ import {
  * Exposes theme-related methods to the renderer process via contextBridge
  *
  * @returns void
+ * @source
  */
 export function exposeThemeContext(): void {
   const { contextBridge, ipcRenderer } = window.require("electron");

@@ -1,5 +1,7 @@
 /**
- * Application Routing System Definition
+ * @packageDocumentation
+ * @module routes
+ * @description Application Routing System Definition
  *
  * Configures the complete routing architecture for the application by:
  * - Defining all available routes and their URL paths
@@ -42,6 +44,8 @@ const SettingsPage = lazy(() => import("../pages/SettingsPage"));
  * loading text to maintain UI stability during transitions.
  *
  * @returns React component for route loading state
+ * @source
+ * @notExported
  */
 const PageLoader = () => (
   <div className="flex h-[calc(100vh-120px)] w-full items-center justify-center">
@@ -60,6 +64,8 @@ const PageLoader = () => (
  *
  * This route provides the primary monitoring interface for
  * real-time Spotify playback tracking and status overview.
+ *
+ * @source
  */
 export const HomeRoute = createRoute({
   getParentRoute: () => RootRoute,
@@ -82,6 +88,8 @@ export const HomeRoute = createRoute({
  *
  * This route provides detailed insights into track skip patterns
  * and tools for library management based on skip analysis.
+ *
+ * @source
  */
 export const SkippedTracksRoute = createRoute({
   getParentRoute: () => RootRoute,
@@ -104,6 +112,8 @@ export const SkippedTracksRoute = createRoute({
  *
  * This route provides comprehensive visualizations and metrics
  * for understanding music listening habits and trends.
+ *
+ * @source
  */
 export const StatisticsRoute = createRoute({
   getParentRoute: () => RootRoute,
@@ -126,6 +136,8 @@ export const StatisticsRoute = createRoute({
  *
  * This route provides interfaces for configuring application
  * behavior, authentication, and user preferences.
+ *
+ * @source
  */
 export const SettingsRoute = createRoute({
   getParentRoute: () => RootRoute,
@@ -146,6 +158,8 @@ export const SettingsRoute = createRoute({
  *
  * The tree structure ensures proper nesting and inheritance of layouts
  * while maintaining the route relationships for navigation.
+ *
+ * @source
  */
 export const rootTree = RootRoute.addChildren([
   HomeRoute,

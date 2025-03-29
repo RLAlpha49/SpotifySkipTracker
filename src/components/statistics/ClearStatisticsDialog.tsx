@@ -1,5 +1,7 @@
 /**
- * Statistics Data Clearing Confirmation Dialog
+ * @packageDocumentation
+ * @module ClearStatisticsDialog
+ * @description Statistics Data Clear Confirmation Dialog
  *
  * Provides a comprehensive warning and confirmation interface before
  * permanently deleting all statistics data. This component ensures
@@ -74,6 +76,7 @@ interface ClearStatisticsDialogProps {
  * @param props.onClear - Function to execute when clearing is confirmed
  * @param props.clearing - Whether data clearing is in progress
  * @returns React component for statistics clearing confirmation dialog
+ * @source
  */
 export function ClearStatisticsDialog({
   open,

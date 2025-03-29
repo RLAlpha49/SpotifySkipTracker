@@ -1,7 +1,31 @@
 /**
- * Statistics storage module
+ * @packageDocumentation
+ * @module statistics-store
+ * @description Statistics Storage and Analysis Module
  *
- * Manages persistence of listening statistics and metrics for analysis and visualization
+ * This module provides comprehensive functionality for storing, retrieving, and analyzing
+ * Spotify listening statistics. It serves as the data persistence layer for all metrics
+ * related to playback behavior, skip patterns, and listening habits.
+ *
+ * Features:
+ * - Persistent storage of all listening statistics and metrics
+ * - Data normalization and integrity preservation
+ * - Comprehensive pattern analysis algorithms
+ * - Time-based aggregation (daily, weekly, monthly)
+ * - Artist and track-level metrics
+ * - Device usage analytics
+ * - Skip pattern detection and classification
+ * - Context-aware listening analysis
+ * - Temporal behavior modeling (time of day, day of week)
+ * - Session tracking and analysis
+ * - Data import/export capabilities
+ *
+ * The module ensures proper data serialization/deserialization, handling specialized
+ * data structures like Sets appropriately for storage. It includes validation and
+ * repair mechanisms to maintain data integrity across application restarts.
+ *
+ * This serves as the foundation for all data visualization and insights presented
+ * in the application's statistics dashboard.
  */
 
 import { SkippedTrack } from "@/types/spotify";
@@ -52,9 +76,32 @@ const defaultStatisticsData: StatisticsData = {
 };
 
 /**
- * Retrieves statistics data from storage
+ * Retrieves statistics data from persistent storage
  *
- * @returns Statistics data object
+ * Loads the complete statistics data structure from the application's user data directory,
+ * performing data validation and repair operations to ensure integrity. If no statistics
+ * file exists, it creates a new one with default values.
+ *
+ * The function performs several important operations:
+ * - Ensures the data directory exists before attempting to read
+ * - Creates default statistics if no file is found
+ * - Converts serialized arrays back to Set objects for uniqueness tracking
+ * - Repairs any missing or corrupted data fields
+ * - Preserves backward compatibility with older data formats
+ *
+ * @returns Promise resolving to the complete statistics data object
+ * @throws Error if file operations fail or data cannot be processed
+ *
+ * @example
+ * // Get statistics for dashboard display
+ * try {
+ *   const stats = await getStatistics();
+ *   displaySkipRate(stats.overallSkipRate);
+ *   renderTimeChart(stats.hourlyDistribution);
+ * } catch (error) {
+ *   showErrorMessage("Failed to load statistics");
+ * }
+ * @source
  */
 export const getStatistics = async (): Promise<StatisticsData> => {
   try {
@@ -78,10 +125,29 @@ export const getStatistics = async (): Promise<StatisticsData> => {
 };
 
 /**
- * Saves statistics data to storage
+ * Saves statistics data to persistent storage
  *
- * @param statistics Statistics data to save
- * @returns Boolean indicating success or failure
+ * Writes the complete statistics data structure to a JSON file in the application's
+ * user data directory. The function handles proper serialization of complex data
+ * structures (like Sets) and updates the lastUpdated timestamp.
+ *
+ * The function performs several important operations:
+ * - Ensures the data directory exists before attempting to write
+ * - Updates the lastUpdated timestamp to the current time
+ * - Converts Set objects to arrays for proper JSON serialization
+ * - Formats JSON with proper indentation for readability
+ * - Handles error conditions gracefully
+ *
+ * @param statistics - Complete statistics data object to save
+ * @returns Promise resolving to a boolean indicating success (true) or failure (false)
+ *
+ * @example
+ * // Update and save statistics after processing a skipped track
+ * const stats = await getStatistics();
+ * stats.totalSkips++;
+ * stats.overallSkipRate = stats.totalSkips / stats.totalPlays;
+ * await saveStatistics(stats);
+ * @source
  */
 export const saveStatistics = async (
   statistics: StatisticsData,
@@ -105,8 +171,19 @@ export const saveStatistics = async (
 
 /**
  * Prepares statistics data for saving by converting Sets to arrays
- * @param statistics The statistics data to prepare
- * @returns A serializable version of the statistics
+ *
+ * Performs necessary transformations on the statistics data structure to ensure
+ * it can be properly serialized as JSON. This primarily involves converting Set
+ * objects (which cannot be directly serialized) to arrays while preserving the
+ * rest of the data structure.
+ *
+ * The function creates a deep copy of the statistics object and recursively
+ * processes all time-based metrics (daily, weekly, monthly) to ensure proper
+ * handling of unique track and artist collections.
+ *
+ * @param statistics - The statistics data object to prepare for serialization
+ * @returns A serializable version of the statistics with all Sets converted to arrays
+ * @private Internal function not exported from the module
  */
 function prepareStatisticsForSave(statistics: StatisticsData): StatisticsData {
   const result = { ...statistics };
@@ -166,8 +243,23 @@ function prepareStatisticsForSave(statistics: StatisticsData): StatisticsData {
 }
 
 /**
- * Process loaded statistics to ensure data integrity
- * Converts arrays to Sets where needed and ensures all required fields exist
+ * Processes loaded statistics to ensure data integrity
+ *
+ * Performs validation and repair operations on statistics data loaded from storage,
+ * ensuring all required fields exist and data structures are in the correct format.
+ * This function is crucial for maintaining backward compatibility and recovering
+ * from potential data corruption.
+ *
+ * The function performs several critical operations:
+ * - Merges loaded data with default values to ensure all fields exist
+ * - Converts arrays back to Set objects for uniqueness tracking
+ * - Handles missing or corrupted data fields
+ * - Ensures type consistency across the data structure
+ * - Preserves compatibility with changes to the data schema over time
+ *
+ * @param statistics - The raw statistics data loaded from storage
+ * @returns A validated and repaired statistics data object
+ * @private Internal function not exported from the module
  */
 function processLoadedStatistics(statistics: StatisticsData): StatisticsData {
   // Ensure all required properties exist
@@ -277,6 +369,22 @@ function processLoadedStatistics(statistics: StatisticsData): StatisticsData {
 
 /**
  * Calculate the total unique track count from all metrics
+ *
+ * Performs a comprehensive count of all unique tracks that appear across the entire
+ * statistical dataset. This function utilizes a Set to ensure each track is counted
+ * exactly once, even if it appears in multiple time periods or contexts.
+ *
+ * The counting process includes:
+ * - Examining daily metrics to extract track IDs from both Set and Array formats
+ * - Directly processing track IDs from the trackMetrics collection (more reliable source)
+ * - Handling different data formats that may exist due to serialization/deserialization
+ *
+ * This function is crucial for accurate reporting of the user's music diversity and
+ * exposure to different tracks over time.
+ *
+ * @param statistics - The complete statistics data structure
+ * @returns The total number of unique tracks encountered
+ * @private Internal utility function
  */
 function calculateUniqueTrackCount(statistics: StatisticsData): number {
   const allTracks = new Set<string>();
@@ -301,6 +409,22 @@ function calculateUniqueTrackCount(statistics: StatisticsData): number {
 
 /**
  * Calculate the total unique artist count from all metrics
+ *
+ * Determines the total number of distinct artists present in the user's listening history
+ * across all time periods. This function employs a Set data structure to ensure each artist
+ * is counted only once regardless of how many tracks or listening sessions they appear in.
+ *
+ * The counting process includes:
+ * - Processing daily metrics to extract artist IDs from both Set and Array formats
+ * - Directly incorporating artist IDs from the artistMetrics collection for reliability
+ * - Handling various data formats that may result from storage serialization processes
+ *
+ * This metric is essential for measuring music discovery and diversity in the user's
+ * listening patterns, forming the basis for artist-related analytics and visualizations.
+ *
+ * @param statistics - The complete statistics data structure
+ * @returns The total number of unique artists encountered in the listening history
+ * @source
  */
 export function calculateUniqueArtistCount(statistics: StatisticsData): number {
   const allArtists = new Set<string>();
@@ -326,19 +450,71 @@ export function calculateUniqueArtistCount(statistics: StatisticsData): number {
 /**
  * Updates statistics with details about a played track
  *
- * @param trackId Spotify ID of the track
- * @param trackName Name of the track
- * @param artistId Spotify ID of the artist
- * @param artistName Name of the artist
- * @param durationMs Duration of the track in milliseconds
- * @param wasSkipped Whether the track was skipped
- * @param playedTimeMs How much of the track was played in milliseconds
- * @param deviceName Name of the device used for playback
- * @param deviceType Type of the device used for playback
- * @param timestamp When the track was played (optional, defaults to now)
- * @param skipType Type of skip (optional, for skipped tracks only)
- * @param isManualSkip Whether the skip was manual or automatic (optional)
- * @returns Success or failure
+ * Processes comprehensive playback data for a single track and updates multiple
+ * statistical metrics across various time periods and aggregation levels. This function
+ * serves as the core data processing engine for the statistics system, capturing detailed
+ * information about each listening event.
+ *
+ * The function performs extensive updates to:
+ * - Daily, weekly, and monthly aggregated metrics
+ * - Artist-specific statistics and patterns
+ * - Device usage analytics
+ * - Track-level metrics including skip rates and completion percentages
+ * - Skip pattern detection and classification
+ * - Listening session management and analysis
+ * - Time-of-day and day-of-week distribution patterns
+ *
+ * This function handles both skipped and fully played tracks differently,
+ * with more detailed metrics collected for skipped content to enable pattern analysis.
+ * It ensures data integrity through extensive validation and initialization of required
+ * data structures before processing.
+ *
+ * @param trackId - Spotify ID of the track
+ * @param trackName - Name of the track
+ * @param artistId - Spotify ID of the artist
+ * @param artistName - Name of the artist
+ * @param durationMs - Duration of the track in milliseconds
+ * @param wasSkipped - Whether the track was skipped before completion
+ * @param playedTimeMs - How much of the track was played in milliseconds
+ * @param deviceName - Name of the device used for playback
+ * @param deviceType - Type of the device used for playback
+ * @param timestamp - When the track was played (defaults to current time)
+ * @param skipType - Classification of skip type (preview, standard, near_end)
+ * @param isManualSkip - Whether the skip was manually triggered by user
+ * @returns Promise resolving to boolean indicating success or failure
+ *
+ * @example
+ * // Record a skipped track with detailed information
+ * await updateTrackStatistics(
+ *   '4uLU6hMCjMI75M1A2tKUQC', // Track ID
+ *   'Never Gonna Give You Up',
+ *   '0gxyHStUsqpMadRV0Di1Qt', // Artist ID
+ *   'Rick Astley',
+ *   213000, // Track duration (3:33)
+ *   true,   // Track was skipped
+ *   45000,  // Played for 45 seconds
+ *   'iPhone 12',
+ *   'smartphone',
+ *   Date.now(),
+ *   'standard',
+ *   true    // User manually skipped
+ * );
+ *
+ * @example
+ * // Record a fully played track
+ * await updateTrackStatistics(
+ *   '5nujrmhLynf4yMoMtj8AQF',
+ *   'Levitating',
+ *   '6M2wZ9GZgrQXHCFfjv46we',
+ *   'Dua Lipa',
+ *   203000,
+ *   false,  // Not skipped
+ *   203000, // Played in full
+ *   'Desktop',
+ *   'computer',
+ * );
+ *
+ * @source
  */
 export async function updateTrackStatistics(
   trackId: string,
@@ -1251,6 +1427,19 @@ export async function updateTrackStatistics(
 
 /**
  * Helper function to get the ISO week number from a date
+ *
+ * Calculates the ISO 8601 week number for any given date. In this standard:
+ * - Weeks start on Monday
+ * - The first week of the year contains the first Thursday of that year
+ * - Week 1 is the week containing January 4th
+ *
+ * This calculation handles edge cases around year boundaries correctly and
+ * provides consistent week numbering for date-based aggregation in statistics.
+ *
+ * @param date - Date object to calculate the ISO week number for
+ * @returns The ISO week number (1-53)
+ * @private Internal helper function
+ * @source
  */
 function getISOWeek(date: Date): number {
   const d = new Date(date.getTime());
@@ -1273,6 +1462,19 @@ function getISOWeek(date: Date): number {
 
 /**
  * Helper function to get a date from ISO week number
+ *
+ * Converts an ISO week number and year into a Date object representing
+ * the start of that week (Monday). This is the inverse operation of getISOWeek
+ * and is used for reconstructing dates from weekly aggregated data.
+ *
+ * The function handles the complexities of the ISO 8601 week date system,
+ * accounting for week boundaries and ensuring consistency with the week
+ * numbering used throughout the statistics system.
+ *
+ * @param week - ISO week number (1-53)
+ * @param year - Year containing the specified week
+ * @returns Date object representing the Monday of the specified week
+ * @private Internal helper function
  */
 function getDateOfISOWeek(week: number, year: number): Date {
   const simple = new Date(year, 0, 1 + (week - 1) * 7);
@@ -1286,6 +1488,29 @@ function getDateOfISOWeek(week: number, year: number): Date {
 
 /**
  * Clear all statistics data and reset to default empty state
+ *
+ * Completely erases all collected listening statistics and reinitializes
+ * the statistics store with empty default values. This function is typically
+ * used when the user wants to reset their listening history or when data
+ * integrity issues require a fresh start.
+ *
+ * The function:
+ * - Creates a new default statistics object with the current timestamp
+ * - Ensures the target directory exists
+ * - Directly writes the default data to storage, bypassing the normal save process
+ * - Handles any errors that occur during the reset operation
+ *
+ * @returns Promise resolving to boolean indicating success (true) or failure (false)
+ *
+ * @example
+ * // Reset all statistics
+ * const success = await clearStatistics();
+ * if (success) {
+ *   showNotification("Statistics have been reset");
+ * } else {
+ *   showErrorMessage("Failed to reset statistics");
+ * }
+ * @source
  */
 export const clearStatistics = async (): Promise<boolean> => {
   try {
@@ -1311,7 +1536,30 @@ export const clearStatistics = async (): Promise<boolean> => {
 
 /**
  * Analyzes the manual vs. automatic skip patterns in the user's listening history
- * @returns Analysis results containing counts and percentages
+ *
+ * Compares and contrasts user-initiated skips with automatic skips (timeout or end-of-preview)
+ * to identify patterns in explicit user rejection versus passive non-engagement. This function
+ * processes the entire skip history to build a comprehensive picture of user intent.
+ *
+ * The analysis includes:
+ * - Total count of all skips, categorized as manual or automatic
+ * - Percentage distribution between manual and automatic skips
+ * - Hourly distribution of both skip types across a 24-hour day
+ * - Identification of peak hours for both manual and automatic skips
+ *
+ * This analysis helps distinguish between active content rejection (manual skips)
+ * and passive disengagement (automatic skips), providing insights into user
+ * intent and attention patterns throughout the day.
+ *
+ * @returns Promise resolving to a detailed manual vs. automatic skip analysis object
+ *
+ * @example
+ * // Analyze manual vs. automatic skip behavior
+ * const skipTypeAnalysis = await analyzeManualVsAutoSkipPatterns();
+ * console.log(`Manual skips: ${skipTypeAnalysis.manualSkipPercentage.toFixed(1)}%`);
+ * console.log(`Auto skips: ${skipTypeAnalysis.autoSkipPercentage.toFixed(1)}%`);
+ * renderSkipTypeChart(skipTypeAnalysis);
+ * @source
  */
 export async function analyzeManualVsAutoSkipPatterns(): Promise<{
   totalSkips: number;
@@ -1425,8 +1673,33 @@ export async function analyzeManualVsAutoSkipPatterns(): Promise<{
 }
 
 /**
- * Analyzes the listening context patterns in skipped tracks
- * @returns Object with context analysis data
+ * Analyzes skip patterns based on listening context
+ *
+ * Performs a detailed analysis of how skip behavior varies across different
+ * listening contexts, such as playlists, albums, and artist pages. This function
+ * identifies which contexts tend to produce higher skip rates and which lead
+ * to more engaged listening.
+ *
+ * The analysis includes:
+ * - Breakdown of skips by context type (playlist, album, artist, etc.)
+ * - Percentage distribution across different context types
+ * - Identification of specific high-skip contexts (e.g., particular playlists)
+ * - Ranking of contexts by skip frequency
+ * - Contextual metadata for each top-skipped context
+ *
+ * This analysis helps identify whether certain context types lead to more
+ * skipping behavior and can reveal patterns in content curation that may
+ * affect listening engagement.
+ *
+ * @returns Promise resolving to a detailed context-based skip analysis
+ *
+ * @example
+ * // Analyze which contexts lead to most skips
+ * const contextPatterns = await analyzeListeningContextPatterns();
+ * if (contextPatterns.mostSkippedContext) {
+ *   console.log(`Most skipped in: ${contextPatterns.mostSkippedContext.type} - ${contextPatterns.mostSkippedContext.name}`);
+ * }
+ * @source
  */
 export async function analyzeListeningContextPatterns(): Promise<{
   totalSkips: number;
@@ -1631,7 +1904,17 @@ export async function analyzeListeningContextPatterns(): Promise<{
 
 /**
  * Gets the user data folder path
- * @returns The path to the user data folder
+ *
+ * Provides a consistent way to access the application's user data directory
+ * across the statistics module. This function centralizes the path retrieval
+ * logic, making it easier to maintain path consistency throughout the codebase.
+ *
+ * The user data folder is where all persistent application data is stored,
+ * including statistics, settings, and cache files. Using this function ensures
+ * that all statistics-related files are stored in the correct location.
+ *
+ * @returns The absolute path to the user data folder
+ * @private Internal helper function
  */
 function getUserDataFolder(): string {
   return app.getPath("userData");
@@ -1639,7 +1922,32 @@ function getUserDataFolder(): string {
 
 /**
  * Analyzes time-of-day skip patterns
- * @returns Analysis of when users skip tracks throughout the day
+ *
+ * Performs a comprehensive analysis of when users tend to skip tracks throughout
+ * the day, week, and across different time periods. This function identifies
+ * temporal patterns in listening behavior, such as peak skip hours, day of week
+ * trends, and weekday vs. weekend differences.
+ *
+ * The analysis includes:
+ * - Hourly distribution of skips across 24 hours
+ * - Percentage-based normalization to account for overall listening volume
+ * - Identification of peak skip hours (when users are most likely to skip)
+ * - Low skip periods (when users are most engaged)
+ * - Time-of-day categorization (morning, afternoon, evening, night)
+ * - Day-of-week distribution patterns
+ * - Weekday vs. weekend comparison
+ *
+ * This analysis helps identify optimal listening times and pattern differences
+ * that may correlate with user mood, activity level, or environmental factors.
+ *
+ * @returns Promise resolving to a detailed time-based pattern analysis object
+ *
+ * @example
+ * // Get time-based skip patterns for visualization
+ * const timePatterns = await analyzeTimeOfDaySkipPatterns();
+ * renderHourlyChart(timePatterns.hourlyDistribution);
+ * highlightPeakHours(timePatterns.peakSkipHours);
+ * @source
  */
 export async function analyzeTimeOfDaySkipPatterns(): Promise<{
   hourlyDistribution: number[];
@@ -1809,9 +2117,36 @@ function getDefaultTimeOfDayResult() {
 }
 
 /**
- * Retrieves a summary of statistics for the dashboard
+ * Generates a concise summary of key statistics
  *
- * @returns Summary statistics for the dashboard
+ * Creates a high-level overview of the most important listening metrics
+ * for dashboard display and quick insights. This function extracts and
+ * calculates essential values from the full statistics data structure.
+ *
+ * The summary includes:
+ * - Total number of unique tracks played
+ * - Total skips across all time periods
+ * - Overall skip percentage (ratio of skips to plays)
+ * - Today's skip count (current day statistics)
+ * - Current week's skip count
+ * - Current month's skip count
+ * - Average time before skipping (in seconds)
+ *
+ * This summary provides a quick snapshot of listening behavior without
+ * the need to process the full statistics data structure, making it
+ * ideal for dashboard displays and regular UI updates.
+ *
+ * @returns Promise resolving to a statistics summary object
+ *
+ * @example
+ * // Display key metrics on dashboard
+ * const summary = await getStatisticsSummary();
+ * updateStatisticsWidget({
+ *   skips: summary.totalSkips,
+ *   rate: summary.skipPercentage.toFixed(1) + '%',
+ *   todayCount: summary.todaySkips
+ * });
+ * @source
  */
 export const getStatisticsSummary = async (): Promise<{
   totalTracks: number;
@@ -1918,10 +2253,30 @@ export const getStatisticsSummary = async (): Promise<{
 };
 
 /**
- * Retrieves recent skipped tracks
+ * Retrieves a list of recently skipped tracks
  *
- * @param limit Maximum number of tracks to return
- * @returns Array of recent skipped tracks
+ * Fetches and formats information about the most recently skipped tracks,
+ * including detailed metadata and skip statistics. This function provides
+ * the data needed for "Recently Skipped" UI displays and trend analysis.
+ *
+ * The returned data includes:
+ * - Track identifiers and basic metadata (name, artist, album)
+ * - Timestamp of most recent skip
+ * - Skip percentage (how often this track is skipped)
+ * - Total skip count for each track
+ *
+ * The results are sorted by recency, with the most recently skipped tracks
+ * appearing first. This provides an up-to-date view of listening behavior
+ * and helps identify potential patterns in recently skipped content.
+ *
+ * @param limit - Maximum number of tracks to return (default: 10)
+ * @returns Promise resolving to an array of recent skipped track objects
+ *
+ * @example
+ * // Display the 5 most recently skipped tracks
+ * const recentSkips = await getRecentSkippedTracks(5);
+ * renderRecentSkipsWidget(recentSkips);
+ * @source
  */
 export const getRecentSkippedTracks = async (
   limit: number = 10,
@@ -1970,10 +2325,31 @@ export const getRecentSkippedTracks = async (
 };
 
 /**
- * Retrieves the top skipped artists
+ * Retrieves the top skipped artists based on skip count and percentage
  *
- * @param limit Maximum number of artists to return
- * @returns Array of most skipped artists
+ * Analyzes the artist-level skip statistics across the entire listening history
+ * and returns a list of artists whose tracks are skipped most frequently. This
+ * function helps identify potential patterns in artist preferences and listening
+ * behavior.
+ *
+ * The analysis includes:
+ * - Total skip count for each artist's tracks
+ * - Skip percentage (skips relative to total plays)
+ * - Number of tracks played for each artist
+ * - Sorting by skip frequency with percentage as a secondary factor
+ *
+ * This data is useful for understanding which artists' music the user tends
+ * to skip more frequently, which may indicate changing music preferences or
+ * context-dependent listening patterns.
+ *
+ * @param limit - Maximum number of artists to return (default: 5)
+ * @returns Promise resolving to an array of artists sorted by skip frequency
+ *
+ * @example
+ * // Display the top 3 most frequently skipped artists
+ * const topSkippedArtists = await getTopSkippedArtists(3);
+ * renderArtistSkipChart(topSkippedArtists);
+ * @source
  */
 export const getTopSkippedArtists = async (
   limit: number = 5,
@@ -2050,8 +2426,29 @@ export const getTopSkippedArtists = async (
 /**
  * Retrieves recent listening sessions
  *
- * @param limit Maximum number of sessions to return
- * @returns Array of recent listening sessions
+ * Fetches and formats information about the most recent listening sessions,
+ * providing a chronological view of the user's listening behavior. Sessions
+ * represent continuous periods of listening activity separated by significant
+ * time gaps.
+ *
+ * The returned data includes:
+ * - Session identifier and start timestamp
+ * - Duration of the session in minutes
+ * - Number of tracks played during the session
+ * - Skip count and calculated skip percentage
+ *
+ * This function is primarily used for dashboard visualizations and reports
+ * that show patterns in listening duration and engagement over time.
+ * Results are sorted by recency with the most recent sessions first.
+ *
+ * @param limit - Maximum number of sessions to return (default: 3)
+ * @returns Promise resolving to an array of recent listening session objects
+ *
+ * @example
+ * // Display the last 5 listening sessions
+ * const recentSessions = await getRecentSessions(5);
+ * renderSessionHistoryChart(recentSessions);
+ * @source
  */
 export const getRecentSessions = async (
   limit: number = 3,
@@ -2096,7 +2493,31 @@ export const getRecentSessions = async (
 /**
  * Exports all statistics data to a JSON file
  *
- * @returns Boolean indicating success or failure
+ * Creates a complete export of all listening statistics and saves it as a
+ * JSON file in the user's downloads folder. This function enables users to
+ * backup their listening data, transfer it between devices, or use it for
+ * external analysis.
+ *
+ * The export process includes:
+ * - Retrieving the complete statistics dataset
+ * - Converting complex data structures for proper serialization
+ * - Generating a timestamped filename for uniqueness
+ * - Saving the formatted data to the user's downloads directory
+ *
+ * The exported file contains all metrics, patterns, and listening history
+ * in a well-structured JSON format.
+ *
+ * @returns Promise resolving to boolean indicating success (true) or failure (false)
+ *
+ * @example
+ * // Export statistics and show result to user
+ * const exported = await exportStatistics();
+ * if (exported) {
+ *   showSuccess("Statistics exported to Downloads folder");
+ * } else {
+ *   showError("Failed to export statistics");
+ * }
+ * @source
  */
 export const exportStatistics = async (): Promise<boolean> => {
   try {
@@ -2123,10 +2544,26 @@ export const exportStatistics = async (): Promise<boolean> => {
 
 /**
  * Clears all statistics data
- * This is a wrapper around the existing clearStatistics function
- * but with a more consistent name for the IPC interface
  *
- * @returns Boolean indicating success or failure
+ * Wrapper function around clearStatistics that provides a more consistent
+ * and descriptive name for the IPC interface. This function is the primary
+ * entry point for resetting statistics data when called from other parts of
+ * the application, particularly from the UI.
+ *
+ * The function completely reinitializes the statistics storage, erasing all
+ * collected metrics, patterns, and listening history. This operation cannot
+ * be undone unless the user has previously exported their data.
+ *
+ * @returns Promise resolving to boolean indicating success (true) or failure (false)
+ *
+ * @example
+ * // Clear all statistics from the UI
+ * ipcRenderer.invoke('statistics:clearAll').then(success => {
+ *   if (success) {
+ *     refreshDashboard();
+ *   }
+ * });
+ * @source
  */
 export const clearAllStatistics = async (): Promise<boolean> => {
   return await clearStatistics();

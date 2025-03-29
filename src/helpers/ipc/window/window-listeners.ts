@@ -1,5 +1,7 @@
 /**
- * Window Control IPC Handler Implementation
+ * @packageDocumentation
+ * @module window-listeners
+ * @description Window Control IPC Handler Implementation
  *
  * Implements the main process side of window management IPC communication,
  * handling requests from the renderer process to control the application window.
@@ -31,6 +33,7 @@ import {
  *
  * @param mainWindow - The BrowserWindow instance to control
  * @returns void
+ * @source
  */
 export function addWindowEventListeners(mainWindow: BrowserWindow): void {
   // Window minimize handler

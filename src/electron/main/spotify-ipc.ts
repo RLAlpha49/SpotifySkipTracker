@@ -1,5 +1,7 @@
 /**
- * Spotify IPC Handler Module
+ * @packageDocumentation
+ * @module spotify-ipc
+ * @description Spotify IPC Handler Module
  *
  * Establishes communication channels between renderer and main processes
  * for all Spotify-related operations including authentication, playback,
@@ -82,6 +84,7 @@ import {
  *
  * @param mainWindow - Main application window instance used for authentication flows
  * @returns {void}
+ * @source
  */
 export function setupSpotifyIPC(mainWindow: BrowserWindow): void {
   // Authentication handlers

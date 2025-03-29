@@ -1,5 +1,7 @@
 /**
- * Window Control Context Bridge
+ * @packageDocumentation
+ * @module window-context
+ * @description Window Control Context Bridge
  *
  * Securely exposes window management functionality to the renderer process
  * through Electron's contextBridge API, maintaining strict process isolation.
@@ -28,6 +30,7 @@ import {
  * Exposes window control methods to the renderer process via contextBridge
  *
  * @returns void
+ * @source
  */
 export function exposeWindowContext(): void {
   const { contextBridge, ipcRenderer } = window.require("electron");

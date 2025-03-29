@@ -1,5 +1,7 @@
 /**
- * Theme Toggle Component
+ * @packageDocumentation
+ * @module ToggleTheme
+ * @description Theme Toggle Component
  *
  * A simple button component that toggles between light and dark themes.
  * Provides a consistent interface for theme switching throughout the application
@@ -27,6 +29,7 @@ import React from "react";
  * when clicked. Uses the global theme helper to manage theme state.
  *
  * @returns React component with theme toggle functionality
+ * @source
  */
 export default function ToggleTheme() {
   return (

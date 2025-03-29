@@ -1,5 +1,7 @@
 /**
- * Statistics Export Service
+ * @packageDocumentation
+ * @module statistics/export
+ * @description Statistics Export Service
  *
  * This module provides a comprehensive set of functions for exporting statistics
  * data in various formats to enable data sharing, backup, and external analysis.
@@ -63,7 +65,19 @@ import {
 import { detectSkipPatterns } from "./pattern-detector";
 
 /**
- * Ensures the export directory exists
+ * Ensures the export directory exists in the user data folder
+ *
+ * Creates the dedicated exports directory inside the application's user data folder
+ * if it doesn't already exist. This centralizes the responsibility for directory
+ * creation and provides a consistent location for all exported files.
+ *
+ * The function uses fs-extra's ensureDirSync which handles the directory creation
+ * without throwing an error if the directory already exists.
+ *
+ * @returns The absolute path to the exports directory
+ * @private Internal helper function not exported from module
+ * @source
+ * @notExported
  */
 function ensureExportDir(): string {
   const exportDir = join(app.getPath("userData"), "exports");
@@ -73,6 +87,38 @@ function ensureExportDir(): string {
 
 /**
  * Prompts the user to select a file location for export
+ *
+ * Displays a native save dialog allowing the user to choose where to save
+ * an exported file. This function provides a consistent way to handle file
+ * selection across all export functions in the module.
+ *
+ * The dialog is configured to:
+ * - Start at the provided default path
+ * - Filter files by the specified types
+ * - Allow directory creation during navigation
+ * - Return undefined if canceled by user
+ *
+ * @param mainWindow - The Electron BrowserWindow to attach the dialog to
+ * @param defaultPath - The suggested file path to initialize the dialog with
+ * @param filters - Array of file filters to limit selection options
+ * @returns Promise resolving to selected file path or undefined if canceled
+ *
+ * @example
+ * // Show dialog to save CSV file
+ * const filePath = await promptForExportLocation(
+ *   mainWindow,
+ *   join(ensureExportDir(), 'export.csv'),
+ *   [{ name: 'CSV Files', extensions: ['csv'] }]
+ * );
+ *
+ * if (filePath) {
+ *   // User selected a path
+ *   writeDataToFile(filePath, data);
+ * } else {
+ *   // User canceled the dialog
+ *   showCancelMessage();
+ * }
+ * @source
  */
 export async function promptForExportLocation(
   mainWindow: BrowserWindow,
@@ -89,7 +135,44 @@ export async function promptForExportLocation(
 }
 
 /**
- * Converts object to CSV string
+ * Converts an array of objects to a properly formatted CSV string
+ *
+ * Transforms a JavaScript object array into a valid CSV format with headers
+ * and properly escaped values. This function handles various data types and
+ * ensures proper formatting of string values that may contain special characters.
+ *
+ * Features:
+ * - Supports custom header mapping for readable column names
+ * - Properly escapes string values with quotes
+ * - Serializes nested objects as JSON strings
+ * - Handles null and undefined values as empty strings
+ * - Returns empty string for empty input arrays
+ *
+ * @param data - Array of objects to convert to CSV format
+ * @param headers - Optional mapping of object keys to display column names
+ * @returns Properly formatted CSV string with headers and rows
+ * @private Internal helper function not exported from module
+ *
+ * @example
+ * // Basic usage with default headers
+ * const people = [
+ *   { name: 'John', age: 30 },
+ *   { name: 'Jane', age: 25 }
+ * ];
+ * const csv = objectToCSV(people);
+ * // "name,age
+ * // "John",30
+ * // "Jane",25"
+ *
+ * @example
+ * // With custom column headers
+ * const csv = objectToCSV(people, { name: 'Full Name', age: 'Age (years)' });
+ * // "Full Name,Age (years)
+ * // "John",30
+ * // "Jane",25"
+ *
+ * @source
+ * @notExported
  */
 function objectToCSV<T extends Record<string, unknown>>(
   data: T[],
@@ -127,6 +210,42 @@ function objectToCSV<T extends Record<string, unknown>>(
 
 /**
  * Exports skipped tracks data to CSV
+ *
+ * Creates a comprehensive CSV export of all skipped tracks in the user's listening
+ * history, including track metadata and skip statistics. This function formats
+ * the skip data into a tabular structure optimized for analysis in spreadsheet
+ * applications or data visualization tools.
+ *
+ * The export includes:
+ * - Track identification (ID, name, artist, album)
+ * - Skip frequency metrics (total, manual, automatic)
+ * - Temporal information (first skip, most recent skip)
+ *
+ * The function handles the entire export process including:
+ * - Retrieving and validating skip data
+ * - Transforming complex data structures into CSV-compatible format
+ * - Prompting for save location (if not provided)
+ * - Writing data with proper error handling
+ *
+ * @param mainWindow - The Electron BrowserWindow to attach dialogs to
+ * @param targetPath - Optional pre-defined export path (bypasses user prompt)
+ * @returns Promise resolving to object containing success status, message, and path
+ *
+ * @example
+ * // Export with user prompt for location
+ * const result = await exportSkippedTracksToCSV(mainWindow);
+ * if (result.success) {
+ *   showSuccessMessage(`Exported to ${result.filePath}`);
+ * } else {
+ *   showErrorMessage(result.message);
+ * }
+ *
+ * @example
+ * // Export to specific path without prompt
+ * const path = join(app.getPath('downloads'), 'skipped-tracks.csv');
+ * const result = await exportSkippedTracksToCSV(mainWindow, path);
+ *
+ * @source
  */
 export async function exportSkippedTracksToCSV(
   mainWindow: BrowserWindow,
@@ -214,6 +333,33 @@ export async function exportSkippedTracksToCSV(
 
 /**
  * Exports artist metrics to CSV
+ *
+ * Creates a detailed CSV export containing aggregated statistics for each artist
+ * in the user's listening history. This export focuses on artist-level metrics,
+ * particularly skip behavior patterns, making it ideal for analyzing which artists
+ * are most frequently skipped.
+ *
+ * The export includes:
+ * - Artist identification and basic metadata
+ * - Comprehensive skip metrics (total, unique tracks, ratios)
+ * - Skip behavior analysis (manual vs. auto skips)
+ * - Engagement metrics (average play percentage before skipping)
+ *
+ * This function handles data retrieval, formatting, user prompts for save location,
+ * and file writing with appropriate error handling throughout the process.
+ *
+ * @param mainWindow - The Electron BrowserWindow to attach dialogs to
+ * @param targetPath - Optional pre-defined export path (bypasses user prompt)
+ * @returns Promise resolving to object containing success status, message, and path
+ *
+ * @example
+ * // Export with dialog prompt
+ * const result = await exportArtistMetricsToCSV(mainWindow);
+ * if (result.success) {
+ *   console.log(`CSV saved to: ${result.filePath}`);
+ * }
+ *
+ * @source
  */
 export async function exportArtistMetricsToCSV(
   mainWindow: BrowserWindow,
@@ -294,6 +440,38 @@ export async function exportArtistMetricsToCSV(
 
 /**
  * Exports daily metrics to CSV
+ *
+ * Creates a time-series CSV export of listening and skip metrics aggregated by day,
+ * enabling temporal analysis of user behavior patterns. This export is particularly
+ * valuable for identifying trends and changes in listening habits over time.
+ *
+ * The export includes:
+ * - Date-based metrics (one row per day with active listening)
+ * - Daily skip counts and unique content metrics
+ * - Skip pattern analysis (sequential skips, peak hours)
+ * - Detailed skip type breakdown (preview, standard, near end)
+ * - Skip intention metrics (manual vs. automatic)
+ *
+ * The function handles the complete export workflow including data aggregation,
+ * format conversion, user interaction for save location, and file writing with
+ * comprehensive error handling.
+ *
+ * @param mainWindow - The Electron BrowserWindow to attach dialogs to
+ * @param targetPath - Optional pre-defined export path (bypasses user prompt)
+ * @returns Promise resolving to object containing success status, message, and path
+ *
+ * @example
+ * // Export daily metrics for analysis
+ * try {
+ *   const result = await exportDailyMetricsToCSV(mainWindow);
+ *   if (result.success) {
+ *     notifyUser("Export completed", `File saved to ${result.filePath}`);
+ *   }
+ * } catch (err) {
+ *   handleError("Failed to export daily metrics", err);
+ * }
+ *
+ * @source
  */
 export async function exportDailyMetricsToCSV(
   mainWindow: BrowserWindow,
@@ -394,6 +572,38 @@ export async function exportDailyMetricsToCSV(
 
 /**
  * Exports all statistics data to JSON
+ *
+ * Creates a comprehensive JSON export containing the complete dataset of all
+ * statistics, metrics, and analyzed patterns. This is the most complete export
+ * option, providing structured data that preserves all relationships between
+ * different statistical elements.
+ *
+ * The export includes:
+ * - Complete statistics data structure with all metrics
+ * - Full skipped tracks history with detailed event data
+ * - Artist-level metrics and analysis
+ * - Library-wide statistics and aggregations
+ * - Temporal patterns and behavioral insights
+ * - Export metadata (timestamp, application version)
+ *
+ * This function is ideal for:
+ * - Full system backups
+ * - Data migration between devices
+ * - External analysis in specialized tools
+ * - Debugging and troubleshooting
+ *
+ * @param mainWindow - The Electron BrowserWindow to attach dialogs to
+ * @param targetPath - Optional pre-defined export path (bypasses user prompt)
+ * @returns Promise resolving to object containing success status, message, and path
+ *
+ * @example
+ * // Export all data with user-selected path
+ * const result = await exportAllStatisticsToJSON(mainWindow);
+ * if (result.success) {
+ *   showNotification(`Full backup saved to ${result.filePath}`);
+ * }
+ *
+ * @source
  */
 export async function exportAllStatisticsToJSON(
   mainWindow: BrowserWindow,
@@ -457,6 +667,36 @@ export async function exportAllStatisticsToJSON(
 
 /**
  * Copies statistics summary to clipboard
+ *
+ * Generates a human-readable text summary of key statistics and copies it
+ * to the system clipboard. This function provides a quick way for users to
+ * share their listening statistics without exporting files.
+ *
+ * The formatted summary includes:
+ * - Header with generation timestamp
+ * - Overview section with key metrics (tracks, artists, skip rate)
+ * - Temporal analysis (top listening hours, day distribution)
+ * - Clean formatting with section headers and separators
+ *
+ * The text format is optimized for readability when pasted into messaging
+ * applications, social media, or documentation. All numeric values are
+ * appropriately formatted with proper units and precision.
+ *
+ * @param statistics - The statistics data object to summarize
+ * @returns Object containing success status and informational message
+ *
+ * @example
+ * // Copy summary to clipboard for sharing
+ * const stats = await getStatistics();
+ * const result = copyStatisticsToClipboard(stats);
+ *
+ * if (result.success) {
+ *   showToast("Statistics copied to clipboard");
+ * } else {
+ *   showError(result.message);
+ * }
+ *
+ * @source
  */
 export function copyStatisticsToClipboard(statistics: StatisticsData): {
   success: boolean;
@@ -518,6 +758,29 @@ export function copyStatisticsToClipboard(statistics: StatisticsData): {
 
 /**
  * Helper function to format duration from milliseconds
+ *
+ * Converts a duration in milliseconds to a human-readable string in the
+ * format "Xh Ym Zs" (hours, minutes, seconds). This function handles
+ * time unit calculations and formatting for display in statistics summaries
+ * and exports.
+ *
+ * Features:
+ * - Properly calculates hours, minutes, and seconds from milliseconds
+ * - Uses abbreviated time units (h, m, s) for compact display
+ * - Always shows all units even if they are zero
+ * - Handles any positive millisecond value
+ *
+ * @param ms - Duration in milliseconds to format
+ * @returns Formatted duration string in "Xh Ym Zs" format
+ * @private Internal helper function not exported from module
+ *
+ * @example
+ * formatDuration(3723000) // "1h 2m 3s" (1 hour, 2 minutes, 3 seconds)
+ * formatDuration(65000)   // "0h 1m 5s" (1 minute, 5 seconds)
+ * formatDuration(3000)    // "0h 0m 3s" (3 seconds)
+ *
+ * @source
+ * @notExported
  */
 function formatDuration(ms: number): string {
   const seconds = Math.floor((ms / 1000) % 60);
@@ -529,6 +792,40 @@ function formatDuration(ms: number): string {
 
 /**
  * Helper function to format top 5 values from an array
+ *
+ * Processes a numeric array to identify and format the top 5 highest values
+ * with appropriate labels. This function is used for creating human-readable
+ * summaries of various distribution data (like hourly or daily listening patterns).
+ *
+ * The function:
+ * - Validates input array existence and content
+ * - Maps array values to objects that preserve original indices
+ * - Sorts in descending order by value
+ * - Takes the top 5 items (or fewer if array is smaller)
+ * - Applies a labeling function to each index
+ * - Formats as a multi-line string with "label: value" format
+ *
+ * @param arr - Array of numeric values to analyze
+ * @param labelFn - Function that converts indices to human-readable labels
+ * @returns Formatted multi-line string of top 5 values with labels
+ * @private Internal helper function not exported from module
+ *
+ * @example
+ * // Format top listening hours
+ * const hourlyDistribution = [10, 25, 5, 30, 15, 20];
+ * const topHours = formatTop5FromArray(
+ *   hourlyDistribution,
+ *   (i) => `${i}:00-${i+1}:00`
+ * );
+ * // Returns:
+ * // "3:00-4:00: 30
+ * // 1:00-2:00: 25
+ * // 5:00-6:00: 20
+ * // 4:00-5:00: 15
+ * // 0:00-1:00: 10"
+ *
+ * @source
+ * @notExported
  */
 function formatTop5FromArray(
   arr: number[],
@@ -546,6 +843,38 @@ function formatTop5FromArray(
 
 /**
  * Exports weekly metrics to CSV
+ *
+ * Creates a CSV export of listening statistics aggregated by calendar week,
+ * providing a medium-term view of listening patterns between daily and monthly
+ * aggregations. This export is particularly useful for analyzing weekly rhythms
+ * and patterns in listening behavior.
+ *
+ * The export includes:
+ * - Week identifiers in ISO format (YYYY-Wnn)
+ * - Total skip metrics for each week
+ * - Unique content exposure (tracks, artists)
+ * - Listening duration totals
+ * - Average skip rates per week
+ * - Day-of-week patterns (most skipped day)
+ *
+ * The function handles data retrieval, formatting, user prompts for save location,
+ * and file writing with comprehensive error handling throughout the process.
+ *
+ * @param mainWindow - The Electron BrowserWindow to attach dialogs to
+ * @param targetPath - Optional pre-defined export path (bypasses user prompt)
+ * @returns Promise resolving to object containing success status, message, and path
+ *
+ * @example
+ * // Export weekly metrics with user-selected location
+ * const result = await exportWeeklyMetricsToCSV(mainWindow);
+ *
+ * if (result.success) {
+ *   console.log(`Weekly metrics saved to ${result.filePath}`);
+ * } else {
+ *   console.error(`Export failed: ${result.message}`);
+ * }
+ *
+ * @source
  */
 export async function exportWeeklyMetricsToCSV(
   mainWindow: BrowserWindow,
@@ -640,6 +969,37 @@ export async function exportWeeklyMetricsToCSV(
 
 /**
  * Exports library statistics to CSV
+ *
+ * Creates a specialized CSV export focused on library-wide metrics and skip
+ * behavior analysis. Unlike other exports that focus on time-series or item-specific
+ * data, this export provides a holistic view of the entire listening library,
+ * highlighting overall patterns and distributions.
+ *
+ * The export includes multiple sections:
+ * - Summary statistics (track counts, skip rates, percentages)
+ * - Skip distribution analysis (how skips are distributed across the library)
+ * - Genre analysis (which genres experience the most skips)
+ * - Library composition metrics
+ *
+ * Each section is formatted with appropriate headers and organization to
+ * make the CSV readable both in spreadsheet applications and text editors.
+ *
+ * @param mainWindow - The Electron BrowserWindow to attach dialogs to
+ * @param targetPath - Optional pre-defined export path (bypasses user prompt)
+ * @returns Promise resolving to object containing success status, message, and path
+ *
+ * @example
+ * // Export library statistics
+ * try {
+ *   const result = await exportLibraryStatisticsToCSV(mainWindow);
+ *   if (result.success) {
+ *     showSuccessMessage(`Library analysis exported to ${result.filePath}`);
+ *   }
+ * } catch (error) {
+ *   logError("Library export failed", error);
+ * }
+ *
+ * @source
  */
 export async function exportLibraryStatisticsToCSV(
   mainWindow: BrowserWindow,
@@ -753,6 +1113,36 @@ export async function exportLibraryStatisticsToCSV(
 
 /**
  * Exports time patterns to CSV
+ *
+ * Creates a specialized CSV export focused on temporal listening patterns,
+ * providing insights into how listening behavior varies by time of day,
+ * day of week, and across different time periods. This export is particularly
+ * valuable for identifying rhythms and patterns in user engagement.
+ *
+ * The export includes multiple interconnected sections:
+ * - Hourly distribution of skips and plays throughout the day
+ * - Daily distribution across the week with pattern identification
+ * - Session metrics showing how listening is clustered in time
+ * - Skip rate variations by time period
+ *
+ * The CSV format uses section headers and multi-part organization to present
+ * related data in a coherent structure, making it suitable for both visual
+ * inspection and programmatic analysis in spreadsheet applications.
+ *
+ * @param mainWindow - The Electron BrowserWindow to attach dialogs to
+ * @param targetPath - Optional pre-defined export path (bypasses user prompt)
+ * @returns Promise resolving to object containing success status, message, and path
+ *
+ * @example
+ * // Export time patterns for visualization
+ * const result = await exportTimePatternsToCSV(mainWindow);
+ * if (result.success) {
+ *   openVisualizationTool(result.filePath);
+ * } else {
+ *   showExportError(result.message);
+ * }
+ *
+ * @source
  */
 export async function exportTimePatternsToCSV(
   mainWindow: BrowserWindow,
@@ -895,6 +1285,37 @@ export async function exportTimePatternsToCSV(
 
 /**
  * Exports detected patterns to CSV
+ *
+ * Creates a CSV export of algorithmically detected patterns in the user's skip behavior,
+ * providing insights into potentially meaningful listening preferences and habits.
+ * This export represents the highest level of analysis in the statistics system,
+ * focusing on identified patterns rather than raw data.
+ *
+ * The export includes:
+ * - Pattern type classification (genre-based, time-based, etc.)
+ * - Pattern name and description in human-readable format
+ * - Confidence scores indicating pattern reliability
+ * - Affected tracks count and related metadata
+ * - Significance metrics indicating pattern importance
+ *
+ * This export is particularly valuable for understanding the "why" behind skip
+ * behaviors, moving beyond simple metrics to behavioral insights. The data is
+ * formatted for easy import into analysis tools or presentation software.
+ *
+ * @param mainWindow - The Electron BrowserWindow to attach dialogs to
+ * @param targetPath - Optional pre-defined export path (bypasses user prompt)
+ * @returns Promise resolving to object containing success status, message, and path
+ *
+ * @example
+ * // Export detected patterns for presentation
+ * const result = await exportDetectedPatternsToCSV(mainWindow);
+ * if (result.success) {
+ *   presentPatternFindings(result.filePath);
+ * } else {
+ *   notifyNoPatterns("Insufficient data to detect meaningful patterns yet");
+ * }
+ *
+ * @source
  */
 export async function exportDetectedPatternsToCSV(
   mainWindow: BrowserWindow,

@@ -1,5 +1,7 @@
 /**
- * Router Configuration and Initialization Module
+ * @packageDocumentation
+ * @module router
+ * @description Router Configuration and Initialization Module
  *
  * Creates and configures the TanStack Router instance specialized for Electron environments.
  * This module serves as the central routing configuration for the entire application,

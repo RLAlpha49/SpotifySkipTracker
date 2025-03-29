@@ -1,5 +1,7 @@
 /**
- * Skipped Tracks Bulk Action Controls Component
+ * @packageDocumentation
+ * @module SkippedTracksBulkActions
+ * @description Skipped Tracks Bulk Action Controls Component
  *
  * Provides centralized controls for performing batch operations on skipped tracks,
  * including options to clear tracking data or remove multiple tracks at once.
@@ -90,6 +92,7 @@ interface SkippedTracksBulkActionsProps {
  * @param props.onClearSkippedData - Function to handle clearing all data
  * @param props.onRemoveAllHighlighted - Function to handle removing all highlighted tracks
  * @returns React component for bulk action controls
+ * @source
  */
 export function SkippedTracksBulkActions({
   loading,

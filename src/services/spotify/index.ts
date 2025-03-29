@@ -1,5 +1,7 @@
 /**
- * Spotify API Service
+ * @packageDocumentation
+ * @module spotify
+ * @description Spotify API Service
  *
  * A unified interface to all Spotify API functionality. This module serves as the main entry point
  * for interacting with the Spotify Web API throughout the application.
@@ -22,6 +24,7 @@
  * ```
  *
  * @module SpotifyService
+ * @source
  */
 
 // Export constants

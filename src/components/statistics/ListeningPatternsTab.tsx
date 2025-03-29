@@ -1,5 +1,7 @@
 /**
- * Listening Pattern Analysis Component
+ * @packageDocumentation
+ * @module ListeningPatternsTab
+ * @description Listening Pattern Analysis Component
  *
  * Provides in-depth visualization and analysis of listening behavior patterns
  * across different artists, times of day, and days of the week. This component
@@ -87,6 +89,7 @@ interface ListeningPatternsTabProps {
  * @param props.loading - Whether data is being loaded
  * @param props.statistics - Complete statistics data object
  * @returns React component with listening pattern visualizations
+ * @source
  */
 export function ListeningPatternsTab({
   loading,

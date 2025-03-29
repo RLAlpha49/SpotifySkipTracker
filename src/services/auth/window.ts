@@ -1,5 +1,7 @@
 /**
- * OAuth Authentication Window Management Module
+ * @packageDocumentation
+ * @module auth/window
+ * @description OAuth Authentication Window Management Module
  *
  * This module handles the creation, configuration, and lifecycle management of
  * specialized browser windows for the Spotify OAuth authentication flow. It ensures
@@ -61,6 +63,7 @@ let authWindow: BrowserWindow | null = null;
  *   'https://accounts.spotify.com/authorize?client_id=...',
  *   () => console.log('Auth window was closed')
  * );
+ * @source
  */
 export function createAuthWindow(
   parentWindow: BrowserWindow,
@@ -132,6 +135,7 @@ export function createAuthWindow(
  * @example
  * // Close the authentication window when tokens are received
  * closeAuthWindow();
+ * @source
  */
 export function closeAuthWindow(): void {
   if (authWindow) {
@@ -161,6 +165,7 @@ export function closeAuthWindow(): void {
  * if (!hasActiveAuthWindow()) {
  *   startAuthFlow();
  * }
+ * @source
  */
 export function hasActiveAuthWindow(): boolean {
   return authWindow !== null && !authWindow.isDestroyed();

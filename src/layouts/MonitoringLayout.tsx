@@ -1,5 +1,7 @@
 /**
- * Playback Monitoring Control Center
+ * @packageDocumentation
+ * @module MonitoringLayout
+ * @description Playback Monitoring Control Center
  *
  * Provides a comprehensive interface for real-time Spotify playback monitoring
  * and application diagnostics. This layout organizes critical monitoring tools
@@ -71,6 +73,7 @@ interface MonitoringLayoutProps {
  * @param props.logsCard - Content for application log display
  * @param props.settingsCard - Optional content for monitoring settings
  * @returns MonitoringLayout component with responsive panel arrangement
+ * @source
  */
 export function MonitoringLayout({
   isLoading = false,

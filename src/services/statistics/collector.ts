@@ -1,5 +1,7 @@
 /**
- * Skip Data Collection Service
+ * @packageDocumentation
+ * @module statistics/collector
+ * @description Skip Data Collection Service
  *
  * This module provides automated background collection and scheduling of
  * statistics aggregation operations at configurable intervals. It manages
@@ -57,6 +59,7 @@ let isCollecting = false;
  * @example
  * // Start collection with 30-minute intervals
  * await startSkipMetricsCollection(30);
+ * @source
  */
 export async function startSkipMetricsCollection(intervalMinutes = 60) {
   if (isCollecting) {
@@ -98,6 +101,7 @@ export async function startSkipMetricsCollection(intervalMinutes = 60) {
  * @example
  * // Stop collection during application shutdown
  * stopSkipMetricsCollection();
+ * @source
  */
 export function stopSkipMetricsCollection() {
   if (aggregationInterval) {
@@ -123,6 +127,7 @@ export function stopSkipMetricsCollection() {
  * if (!isSkipMetricsCollectionActive()) {
  *   await startSkipMetricsCollection();
  * }
+ * @source
  */
 export function isSkipMetricsCollectionActive(): boolean {
   return isCollecting;
@@ -152,6 +157,7 @@ export function isSkipMetricsCollectionActive(): boolean {
  * } catch (error) {
  *   showErrorMessage(error);
  * }
+ * @source
  */
 export async function triggerManualAggregation(): Promise<void> {
   try {
@@ -179,6 +185,7 @@ export async function triggerManualAggregation(): Promise<void> {
  *
  * @returns Promise that resolves when the full aggregation is complete
  * @private Internal function not exported from the module
+ * @source
  */
 async function runAggregation(): Promise<void> {
   saveLog("Running skip metrics aggregation", "DEBUG");

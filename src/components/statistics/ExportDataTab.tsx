@@ -1,5 +1,7 @@
 /**
- * Statistics Data Export Interface Component
+ * @packageDocumentation
+ * @module ExportDataTab
+ * @description Statistics Data Export Interface Component
  *
  * Provides a comprehensive interface for exporting listening statistics
  * in various formats and granularities. This component offers users multiple
@@ -72,6 +74,7 @@ interface ExportDataTabProps {
  * @param props.loading - Whether data is being loaded
  * @param props.statistics - Complete statistics data object
  * @returns React component with data export options
+ * @source
  */
 export function ExportDataTab({ loading, statistics }: ExportDataTabProps) {
   const [exporting, setExporting] = useState<{

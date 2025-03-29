@@ -1,5 +1,7 @@
 /**
- * Skipped Music Track Analysis & Management System
+ * @packageDocumentation
+ * @module SkippedTracksPage
+ * @description Skipped Music Track Analysis & Management System
  *
  * Comprehensive interface for analyzing, managing, and acting on skip behavior patterns.
  * Identifies problematic tracks based on user-configurable thresholds and provides
@@ -51,6 +53,11 @@ const SkippedTracksTable = lazy(() =>
   })),
 );
 
+/**
+ * SkippedTracksPage component
+ *
+ * @source
+ */
 export default function SkippedTracksPage() {
   const [skippedTracks, setSkippedTracks] = useState<SkippedTrack[]>([]);
   const [loading, setLoading] = useState(false);

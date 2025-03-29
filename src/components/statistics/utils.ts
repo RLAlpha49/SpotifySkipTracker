@@ -1,5 +1,7 @@
 /**
- * Statistics Data Visualization Utilities
+ * @packageDocumentation
+ * @module utils
+ * @description Statistics Data Visualization Utilities
  *
  * Collection of specialized formatting and conversion functions for transforming
  * raw statistics data into human-readable formats for display in charts,
@@ -30,6 +32,7 @@
  *
  * @param ms - Duration in milliseconds
  * @returns Formatted duration string with appropriate units
+ * @source
  */
 export const formatTime = (ms: number) => {
   if (!ms) return "0m";
@@ -58,6 +61,7 @@ export const formatTime = (ms: number) => {
  *
  * @param value - Decimal value between 0 and 1
  * @returns Formatted percentage string with one decimal place
+ * @source
  */
 export const formatPercent = (value: number) => {
   return `${(value * 100).toFixed(1)}%`;
@@ -72,6 +76,7 @@ export const formatPercent = (value: number) => {
  *
  * @param day - Day index (0=Sunday, 1=Monday, etc.)
  * @returns Full day name as a string
+ * @source
  */
 export const getDayName = (day: number) => {
   const days = [
@@ -104,6 +109,7 @@ export const getDayName = (day: number) => {
  *
  * @param hour - Hour in 24-hour format (normalized to 0-23 range)
  * @returns Formatted time label in 12-hour format with AM/PM
+ * @source
  */
 export function getHourLabel(hour: number): string {
   // Handle negative hours and hours > 23 properly by applying modulo 24

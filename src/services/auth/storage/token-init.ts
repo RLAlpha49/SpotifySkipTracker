@@ -1,5 +1,7 @@
 /**
- * Authentication Token System Initialization Module
+ * @packageDocumentation
+ * @module auth/storage/token-init
+ * @description Authentication Token System Initialization Module
  *
  * Handles the initial bootstrap process for the authentication token system,
  * ensuring proper loading of existing tokens and coordination between
@@ -72,6 +74,7 @@ let setTokens: (tokens: AuthTokens) => void = null as unknown as (
  *     showLoginScreen();
  *   }
  * }
+ * @source
  */
 export async function initTokenStore(): Promise<void> {
   try {

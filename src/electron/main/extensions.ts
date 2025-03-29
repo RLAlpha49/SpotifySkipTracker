@@ -1,5 +1,7 @@
 /**
- * Development Extensions Module
+ * @packageDocumentation
+ * @module extensions
+ * @description Development Extensions Module
  *
  * Installs development tools and extensions to facilitate debugging
  * and application testing in the Electron environment.
@@ -30,6 +32,7 @@ const inDevelopment = process.env.NODE_ENV === "development";
  * overhead in production builds. Logs success or failure for debugging.
  *
  * @returns {Promise<void>} Resolves when extensions are installed or skipped
+ * @source
  */
 export async function installExtensions(): Promise<void> {
   try {

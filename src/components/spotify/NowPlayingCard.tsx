@@ -1,5 +1,7 @@
 /**
- * Real-Time Spotify Playback Visualization Component
+ * @packageDocumentation
+ * @module NowPlayingCard
+ * @description Real-Time Spotify Playback Visualization Component
  *
  * Provides a detailed real-time view of the currently playing track on Spotify
  * with interactive playback controls. Displays complete track metadata with
@@ -66,6 +68,7 @@ interface NowPlayingCardProps {
  *
  * @param props - Component properties
  * @returns React component with current playback information
+ * @source
  */
 export function NowPlayingCard({
   isAuthenticated,
@@ -174,7 +177,7 @@ export function NowPlayingCard({
               </div>
             </div>
             {/* Playback Controls */}
-            <div className="flex items-center justify-center space-x-4 pt-3 pb-1">
+            <div className="flex items-center justify-center space-x-4 pb-1 pt-3">
               <Button
                 variant="outline"
                 size="icon"

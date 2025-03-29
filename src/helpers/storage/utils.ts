@@ -1,5 +1,7 @@
 /**
- * Storage Infrastructure Foundation Module
+ * @packageDocumentation
+ * @module storage-utils
+ * @description Storage Infrastructure Foundation Module
  *
  * Provides core storage functionality and utilities that power the entire
  * application's data persistence layer. This module establishes fundamental
@@ -40,6 +42,7 @@ export const settingsFilePath = path.join(appDataPath, "settings.json");
  * Keeps only the specified number of most recent log files
  *
  * @param maxFiles Maximum number of log files to keep
+ * @source
  */
 export function cleanupOldLogs(maxFiles: number): void {
   try {
@@ -82,6 +85,7 @@ export function cleanupOldLogs(maxFiles: number): void {
 /**
  * Initializes storage directories
  * Ensures all required directories exist before storage operations
+ * @source
  */
 export function initializeStorage(): void {
   console.log("App data directory:", app.getPath("userData"));
@@ -103,6 +107,7 @@ export function initializeStorage(): void {
  * Used during application startup to start with a clean log
  *
  * @param maxLogFiles Optional parameter for maximum log files to keep (defaults to 10)
+ * @source
  */
 export function archiveCurrentLog(maxLogFiles = 10): void {
   const latestLogPath = path.join(logsPath, "latest.log");

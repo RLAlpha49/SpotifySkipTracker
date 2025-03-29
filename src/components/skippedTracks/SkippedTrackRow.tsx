@@ -1,5 +1,7 @@
 /**
- * Individual Skipped Track Row Component
+ * @packageDocumentation
+ * @module SkippedTrackRow
+ * @description Individual Skipped Track Row Component
  *
  * Renders a single track row within the skipped tracks table, displaying comprehensive
  * track information and skip statistics with appropriate visual styling based on
@@ -82,6 +84,7 @@ interface SkippedTrackRowProps {
  * @param props.onUnlikeTrack - Function to handle track removal from library
  * @param props.onRemoveTrackData - Function to handle skip data deletion
  * @returns React component for a single track table row
+ * @source
  */
 export function SkippedTrackRow({
   track,
@@ -166,7 +169,7 @@ export function SkippedTrackRow({
           </div>
         </div>
       </TableCell>
-      <TableCell className={`text-right whitespace-nowrap ${bgColor}`}>
+      <TableCell className={`whitespace-nowrap text-right ${bgColor}`}>
         <span
           className={
             shouldSuggestRemoval
@@ -201,7 +204,7 @@ export function SkippedTrackRow({
           </span>
         </div>
       </TableCell>
-      <TableCell className={`text-right whitespace-nowrap ${bgColor}`}>
+      <TableCell className={`whitespace-nowrap text-right ${bgColor}`}>
         <div className="text-muted-foreground flex items-center justify-end gap-1">
           <Clock className="h-3.5 w-3.5" />
           {formatDate(track)}

@@ -1,5 +1,7 @@
 /**
- * Skip Pattern Detection and Analysis Component
+ * @packageDocumentation
+ * @module SkipPatternsTab
+ * @description Skip Pattern Detection and Analysis Component
  *
  * Provides advanced visualization and analysis of algorithmically detected
  * patterns in user's track skipping behavior. This component helps users
@@ -89,6 +91,7 @@ interface SkipPatternsTabProps {
  *
  * @param dateStr - Date string to format
  * @returns Formatted date string or "Unknown date" if parsing fails
+ * @source
  */
 const formatDate = (dateStr: string): string => {
   try {
@@ -115,6 +118,7 @@ const formatDate = (dateStr: string): string => {
  *
  * @param type - Pattern type identifier string
  * @returns React element containing the appropriate icon component
+ * @source
  */
 const getPatternIcon = (type: string) => {
   switch (type) {
@@ -143,6 +147,7 @@ const getPatternIcon = (type: string) => {
  *
  * @param confidence - Pattern confidence as a decimal (0-1)
  * @returns CSS class string for the text color
+ * @source
  */
 const getConfidenceColor = (confidence: number) => {
   if (confidence >= 0.9) return "text-emerald-500";
@@ -162,6 +167,7 @@ const getConfidenceColor = (confidence: number) => {
  *
  * @param type - Pattern type identifier string
  * @returns Hex color code for chart elements
+ * @source
  */
 const getTypeColor = (type: string) => {
   switch (type) {
@@ -211,6 +217,7 @@ type PatternTypeData = {
  * @param props - Component properties
  * @param props.loading - Whether main statistics data is being loaded
  * @returns React component with skip pattern analysis
+ * @source
  */
 export function SkipPatternsTab({ loading }: SkipPatternsTabProps) {
   const [patterns, setPatterns] = useState<DetectedPattern[]>([]);

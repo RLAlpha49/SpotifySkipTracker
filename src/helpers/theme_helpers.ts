@@ -1,5 +1,7 @@
 /**
- * Application Theme Management System
+ * @packageDocumentation
+ * @module theme_helpers
+ * @description Application Theme Management System
  *
  * Provides a sophisticated theme management system with dark/light mode support,
  * system preference detection, and persistent user preferences across sessions.
@@ -41,6 +43,7 @@ export interface ThemePreferences {
  * Gets current theme settings from both system and localStorage
  *
  * @returns Promise resolving to object with system theme and local preference
+ * @source
  */
 export async function getCurrentTheme(): Promise<ThemePreferences> {
   const currentTheme = await window.themeMode.current();
@@ -58,6 +61,7 @@ export async function getCurrentTheme(): Promise<ThemePreferences> {
  *
  * @param newTheme - The theme mode to set ("dark", "light", or "system")
  * @returns Promise that resolves when theme is set
+ * @source
  */
 export async function setTheme(newTheme: ThemeMode): Promise<void> {
   switch (newTheme) {
@@ -85,6 +89,7 @@ export async function setTheme(newTheme: ThemeMode): Promise<void> {
  * Updates stored preference in localStorage
  *
  * @returns Promise resolving when theme toggle is complete
+ * @source
  */
 export async function toggleTheme(): Promise<void> {
   const isDarkMode = await window.themeMode.toggle();
@@ -100,6 +105,7 @@ export async function toggleTheme(): Promise<void> {
  * If no preference is stored, defaults to system theme
  *
  * @returns Promise resolving when theme synchronization is complete
+ * @source
  */
 export async function syncThemeWithLocal(): Promise<void> {
   const { local } = await getCurrentTheme();
@@ -116,6 +122,8 @@ export async function syncThemeWithLocal(): Promise<void> {
  * Enables CSS to apply the correct theme styling
  *
  * @param isDarkMode - Whether dark mode should be active
+ * @notExported
+ * @source
  */
 function updateDocumentTheme(isDarkMode: boolean): void {
   if (!isDarkMode) {

@@ -1,5 +1,7 @@
 /**
- * Statistics Services Setup Module
+ * @packageDocumentation
+ * @module statistics-setup
+ * @description Statistics Services Setup Module
  *
  * Initializes and manages statistics collection and aggregation services
  * for tracking user behavior and music listening patterns.
@@ -73,6 +75,7 @@ const ARTIST_INSIGHTS_FILE = join(statisticsDir, "artist_insights.json");
  *
  * @param mainWindow - The main application window instance for IPC communication
  * @returns {Promise<void>} Resolves when initialization is complete
+ * @source
  */
 export async function initializeStatisticsServices(
   mainWindow: BrowserWindow,
@@ -99,6 +102,7 @@ export async function initializeStatisticsServices(
  * to prevent memory leaks and background processes.
  *
  * @returns {void}
+ * @source
  */
 export function shutdownStatisticsServices(): void {
   try {
@@ -117,6 +121,7 @@ export function shutdownStatisticsServices(): void {
  *
  * @param mainWindow - The main application window instance for IPC communication
  * @returns {void}
+ * @source
  */
 export function setupStatisticsIPC(mainWindow: BrowserWindow) {
   // Collection service controls

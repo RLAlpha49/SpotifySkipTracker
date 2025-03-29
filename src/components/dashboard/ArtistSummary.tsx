@@ -1,5 +1,7 @@
 /**
- * Artist Skip Pattern Analysis Component
+ * @packageDocumentation
+ * @module ArtistSummary
+ * @description Artist Skip Pattern Analysis Component
  *
  * Provides insight into which artists are most frequently skipped during
  * listening sessions, visualizing skip patterns by artist to help identify
@@ -81,6 +83,7 @@ interface ArtistSummaryProps {
  * @param props.artists - Array of artist data to visualize
  * @param props.maxItems - Maximum number of artists to show
  * @returns React component with artist skip pattern analysis
+ * @source
  */
 export function ArtistSummary({
   isLoading = false,

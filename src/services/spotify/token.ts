@@ -1,5 +1,7 @@
 /**
- * Spotify API Token Management Service
+ * @packageDocumentation
+ * @module spotify/token
+ * @description Spotify API Token Management Service
  *
  * This module provides comprehensive management of Spotify API authentication tokens,
  * handling all aspects of token lifecycle including storage, validation, retrieval,
@@ -59,6 +61,7 @@ const TOKEN_REFRESH_MARGIN = 300;
  * Checks if the current access token is valid (not expired)
  *
  * @returns true if the token is valid and not expired
+ * @source
  */
 export function isTokenValid(): boolean {
   // Check if token exists and has not yet reached expiry time
@@ -87,6 +90,7 @@ export function isTokenValid(): boolean {
  * @param newAccessToken - Access token from Spotify
  * @param newRefreshToken - Refresh token from Spotify
  * @param expiresIn - Token expiry time in seconds
+ * @source
  */
 export function setTokens(
   newAccessToken: string,
@@ -102,6 +106,7 @@ export function setTokens(
 
 /**
  * Clears all stored tokens
+ * @source
  */
 export function clearTokens(): void {
   accessToken = null;
@@ -115,6 +120,7 @@ export function clearTokens(): void {
  * Gets information about the current token state
  *
  * @returns Object with token information
+ * @source
  */
 export function getTokenInfo(): {
   hasAccessToken: boolean;
@@ -135,6 +141,7 @@ export function getTokenInfo(): {
  * Gets the current access token
  *
  * @returns Current access token or null if not set
+ * @source
  */
 export function getAccessToken(): string | null {
   return accessToken;
@@ -144,6 +151,7 @@ export function getAccessToken(): string | null {
  * Gets the current refresh token
  *
  * @returns Current refresh token or null if not set
+ * @source
  */
 export function getRefreshToken(): string | null {
   return refreshToken;
@@ -154,6 +162,7 @@ export function getRefreshToken(): string | null {
  *
  * @returns Promise resolving to token response with new access token
  * @throws Error if refresh fails or no refresh token is available
+ * @source
  */
 export async function refreshAccessToken(): Promise<SpotifyTokenRefreshResponse> {
   ensureCredentialsSet();
@@ -202,6 +211,7 @@ export async function refreshAccessToken(): Promise<SpotifyTokenRefreshResponse>
  * Ensures a valid access token is available, refreshing if necessary
  *
  * @throws Error if token refresh fails or no valid token is available
+ * @source
  */
 export async function ensureValidToken(): Promise<void> {
   ensureCredentialsSet();

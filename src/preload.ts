@@ -1,5 +1,7 @@
 /**
- * Electron Preload Script
+ * @packageDocumentation
+ * @module preload
+ * @description Electron Preload Script
  *
  * Executes in Electron's privileged context with access to both Node.js and limited
  * renderer process APIs. Establishes a secure bridge between main and renderer processes
@@ -9,6 +11,8 @@
  * - Expose IPC channels to renderer process through a controlled interface
  * - Maintain security by preventing direct access to Node.js from the renderer
  * - Provide type-safe communication between processes
+ *
+ * @source
  */
 
 import exposeContexts from "./helpers/ipc/context-exposer";

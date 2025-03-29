@@ -1,5 +1,7 @@
 /**
- * Application Restart Confirmation Dialog Component
+ * @packageDocumentation
+ * @module RestartDialog
+ * @description Application Restart Confirmation Dialog Component
  *
  * Provides a user interface for confirming application restart after settings
  * changes that require a restart to take effect. This dialog prompts users
@@ -59,6 +61,7 @@ interface RestartDialogProps {
  * @param props.setShowRestartDialog - Function to update dialog visibility
  * @param props.onRestart - Function to execute when restart is confirmed
  * @returns React component with restart confirmation dialog
+ * @source
  */
 export function RestartDialog({
   showRestartDialog,

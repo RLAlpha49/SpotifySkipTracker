@@ -1,5 +1,7 @@
 /**
- * Application Settings Validation Schema
+ * @packageDocumentation
+ * @module settingsFormSchema
+ * @description Application Settings Validation Schema
  *
  * Defines the validation rules, constraints, and type definitions for all
  * configurable application settings. This schema serves multiple purposes:
@@ -37,6 +39,7 @@ import * as z from "zod";
  * - Sets reasonable limits for resource-intensive features like logging
  * - Constrains polling frequency to prevent API rate limit issues
  * - Balances data retention with storage efficiency
+ * @source
  */
 export const settingsFormSchema = z.object({
   // Spotify API credentials

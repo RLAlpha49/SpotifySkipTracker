@@ -1,5 +1,7 @@
 /**
- * Dashboard Layout System
+ * @packageDocumentation
+ * @module DashboardLayout
+ * @description Dashboard Layout System
  *
  * Implements a responsive, data-focused layout that presents key application metrics
  * and visualizations in an organized dashboard format. The component intelligently
@@ -65,6 +67,7 @@ interface DashboardLayoutProps {
  * @param props.artistSummary - Content for the artist statistics panel
  * @param props.sessionOverview - Content for the listening session panel
  * @returns Dashboard layout with responsive arrangement of statistics panels
+ * @source
  */
 export function DashboardLayout({
   isLoading = false,

@@ -1,5 +1,7 @@
 /**
- * Token In-Memory State Management Module
+ * @packageDocumentation
+ * @module auth/storage/token-state
+ * @description Token In-Memory State Management Module
  *
  * Manages the ephemeral in-memory state of authentication tokens and related data
  * for the application's authentication system, providing fast access to authentication
@@ -54,6 +56,7 @@ export const REFRESH_MARGIN = 300;
  * if (token) {
  *   headers.Authorization = `Bearer ${token}`;
  * }
+ * @source
  */
 export function getAccessTokenState(): string | null {
   if (currentAccessToken) {
@@ -83,6 +86,7 @@ export function getAccessTokenState(): string | null {
  *   // We can refresh the access token when needed
  *   scheduleTokenRefresh(3600);
  * }
+ * @source
  */
 export function getRefreshTokenState(): string | null {
   if (currentRefreshToken) {
@@ -113,6 +117,7 @@ export function getRefreshTokenState(): string | null {
  *   // Token expires in less than a minute, refresh now
  *   refreshAccessToken();
  * }
+ * @source
  */
 export function getTokenExpiryState(): number | null {
   if (tokenExpiryTimestamp) {
@@ -135,6 +140,7 @@ export function getTokenExpiryState(): number | null {
  * @example
  * // Update token in memory after refresh
  * setAccessTokenState(newAccessToken);
+ * @source
  */
 export function setAccessTokenState(token: string | null): void {
   currentAccessToken = token;
@@ -152,6 +158,7 @@ export function setAccessTokenState(token: string | null): void {
  * @example
  * // Update refresh token in memory after authentication
  * setRefreshTokenState(newRefreshToken);
+ * @source
  */
 export function setRefreshTokenState(token: string | null): void {
   currentRefreshToken = token;
@@ -170,6 +177,7 @@ export function setRefreshTokenState(token: string | null): void {
  * // Calculate and set expiry timestamp
  * const expiryMs = Date.now() + (expiresIn * 1000);
  * setTokenExpiryState(expiryMs);
+ * @source
  */
 export function setTokenExpiryState(timestamp: number | null): void {
   tokenExpiryTimestamp = timestamp;
@@ -188,6 +196,7 @@ export function setTokenExpiryState(timestamp: number | null): void {
  * if (!getRefreshTimer()) {
  *   scheduleTokenRefresh(expiresIn);
  * }
+ * @source
  */
 export function getRefreshTimer(): NodeJS.Timeout | null {
   return refreshTimer;
@@ -205,6 +214,7 @@ export function getRefreshTimer(): NodeJS.Timeout | null {
  * // Set the refresh timer after scheduling
  * const timer = setTimeout(refreshAccessToken, 3300000);
  * setRefreshTimer(timer);
+ * @source
  */
 export function setRefreshTimer(timer: NodeJS.Timeout | null): void {
   refreshTimer = timer;
@@ -221,6 +231,7 @@ export function setRefreshTimer(timer: NodeJS.Timeout | null): void {
  * // Cancel automatic refresh during logout
  * clearRefreshTimer();
  * clearTokenState();
+ * @source
  */
 export function clearRefreshTimer(): void {
   if (refreshTimer) {
@@ -243,6 +254,7 @@ export function clearRefreshTimer(): void {
  * // Reset all authentication state during logout
  * clearTokenState();
  * displayLoginScreen();
+ * @source
  */
 export function clearTokenState(): void {
   currentAccessToken = null;

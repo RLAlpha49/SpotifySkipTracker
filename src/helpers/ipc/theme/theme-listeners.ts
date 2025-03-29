@@ -1,5 +1,7 @@
 /**
- * Theme Management IPC Handler Implementation
+ * @packageDocumentation
+ * @module theme-listeners
+ * @description Theme Management IPC Handler Implementation
  *
  * Implements the main process side of theme control, handling requests
  * from the renderer process to manipulate application appearance settings.
@@ -32,6 +34,7 @@ import {
  * Registers all theme-related IPC event listeners
  *
  * @returns void
+ * @source
  */
 export function addThemeEventListeners(): void {
   // Current theme mode handler

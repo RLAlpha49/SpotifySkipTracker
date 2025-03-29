@@ -1,5 +1,7 @@
 /**
- * Application Configuration and Preferences Center
+ * @packageDocumentation
+ * @module SettingsPage
+ * @description Application Configuration and Preferences Center
  *
  * Centralized system for managing all user-configurable aspects of the application
  * with real-time validation and safe persistence. Provides granular control over
@@ -49,6 +51,11 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import * as z from "zod";
 
+/**
+ * SettingsPage component
+ *
+ * @source
+ */
 export default function SettingsPage() {
   // State for application restart confirmation dialog
   const [showRestartDialog, setShowRestartDialog] = useState(false);
