@@ -1,3 +1,7 @@
 {
-  "reject": ["babel-plugin-react-compiler", "typedoc"]
+  "reject": [
+    "babel-plugin-react-compiler",
+    "typedoc",
+    "typedoc-plugin-missing-exports"
+  ]
 }
