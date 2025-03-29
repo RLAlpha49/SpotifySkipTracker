@@ -59,7 +59,7 @@
     "prettier-plugin-tailwindcss": "^0.6.11",
     "tailwindcss": "^4.0.17",
     "ts-node": "^10.9.2",
-    "typedoc": "^0.27.8",
+    "typedoc": "^0.28.1",
     "typedoc-plugin-extras": "^4.0.0",
     "typedoc-plugin-ga": "^1.0.5",
     "typedoc-plugin-inline-sources": "^1.2.1",
