@@ -36,6 +36,7 @@ import {
   Clock,
   Database,
   History,
+  InfoIcon,
   Shield,
   Trash2,
   X,
@@ -143,6 +144,18 @@ export function ClearStatisticsDialog({
                   <span>Time-based analytics and trends</span>
                 </li>
               </ul>
+            </div>
+
+            <div className="flex items-start gap-2 rounded-md border border-amber-200/50 bg-amber-50/50 p-3 text-amber-800 dark:border-amber-800/30 dark:bg-amber-950/20 dark:text-amber-400">
+              <div className="mt-0.5 shrink-0">
+                <InfoIcon className="h-4 w-4" />
+              </div>
+              <p className="text-xs">
+                <span className="font-medium">Important:</span> Some statistics
+                are derived from skipped track data. For a complete reset, you
+                should first clear your skipped tracks in the Skips tab, then
+                clear statistics.
+              </p>
             </div>
 
             <div className="pt-1 text-center">

@@ -241,7 +241,7 @@ export function ArtistsTab({ loading, statistics }: ArtistsTabProps) {
 
   // Prepare data for the skip rate bar charts
   const highSkipRateData = Object.entries(statistics.artistMetrics)
-    .filter(([, data]) => data.tracksPlayed >= 3)
+    .filter(([, data]) => data.tracksPlayed >= 1)
     .sort((a, b) => b[1].skipRate - a[1].skipRate)
     .slice(0, 8)
     .map(([, data]) => ({
@@ -387,7 +387,7 @@ export function ArtistsTab({ loading, statistics }: ArtistsTabProps) {
                         <div className="flex-1">
                           <Progress
                             value={percentage}
-                            className={`h-2.5 ${isTopArtist ? "bg-primary" : "bg-primary/60"}`}
+                            className={`h-2.5 ${isTopArtist ? "bg-primary" : "bg-muted/90"}`}
                           />
                         </div>
                         <div className="flex w-32 items-center justify-end gap-1.5 text-right text-xs">
@@ -520,7 +520,7 @@ export function ArtistsTab({ loading, statistics }: ArtistsTabProps) {
           {highSkipChartType === "list" ? (
             <div className="space-y-3">
               {Object.entries(statistics.artistMetrics)
-                .filter(([, data]) => data.tracksPlayed >= 3)
+                .filter(([, data]) => data.tracksPlayed >= 1)
                 .sort((a, b) => {
                   // First sort by skip rate (highest first)
                   const skipRateDiff = b[1].skipRate - a[1].skipRate;

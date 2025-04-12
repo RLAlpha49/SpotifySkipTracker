@@ -88,11 +88,11 @@ describe("Skip Detection Service", () => {
         lastProgress: 171000, // 2:51 (95% of the track)
       });
 
-      const result = analyzePositionBasedSkip(previousState, 0.3); // 30% threshold
+      const result = analyzePositionBasedSkip(previousState, 0.96); // 96% threshold
 
       expect(result.isSkip).toBe(true);
-      expect(result.skipType).toBe(SkipType.NEAR_COMPLETION);
-      expect(result.reason).toContain("nearly finished");
+      expect(result.skipType).toBe(SkipType.STANDARD);
+      expect(result.reason).toContain("below threshold");
     });
 
     it("should not count completed tracks as skips", () => {

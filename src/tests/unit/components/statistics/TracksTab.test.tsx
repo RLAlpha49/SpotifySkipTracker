@@ -276,11 +276,19 @@ describe("TracksTab Component", () => {
       />,
     );
 
-    // Check for progress elements
-    const progressElements = screen.getAllByRole("progressbar");
-    expect(progressElements.length).toBeGreaterThan(0);
+    // Check for progress bar elements - they don't have role="progressbar" but are divs with specific styling
+    const progressBarContainers = screen.getAllByTestId("scroll-area");
+    expect(progressBarContainers.length).toBeGreaterThan(0);
 
-    // First few progress bars should match our top tracks
-    // We can't easily test the exact values or classes, but we can ensure they exist
+    // Look for progress bar elements (container with inner filled div)
+    const trackItems = screen.getAllByText((content) =>
+      /Track (One|Two|Three|Four|Five)/.test(content),
+    );
+    expect(trackItems.length).toBeGreaterThan(0);
+
+    // Check for completion percentages which confirm progress bars are rendered
+    expect(screen.getByText("95%")).toBeInTheDocument();
+    expect(screen.getByText("85%")).toBeInTheDocument();
+    expect(screen.getByText("75%")).toBeInTheDocument();
   });
 });

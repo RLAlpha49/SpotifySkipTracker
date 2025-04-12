@@ -28,7 +28,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -305,10 +304,14 @@ export function TracksTab({ loading, statistics }: TracksTabProps) {
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="flex-1">
-                            <Progress
-                              value={completionPercentage}
-                              className={`h-2 ${getCompletionColor(completionPercentage)}`}
-                            />
+                            <div className="bg-muted/90 h-2 w-full overflow-hidden rounded-full">
+                              <div
+                                className={`h-full ${getCompletionColor(completionPercentage)}`}
+                                style={{
+                                  width: `${Math.min(completionPercentage, 100)}%`,
+                                }}
+                              ></div>
+                            </div>
                           </div>
                           <div className="flex w-20 items-center justify-end gap-1 text-right text-xs font-medium">
                             <Check
@@ -320,6 +323,7 @@ export function TracksTab({ loading, statistics }: TracksTabProps) {
                                   ? "text-emerald-500"
                                   : ""
                               }
+                              title={`${data.skipCount} skips out of ${data.playCount} plays`}
                             >
                               {completionPercentage.toFixed(0)}%
                             </span>

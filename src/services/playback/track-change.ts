@@ -439,8 +439,8 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
           state.currentDeviceName || null,
           state.currentDeviceType || null,
           Date.now(),
-          skipAnalysis.skipType, // Add skip type to statistics
-          skipTypeInfo.isManual, // Add whether it was manual or automatic
+          skipAnalysis.skipType,
+          skipTypeInfo.isManual,
         );
 
         store.saveLog(

@@ -31,8 +31,15 @@
 import { SkippedTrack } from "@/types/spotify";
 import { StatisticsData, TrackMetrics } from "@/types/statistics";
 import { app } from "electron";
-import { ensureDir, existsSync, readJsonSync, writeJsonSync } from "fs-extra";
+import {
+  ensureDir,
+  existsSync,
+  readJsonSync,
+  removeSync,
+  writeJsonSync,
+} from "fs-extra";
 import { join } from "path";
+import { triggerManualAggregation } from "../../services/statistics/collector";
 
 // Extended interface to add timeOfDayData property
 interface ExtendedTrackMetrics extends TrackMetrics {
@@ -527,8 +534,8 @@ export async function updateTrackStatistics(
   deviceName: string | null,
   deviceType: string | null,
   timestamp: number = Date.now(),
-  skipType: string = "standard",
-  isManualSkip: boolean = true,
+  skipType?: string,
+  isManualSkip?: boolean,
 ): Promise<boolean> {
   try {
     // Get current statistics data
@@ -604,27 +611,322 @@ export async function updateTrackStatistics(
       },
     };
 
+    // Update common metrics for ALL tracks (skipped or not)
     dailyMetric.listeningTimeMs += playedTimeMs;
     dailyMetric.tracksPlayed += 1;
 
-    // Update skip metrics if this was a skip
+    // Ensure uniqueArtists is a Set
+    if (!dailyMetric.uniqueArtists) {
+      dailyMetric.uniqueArtists = new Set<string>();
+    } else if (Array.isArray(dailyMetric.uniqueArtists)) {
+      dailyMetric.uniqueArtists = new Set<string>(dailyMetric.uniqueArtists);
+    } else if (
+      typeof dailyMetric.uniqueArtists === "object" &&
+      !(dailyMetric.uniqueArtists instanceof Set)
+    ) {
+      // Handle case where it's an object but not a Set
+      dailyMetric.uniqueArtists = new Set<string>();
+    }
+
+    // Ensure uniqueTracks is a Set
+    if (!dailyMetric.uniqueTracks) {
+      dailyMetric.uniqueTracks = new Set<string>();
+    } else if (Array.isArray(dailyMetric.uniqueTracks)) {
+      dailyMetric.uniqueTracks = new Set<string>(dailyMetric.uniqueTracks);
+    } else if (
+      typeof dailyMetric.uniqueTracks === "object" &&
+      !(dailyMetric.uniqueTracks instanceof Set)
+    ) {
+      // Handle case where it's an object but not a Set
+      dailyMetric.uniqueTracks = new Set<string>();
+    }
+
+    // Now safely add to Sets
+    (dailyMetric.uniqueArtists as Set<string>).add(artistId);
+    (dailyMetric.uniqueTracks as Set<string>).add(trackId);
+
+    // Update peak hour
+    const hourlyDist = [...statistics.hourlyDistribution];
+    hourlyDist[hourOfDay] += 1;
+    statistics.hourlyDistribution = hourlyDist;
+
+    // Update hourly listening time
+    if (!statistics.hourlyListeningTime) {
+      statistics.hourlyListeningTime = Array(24).fill(0);
+    }
+    statistics.hourlyListeningTime[hourOfDay] += playedTimeMs;
+
+    if (hourlyDist[hourOfDay] > hourlyDist[dailyMetric.peakHour]) {
+      dailyMetric.peakHour = hourOfDay;
+    }
+
+    // Update day of week distribution
+    const dayOfWeek = date.getDay(); // 0 (Sunday) to 6 (Saturday)
+    const dailyDist = [...statistics.dailyDistribution];
+    dailyDist[dayOfWeek] += 1;
+    statistics.dailyDistribution = dailyDist;
+
+    // Update weekly metrics
+    const weeklyMetric = statistics.weeklyMetrics[weekStr] || {
+      date: weekStr,
+      listeningTimeMs: 0,
+      tracksPlayed: 0,
+      tracksSkipped: 0,
+      uniqueArtists: new Set<string>(),
+      uniqueTracks: new Set<string>(),
+      mostActiveDay: 0,
+      avgSessionDurationMs: 0,
+    };
+
+    weeklyMetric.listeningTimeMs += playedTimeMs;
+    weeklyMetric.tracksPlayed += 1;
+
+    // Ensure uniqueArtists is a Set for weekly metrics
+    if (!weeklyMetric.uniqueArtists) {
+      weeklyMetric.uniqueArtists = new Set<string>();
+    } else if (Array.isArray(weeklyMetric.uniqueArtists)) {
+      weeklyMetric.uniqueArtists = new Set<string>(weeklyMetric.uniqueArtists);
+    } else if (
+      typeof weeklyMetric.uniqueArtists === "object" &&
+      !(weeklyMetric.uniqueArtists instanceof Set)
+    ) {
+      // Handle case where it's an object but not a Set
+      weeklyMetric.uniqueArtists = new Set<string>();
+    }
+
+    // Ensure uniqueTracks is a Set for weekly metrics
+    if (!weeklyMetric.uniqueTracks) {
+      weeklyMetric.uniqueTracks = new Set<string>();
+    } else if (Array.isArray(weeklyMetric.uniqueTracks)) {
+      weeklyMetric.uniqueTracks = new Set<string>(weeklyMetric.uniqueTracks);
+    } else if (
+      typeof weeklyMetric.uniqueTracks === "object" &&
+      !(weeklyMetric.uniqueTracks instanceof Set)
+    ) {
+      // Handle case where it's an object but not a Set
+      weeklyMetric.uniqueTracks = new Set<string>();
+    }
+
+    // Now safely add to Sets for weekly metrics
+    (weeklyMetric.uniqueArtists as Set<string>).add(artistId);
+    (weeklyMetric.uniqueTracks as Set<string>).add(trackId);
+
+    // Update monthly metrics
+    const monthlyMetric = statistics.monthlyMetrics[month] || {
+      date: month,
+      listeningTimeMs: 0,
+      tracksPlayed: 0,
+      tracksSkipped: 0,
+      uniqueArtists: new Set<string>(),
+      uniqueTracks: new Set<string>(),
+      weeklyTrend: [],
+      skipRateChange: 0,
+    };
+
+    monthlyMetric.listeningTimeMs += playedTimeMs;
+    monthlyMetric.tracksPlayed += 1;
+
+    // Ensure uniqueArtists is a Set for monthly metrics
+    if (!monthlyMetric.uniqueArtists) {
+      monthlyMetric.uniqueArtists = new Set<string>();
+    } else if (Array.isArray(monthlyMetric.uniqueArtists)) {
+      monthlyMetric.uniqueArtists = new Set<string>(
+        monthlyMetric.uniqueArtists,
+      );
+    } else if (
+      typeof monthlyMetric.uniqueArtists === "object" &&
+      !(monthlyMetric.uniqueArtists instanceof Set)
+    ) {
+      // Handle case where it's an object but not a Set
+      monthlyMetric.uniqueArtists = new Set<string>();
+    }
+
+    // Ensure uniqueTracks is a Set for monthly metrics
+    if (!monthlyMetric.uniqueTracks) {
+      monthlyMetric.uniqueTracks = new Set<string>();
+    } else if (Array.isArray(monthlyMetric.uniqueTracks)) {
+      monthlyMetric.uniqueTracks = new Set<string>(monthlyMetric.uniqueTracks);
+    } else if (
+      typeof monthlyMetric.uniqueTracks === "object" &&
+      !(monthlyMetric.uniqueTracks instanceof Set)
+    ) {
+      // Handle case where it's an object but not a Set
+      monthlyMetric.uniqueTracks = new Set<string>();
+    }
+
+    // Now safely add to Sets for monthly metrics
+    (monthlyMetric.uniqueArtists as Set<string>).add(artistId);
+    (monthlyMetric.uniqueTracks as Set<string>).add(trackId);
+
+    // Update artist metrics for ALL tracks
+    const artistMetric = statistics.artistMetrics[artistId] || {
+      id: artistId,
+      name: artistName,
+      listeningTimeMs: 0,
+      skipRate: 0,
+      tracksPlayed: 0,
+      avgListeningBeforeSkipMs: 0,
+      mostPlayedTrackId: "",
+      mostSkippedTrackId: "",
+      recentListenCount: 0,
+      isNewDiscovery: false,
+    };
+
+    artistMetric.listeningTimeMs += playedTimeMs;
+    artistMetric.tracksPlayed += 1;
+
+    // Track most played for ALL tracks
+    const artistTrackCount: Record<string, number> = {};
+
+    // Get existing data
+    Object.values(statistics.sessions).forEach((session) => {
+      session.trackIds.forEach((tid) => {
+        if (tid === trackId) {
+          artistTrackCount[tid] = (artistTrackCount[tid] || 0) + 1;
+        }
+      });
+    });
+
+    // Add current track play
+    artistTrackCount[trackId] = (artistTrackCount[trackId] || 0) + 1;
+
+    // Find most played track
+    let mostPlayed = artistMetric.mostPlayedTrackId;
+    let maxPlays = 0;
+
+    for (const [tid, count] of Object.entries(artistTrackCount)) {
+      if (count > maxPlays) {
+        maxPlays = count;
+        mostPlayed = tid;
+      }
+    }
+
+    artistMetric.mostPlayedTrackId = mostPlayed;
+
+    // Update device metrics for ALL tracks
+    const deviceId = `${deviceType || "Unknown"}-${deviceName || "Unknown"}`;
+    const deviceMetric = statistics.deviceMetrics[deviceId] || {
+      deviceType: deviceType || "Unknown",
+      deviceName: deviceName || "Unknown",
+      listeningTimeMs: 0,
+      tracksPlayed: 0,
+      skipRate: 0,
+      peakUsageHour: 0,
+    };
+
+    deviceMetric.listeningTimeMs += playedTimeMs;
+    deviceMetric.tracksPlayed += 1;
+
+    // Update track metrics
+    const trackMetric = statistics.trackMetrics[trackId] || {
+      id: trackId,
+      name: trackName,
+      artistName: artistName,
+      playCount: 0,
+      skipCount: 0,
+      avgCompletionPercent: 0,
+      lastPlayed: new Date().toISOString(),
+      hasBeenRepeated: false,
+    };
+
+    trackMetric.playCount += 1;
+
+    // Update average completion percentage for ALL tracks
+    const completionPercent = (playedTimeMs / durationMs) * 100;
+    trackMetric.avgCompletionPercent =
+      (trackMetric.avgCompletionPercent * (trackMetric.playCount - 1) +
+        completionPercent) /
+      trackMetric.playCount;
+
+    trackMetric.lastPlayed = new Date(timestamp).toISOString();
+
+    // Track session data for ALL tracks
+    // Determine if this belongs to an existing session or starts a new one
+    // Sessions are considered continuous if tracks are played within 30 minutes of each other
+    const currentTime = timestamp;
+    let sessionFound = false;
+
+    if (statistics.sessions && statistics.sessions.length > 0) {
+      // Reverse the array to find the most recent session first
+      const recentSessions = [...statistics.sessions].reverse();
+
+      for (const session of recentSessions) {
+        if (!session.endTime) continue; // Skip sessions without end time
+
+        const sessionEndTime = new Date(session.endTime).getTime();
+
+        // If within 30 minutes (1800000ms), add to existing session
+        if (currentTime - sessionEndTime <= 1800000) {
+          session.endTime = new Date(currentTime).toISOString();
+          session.durationMs =
+            currentTime - new Date(session.startTime).getTime();
+
+          if (!session.trackIds) session.trackIds = [];
+          session.trackIds.push(trackId);
+
+          session.deviceName = deviceName || session.deviceName;
+          session.deviceType = deviceType || session.deviceType;
+
+          // Check for track repetition within session
+          if (session.repeatedTracks === undefined) session.repeatedTracks = 0;
+          const trackOccurrences = session.trackIds.filter(
+            (id) => id === trackId,
+          ).length;
+          if (trackOccurrences > 1) {
+            session.repeatedTracks += 1;
+          }
+
+          sessionFound = true;
+          break;
+        }
+      }
+    }
+
+    // If no suitable session found, create new one
+    if (!sessionFound) {
+      const newSession = {
+        id: `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        startTime: new Date(currentTime).toISOString(),
+        endTime: new Date(currentTime).toISOString(),
+        durationMs: 0,
+        trackIds: [trackId],
+        skippedTracks: wasSkipped ? 1 : 0,
+        deviceName: deviceName || "Unknown",
+        deviceType: deviceType || "Unknown",
+        repeatedTracks: 0,
+        longestNonSkipStreak: wasSkipped ? 0 : 1,
+      };
+
+      if (!statistics.sessions) statistics.sessions = [];
+      statistics.sessions.push(newSession);
+
+      // Keep only the 100 most recent sessions
+      if (statistics.sessions.length > 100) {
+        statistics.sessions = statistics.sessions.slice(-100);
+      }
+    }
+
+    // Update skip-specific metrics if this was a skip
     if (wasSkipped) {
       dailyMetric.tracksSkipped += 1;
+      weeklyMetric.tracksSkipped += 1;
+      monthlyMetric.tracksSkipped += 1;
+      trackMetric.skipCount += 1;
 
-      // Update skip type metrics
-      if (wasSkipped) {
-        // Ensure skipsByType is initialized
-        if (!dailyMetric.skipsByType) {
-          dailyMetric.skipsByType = {
-            preview: 0,
-            standard: 0,
-            near_end: 0,
-            auto: 0,
-            manual: 0,
-          };
-        }
+      // Skip type metrics
+      // Ensure skipsByType is initialized
+      if (!dailyMetric.skipsByType) {
+        dailyMetric.skipsByType = {
+          preview: 0,
+          standard: 0,
+          near_end: 0,
+          auto: 0,
+          manual: 0,
+        };
+      }
 
-        // Increment the appropriate skip type counter
+      // Increment the appropriate skip type counter if skipType is provided
+      if (skipType) {
         if (skipType === "preview") {
           dailyMetric.skipsByType.preview += 1;
           statistics.skipTypeMetrics.preview += 1;
@@ -639,8 +941,14 @@ export async function updateTrackStatistics(
           dailyMetric.skipsByType.standard += 1;
           statistics.skipTypeMetrics.standard += 1;
         }
+      } else {
+        // Default to standard if no skipType provided
+        dailyMetric.skipsByType.standard += 1;
+        statistics.skipTypeMetrics.standard += 1;
+      }
 
-        // Update manual/auto skip counts
+      // Update manual/auto skip counts only if isManualSkip is provided
+      if (isManualSkip !== undefined) {
         if (isManualSkip) {
           dailyMetric.skipsByType.manual += 1;
           statistics.skipTypeMetrics.manual += 1;
@@ -648,279 +956,30 @@ export async function updateTrackStatistics(
           dailyMetric.skipsByType.auto += 1;
           statistics.skipTypeMetrics.auto += 1;
         }
+      }
 
-        // Update hourly distribution for skipped tracks
-        statistics.skipTypeMetrics.byTimeOfDay[hourOfDay] += 1;
+      // Update hourly distribution for skipped tracks
+      statistics.skipTypeMetrics.byTimeOfDay[hourOfDay] += 1;
 
-        // If we have a track id and the track metrics exist, update time-of-day data
-        if (trackId && statistics.trackMetrics[trackId]) {
-          const trackMetric = statistics.trackMetrics[
-            trackId
-          ] as ExtendedTrackMetrics;
+      // If we have a track id and the track metrics exist, update time-of-day data
+      if (trackId && statistics.trackMetrics[trackId]) {
+        const trackMetric = statistics.trackMetrics[
+          trackId
+        ] as ExtendedTrackMetrics;
 
-          // Initialize time-of-day data if needed
-          if (!trackMetric.timeOfDayData) {
-            trackMetric.timeOfDayData = Array(24).fill(0);
-          }
-
-          // Increment skip count for this hour
-          trackMetric.timeOfDayData[hourOfDay] += 1;
+        // Initialize time-of-day data if needed
+        if (!trackMetric.timeOfDayData) {
+          trackMetric.timeOfDayData = Array(24).fill(0);
         }
+
+        // Increment skip count for this hour
+        trackMetric.timeOfDayData[hourOfDay] += 1;
       }
 
-      // Ensure uniqueArtists is a Set
-      if (!dailyMetric.uniqueArtists) {
-        dailyMetric.uniqueArtists = new Set<string>();
-      } else if (Array.isArray(dailyMetric.uniqueArtists)) {
-        dailyMetric.uniqueArtists = new Set<string>(dailyMetric.uniqueArtists);
-      } else if (
-        typeof dailyMetric.uniqueArtists === "object" &&
-        !(dailyMetric.uniqueArtists instanceof Set)
-      ) {
-        // Handle case where it's an object but not a Set
-        dailyMetric.uniqueArtists = new Set<string>();
-      }
-
-      // Ensure uniqueTracks is a Set
-      if (!dailyMetric.uniqueTracks) {
-        dailyMetric.uniqueTracks = new Set<string>();
-      } else if (Array.isArray(dailyMetric.uniqueTracks)) {
-        dailyMetric.uniqueTracks = new Set<string>(dailyMetric.uniqueTracks);
-      } else if (
-        typeof dailyMetric.uniqueTracks === "object" &&
-        !(dailyMetric.uniqueTracks instanceof Set)
-      ) {
-        // Handle case where it's an object but not a Set
-        dailyMetric.uniqueTracks = new Set<string>();
-      }
-
-      // Now safely add to Sets
-      (dailyMetric.uniqueArtists as Set<string>).add(artistId);
-      (dailyMetric.uniqueTracks as Set<string>).add(trackId);
-
-      // Update peak hour
-      const hourlyDist = [...statistics.hourlyDistribution];
-      hourlyDist[hourOfDay] += 1;
-      statistics.hourlyDistribution = hourlyDist;
-
-      // Update hourly listening time
-      if (!statistics.hourlyListeningTime) {
-        statistics.hourlyListeningTime = Array(24).fill(0);
-      }
-      statistics.hourlyListeningTime[hourOfDay] += playedTimeMs;
-
-      if (hourlyDist[hourOfDay] > hourlyDist[dailyMetric.peakHour]) {
-        dailyMetric.peakHour = hourOfDay;
-      }
-
-      statistics.dailyMetrics[dateStr] = dailyMetric;
-
-      // Update day of week distribution
-      const dayOfWeek = date.getDay(); // 0 (Sunday) to 6 (Saturday)
-      const dailyDist = [...statistics.dailyDistribution];
-      dailyDist[dayOfWeek] += 1;
-      statistics.dailyDistribution = dailyDist;
-
-      // Update weekly metrics
-      const weeklyMetric = statistics.weeklyMetrics[weekStr] || {
-        date: weekStr,
-        listeningTimeMs: 0,
-        tracksPlayed: 0,
-        tracksSkipped: 0,
-        uniqueArtists: new Set<string>(),
-        uniqueTracks: new Set<string>(),
-        mostActiveDay: 0,
-        avgSessionDurationMs: 0,
-      };
-
-      weeklyMetric.listeningTimeMs += playedTimeMs;
-      weeklyMetric.tracksPlayed += 1;
-      if (wasSkipped) weeklyMetric.tracksSkipped += 1;
-
-      // Ensure uniqueArtists is a Set
-      if (!weeklyMetric.uniqueArtists) {
-        weeklyMetric.uniqueArtists = new Set<string>();
-      } else if (Array.isArray(weeklyMetric.uniqueArtists)) {
-        weeklyMetric.uniqueArtists = new Set<string>(
-          weeklyMetric.uniqueArtists,
-        );
-      } else if (
-        typeof weeklyMetric.uniqueArtists === "object" &&
-        !(weeklyMetric.uniqueArtists instanceof Set)
-      ) {
-        // Handle case where it's an object but not a Set
-        weeklyMetric.uniqueArtists = new Set<string>();
-      }
-
-      // Ensure uniqueTracks is a Set
-      if (!weeklyMetric.uniqueTracks) {
-        weeklyMetric.uniqueTracks = new Set<string>();
-      } else if (Array.isArray(weeklyMetric.uniqueTracks)) {
-        weeklyMetric.uniqueTracks = new Set<string>(weeklyMetric.uniqueTracks);
-      } else if (
-        typeof weeklyMetric.uniqueTracks === "object" &&
-        !(weeklyMetric.uniqueTracks instanceof Set)
-      ) {
-        // Handle case where it's an object but not a Set
-        weeklyMetric.uniqueTracks = new Set<string>();
-      }
-
-      // Now safely add to Sets
-      (weeklyMetric.uniqueArtists as Set<string>).add(artistId);
-      (weeklyMetric.uniqueTracks as Set<string>).add(trackId);
-
-      // Update most active day for the week
-      const weekDayDist = Array(7).fill(0);
-      for (const date in statistics.dailyMetrics) {
-        if (date.startsWith(weekStr.substring(0, 4))) {
-          const dayDate = new Date(date);
-          const weekNum = getISOWeek(dayDate);
-          const weekOfDay = `${dayDate.getFullYear()}-W${weekNum.toString().padStart(2, "0")}`;
-
-          if (weekOfDay === weekStr) {
-            const dayIdx = dayDate.getDay();
-            weekDayDist[dayIdx] += statistics.dailyMetrics[date].tracksPlayed;
-          }
-        }
-      }
-
-      weeklyMetric.mostActiveDay = weekDayDist.indexOf(
-        Math.max(...weekDayDist),
-      );
-      statistics.weeklyMetrics[weekStr] = weeklyMetric;
-
-      // Update monthly metrics
-      const monthlyMetric = statistics.monthlyMetrics[month] || {
-        date: month,
-        listeningTimeMs: 0,
-        tracksPlayed: 0,
-        tracksSkipped: 0,
-        uniqueArtists: new Set<string>(),
-        uniqueTracks: new Set<string>(),
-        weeklyTrend: [],
-        skipRateChange: 0,
-      };
-
-      monthlyMetric.listeningTimeMs += playedTimeMs;
-      monthlyMetric.tracksPlayed += 1;
-      if (wasSkipped) monthlyMetric.tracksSkipped += 1;
-
-      // Ensure uniqueArtists is a Set
-      if (!monthlyMetric.uniqueArtists) {
-        monthlyMetric.uniqueArtists = new Set<string>();
-      } else if (Array.isArray(monthlyMetric.uniqueArtists)) {
-        monthlyMetric.uniqueArtists = new Set<string>(
-          monthlyMetric.uniqueArtists,
-        );
-      } else if (
-        typeof monthlyMetric.uniqueArtists === "object" &&
-        !(monthlyMetric.uniqueArtists instanceof Set)
-      ) {
-        // Handle case where it's an object but not a Set
-        monthlyMetric.uniqueArtists = new Set<string>();
-      }
-
-      // Ensure uniqueTracks is a Set
-      if (!monthlyMetric.uniqueTracks) {
-        monthlyMetric.uniqueTracks = new Set<string>();
-      } else if (Array.isArray(monthlyMetric.uniqueTracks)) {
-        monthlyMetric.uniqueTracks = new Set<string>(
-          monthlyMetric.uniqueTracks,
-        );
-      } else if (
-        typeof monthlyMetric.uniqueTracks === "object" &&
-        !(monthlyMetric.uniqueTracks instanceof Set)
-      ) {
-        // Handle case where it's an object but not a Set
-        monthlyMetric.uniqueTracks = new Set<string>();
-      }
-
-      // Now safely add to Sets
-      (monthlyMetric.uniqueArtists as Set<string>).add(artistId);
-      (monthlyMetric.uniqueTracks as Set<string>).add(trackId);
-
-      // Calculate weekly trends for the month
-      const weeks = Object.keys(statistics.weeklyMetrics)
-        .filter((w) => w.startsWith(month.substring(0, 4)))
-        .filter((w) => {
-          const weekDate = getDateOfISOWeek(
-            parseInt(w.substring(6)),
-            parseInt(w.substring(0, 4)),
-          );
-          return weekDate.toISOString().substring(0, 7) === month;
-        });
-
-      monthlyMetric.weeklyTrend = weeks.map(
-        (w) => statistics.weeklyMetrics[w].tracksPlayed,
-      );
-
-      // Calculate month-over-month skip rate change
-      const prevMonth = new Date(date.getFullYear(), date.getMonth() - 1, 1)
-        .toISOString()
-        .substring(0, 7);
-
-      if (statistics.monthlyMetrics[prevMonth]) {
-        const prevMonthData = statistics.monthlyMetrics[prevMonth];
-        const prevSkipRate =
-          prevMonthData.tracksSkipped / prevMonthData.tracksPlayed;
-        const currentSkipRate =
-          monthlyMetric.tracksSkipped / monthlyMetric.tracksPlayed;
-
-        // Calculate percentage change
-        monthlyMetric.skipRateChange =
-          currentSkipRate !== 0 && prevSkipRate !== 0
-            ? ((currentSkipRate - prevSkipRate) / prevSkipRate) * 100
-            : 0;
-      }
-
-      statistics.monthlyMetrics[month] = monthlyMetric;
-
-      // Update artist metrics
-      const artistMetric = statistics.artistMetrics[artistId] || {
-        id: artistId,
-        name: artistName,
-        listeningTimeMs: 0,
-        skipRate: 0,
-        tracksPlayed: 0,
-        avgListeningBeforeSkipMs: 0,
-        mostPlayedTrackId: "",
-        mostSkippedTrackId: "",
-        recentListenCount: 0,
-        isNewDiscovery: false,
-      };
-
-      artistMetric.listeningTimeMs += playedTimeMs;
-      artistMetric.tracksPlayed += 1;
-
-      // Track most played and most skipped
-      const artistTrackCount: Record<string, number> = {};
+      // Track most skipped
       const artistSkipCount: Record<string, number> = {};
-
-      // Get existing data
-      Object.values(statistics.sessions).forEach((session) => {
-        session.trackIds.forEach((tid) => {
-          if (tid === trackId) {
-            artistTrackCount[tid] = (artistTrackCount[tid] || 0) + 1;
-          }
-        });
-      });
-
-      // Add current track play
-      artistTrackCount[trackId] = (artistTrackCount[trackId] || 0) + 1;
-
       if (wasSkipped) {
         artistSkipCount[trackId] = (artistSkipCount[trackId] || 0) + 1;
-      }
-
-      // Find most played track
-      let mostPlayed = artistMetric.mostPlayedTrackId;
-      let maxPlays = 0;
-
-      for (const [tid, count] of Object.entries(artistTrackCount)) {
-        if (count > maxPlays) {
-          maxPlays = count;
-          mostPlayed = tid;
-        }
       }
 
       // Find most skipped track
@@ -934,249 +993,31 @@ export async function updateTrackStatistics(
         }
       }
 
-      artistMetric.mostPlayedTrackId = mostPlayed;
       artistMetric.mostSkippedTrackId = mostSkipped;
 
-      // Update skip rate and average listening time
+      // Update artist skip rate
       const totalPlays = artistMetric.tracksPlayed;
       const newSkipRate =
-        (artistMetric.skipRate * (totalPlays - 1) + (wasSkipped ? 1 : 0)) /
-        totalPlays;
+        (artistMetric.skipRate * (totalPlays - 1) + 1) / totalPlays;
 
       artistMetric.skipRate = newSkipRate;
 
-      if (wasSkipped) {
-        const oldAvgTimeBeforeSkip = artistMetric.avgListeningBeforeSkipMs;
-        const oldSkipCount = Math.round(
-          artistMetric.skipRate * (totalPlays - 1),
-        );
+      // Update average listening time before skip
+      const oldAvgTimeBeforeSkip = artistMetric.avgListeningBeforeSkipMs;
+      const oldSkipCount = Math.round(artistMetric.skipRate * (totalPlays - 1));
 
-        if (oldSkipCount > 0) {
-          artistMetric.avgListeningBeforeSkipMs =
-            (oldAvgTimeBeforeSkip * oldSkipCount + playedTimeMs) /
-            (oldSkipCount + 1);
-        } else {
-          artistMetric.avgListeningBeforeSkipMs = playedTimeMs;
-        }
+      if (oldSkipCount > 0) {
+        artistMetric.avgListeningBeforeSkipMs =
+          (oldAvgTimeBeforeSkip * oldSkipCount + playedTimeMs) /
+          (oldSkipCount + 1);
+      } else {
+        artistMetric.avgListeningBeforeSkipMs = playedTimeMs;
       }
-
-      // Calculate recent listen count and new discovery status
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
-
-      // Check when this artist was first listened to
-      const firstListen =
-        Object.entries(statistics.dailyMetrics)
-          .filter(([, metric]) => {
-            const artistsArray = Array.isArray(metric.uniqueArtists)
-              ? metric.uniqueArtists
-              : Array.from(metric.uniqueArtists as Set<string>);
-            return artistsArray.includes(artistId);
-          })
-          .map(([dateKey]) => dateKey)
-          .sort()[0] || dateStr;
-
-      // Update new discovery status
-      artistMetric.isNewDiscovery = firstListen >= thirtyDaysAgoStr;
-
-      // If this is a new discovery, add to recent discoveries list
-      if (
-        artistMetric.isNewDiscovery &&
-        !statistics.recentDiscoveries?.includes(artistId)
-      ) {
-        statistics.recentDiscoveries?.push(artistId);
-        // Keep the list trimmed to most recent 50 discoveries
-        if (
-          statistics.recentDiscoveries &&
-          statistics.recentDiscoveries.length > 50
-        ) {
-          statistics.recentDiscoveries =
-            statistics.recentDiscoveries.slice(-50);
-        }
-      }
-
-      // Count plays in the last 30 days
-      artistMetric.recentListenCount = Object.entries(statistics.dailyMetrics)
-        .filter(([dateKey]) => dateKey >= thirtyDaysAgoStr)
-        .reduce((count, [, metric]) => {
-          const artistsArray = Array.isArray(metric.uniqueArtists)
-            ? metric.uniqueArtists
-            : Array.from(metric.uniqueArtists as Set<string>);
-          return count + (artistsArray.includes(artistId) ? 1 : 0);
-        }, 1); // Include current play
-
-      statistics.artistMetrics[artistId] = artistMetric;
-
-      // Update global statistics - recalculate instead of using the existing logic
-      statistics.totalUniqueTracks = calculateUniqueTrackCount(statistics);
-      statistics.totalUniqueArtists = calculateUniqueArtistCount(statistics);
-
-      statistics.totalListeningTimeMs += playedTimeMs;
-
-      // Calculate overall skip rate
-      const totalTracks = Object.values(statistics.dailyMetrics).reduce(
-        (sum, day) => sum + day.tracksPlayed,
-        0,
-      );
-
-      const totalSkipped = Object.values(statistics.dailyMetrics).reduce(
-        (sum, day) => sum + day.tracksSkipped,
-        0,
-      );
-
-      statistics.overallSkipRate =
-        totalTracks > 0 ? totalSkipped / totalTracks : 0;
-
-      // Update recent skip rate trend (last 14 days)
-      const last14Days = Object.keys(statistics.dailyMetrics).sort().slice(-14);
-
-      statistics.recentSkipRateTrend = last14Days.map((dateKey) => {
-        const metric = statistics.dailyMetrics[dateKey];
-        return metric.tracksPlayed > 0
-          ? metric.tracksSkipped / metric.tracksPlayed
-          : 0;
-      });
-
-      // Pad with zeros if we don't have 14 days of data yet
-      while (statistics.recentSkipRateTrend.length < 14) {
-        statistics.recentSkipRateTrend.unshift(0);
-      }
-
-      // Update recent listening time trend (last 14 days)
-      statistics.recentListeningTimeTrend = last14Days.map((dateKey) => {
-        return statistics.dailyMetrics[dateKey].listeningTimeMs;
-      });
-
-      // Pad with zeros if we don't have 14 days of data yet
-      while (statistics.recentListeningTimeTrend.length < 14) {
-        statistics.recentListeningTimeTrend.unshift(0);
-      }
-
-      // Update top artists and calculate discovery rate
-      const artistPlaytime: Record<string, number> = {};
-      const firstAppearances: Record<string, string> = {}; // artistId -> first date
-
-      // Calculate artist playtime and first appearances
-      for (const [date, day] of Object.entries(statistics.dailyMetrics)) {
-        let artists: string[] = [];
-
-        // Handle both Set and array types
-        if (day.uniqueArtists instanceof Set) {
-          artists = Array.from(day.uniqueArtists);
-        } else if (Array.isArray(day.uniqueArtists)) {
-          artists = day.uniqueArtists;
-        }
-
-        artists.forEach((artistId) => {
-          if (
-            !firstAppearances[artistId] ||
-            date < firstAppearances[artistId]
-          ) {
-            firstAppearances[artistId] = date;
-          }
-        });
-      }
-
-      // Sum up artist playtimes
-      for (const [artistId, metrics] of Object.entries(
-        statistics.artistMetrics,
-      )) {
-        artistPlaytime[artistId] = metrics.listeningTimeMs;
-      }
-
-      // Sort artists by playtime and get top IDs
-      statistics.topArtistIds = Object.entries(artistPlaytime)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(([id]) => id);
-
-      // Calculate discovery rate (new artists in last 30 days / total artists)
-      const newArtistsCount = Object.values(firstAppearances).filter(
-        (date) => date >= thirtyDaysAgoStr,
-      ).length;
-
-      statistics.discoveryRate =
-        statistics.totalUniqueArtists > 0
-          ? newArtistsCount / statistics.totalUniqueArtists
-          : 0;
-
-      // Update device metrics
-      const deviceId = `${deviceType || "Unknown"}-${deviceName || "Unknown"}`;
-      const deviceMetric = statistics.deviceMetrics[deviceId] || {
-        deviceType: deviceType || "Unknown",
-        deviceName: deviceName || "Unknown",
-        listeningTimeMs: 0,
-        tracksPlayed: 0,
-        skipRate: 0,
-        peakUsageHour: 0,
-      };
-
-      deviceMetric.listeningTimeMs += playedTimeMs;
-      deviceMetric.tracksPlayed += 1;
 
       // Update device skip rate
       deviceMetric.skipRate =
-        (deviceMetric.skipRate * (deviceMetric.tracksPlayed - 1) +
-          (wasSkipped ? 1 : 0)) /
+        (deviceMetric.skipRate * (deviceMetric.tracksPlayed - 1) + 1) /
         deviceMetric.tracksPlayed;
-
-      // Update peak usage hour
-      const deviceHourCount: Record<number, number> = {};
-
-      // Increment current hour
-      deviceHourCount[hourOfDay] = (deviceHourCount[hourOfDay] || 0) + 1;
-
-      // Find peak usage hour
-      let peakHour = deviceMetric.peakUsageHour;
-      let maxUsage = deviceHourCount[peakHour] || 0;
-
-      for (const [hour, count] of Object.entries(deviceHourCount)) {
-        if (count > maxUsage) {
-          maxUsage = count;
-          peakHour = parseInt(hour);
-        }
-      }
-
-      deviceMetric.peakUsageHour = peakHour;
-      statistics.deviceMetrics[deviceId] = deviceMetric;
-
-      // Update track metrics
-      const trackMetric = statistics.trackMetrics[trackId] || {
-        id: trackId,
-        name: trackName,
-        artistName: artistName,
-        playCount: 0,
-        skipCount: 0,
-        avgCompletionPercent: 0,
-        lastPlayed: new Date().toISOString(),
-        hasBeenRepeated: false,
-      };
-
-      trackMetric.playCount += 1;
-      if (wasSkipped) trackMetric.skipCount += 1;
-
-      // Update average completion percentage
-      const completionPercent = (playedTimeMs / durationMs) * 100;
-      trackMetric.avgCompletionPercent =
-        (trackMetric.avgCompletionPercent * (trackMetric.playCount - 1) +
-          completionPercent) /
-        trackMetric.playCount;
-
-      trackMetric.lastPlayed = new Date(timestamp).toISOString();
-
-      // Check if track has been repeated in the current session
-      if (statistics.sessions && statistics.sessions.length > 0) {
-        const currentSession =
-          statistics.sessions[statistics.sessions.length - 1];
-        // If the track appears more than once in the current session
-        if (currentSession.trackIds) {
-          trackMetric.hasBeenRepeated =
-            currentSession.trackIds.filter((id) => id === trackId).length > 1;
-        }
-      }
-
-      statistics.trackMetrics[trackId] = trackMetric;
 
       // Update skip patterns
       const skipPatternKey = dateStr;
@@ -1189,7 +1030,7 @@ export async function updateTrackStatistics(
       };
 
       // Track consecutive skips
-      if (wasSkipped && statistics.sessions && statistics.sessions.length > 0) {
+      if (statistics.sessions && statistics.sessions.length > 0) {
         const currentSession =
           statistics.sessions[statistics.sessions.length - 1];
 
@@ -1251,174 +1092,311 @@ export async function updateTrackStatistics(
       }
 
       statistics.skipPatterns[skipPatternKey] = skipPattern;
-      statistics.dailyMetrics[dateStr] = dailyMetric;
 
-      // Update sessions or create new session
-      // Determine if this belongs to an existing session or starts a new one
-      // Sessions are considered continuous if tracks are played within 30 minutes of each other
-      const currentTime = timestamp;
-      let sessionFound = false;
-
+      // Update skippedTracks for session
       if (statistics.sessions && statistics.sessions.length > 0) {
-        // Reverse the array to find the most recent session first
-        const recentSessions = [...statistics.sessions].reverse();
+        const currentSession =
+          statistics.sessions[statistics.sessions.length - 1];
+        if (!currentSession.skippedTracks) currentSession.skippedTracks = 0;
+        currentSession.skippedTracks += 1;
+      }
+    } else {
+      // For non-skipped tracks, update non-skip streak
+      if (statistics.sessions && statistics.sessions.length > 0) {
+        const currentSession =
+          statistics.sessions[statistics.sessions.length - 1];
 
-        for (const session of recentSessions) {
-          if (!session.endTime) continue; // Skip sessions without end time
+        // Calculate non-skip streaks
+        if (currentSession.longestNonSkipStreak === undefined)
+          currentSession.longestNonSkipStreak = 0;
 
-          const sessionEndTime = new Date(session.endTime).getTime();
+        // Count current non-skip streak
+        let currentStreak = 1;
+        let i = currentSession.trackIds.length - 2; // Start from previous track
 
-          // If within 30 minutes (1800000ms), add to existing session
-          if (currentTime - sessionEndTime <= 1800000) {
-            session.endTime = new Date(currentTime).toISOString();
-            session.durationMs =
-              currentTime - new Date(session.startTime).getTime();
-
-            if (!session.trackIds) session.trackIds = [];
-            session.trackIds.push(trackId);
-
-            if (!session.skippedTracks) session.skippedTracks = 0;
-            if (wasSkipped) session.skippedTracks += 1;
-
-            session.deviceName = deviceName || session.deviceName;
-            session.deviceType = deviceType || session.deviceType;
-
-            // Check for track repetition within session
-            if (session.repeatedTracks === undefined)
-              session.repeatedTracks = 0;
-            const trackOccurrences = session.trackIds.filter(
-              (id) => id === trackId,
-            ).length;
-            if (trackOccurrences > 1) {
-              session.repeatedTracks += 1;
-            }
-
-            // Calculate non-skip streaks
-            if (session.longestNonSkipStreak === undefined)
-              session.longestNonSkipStreak = 0;
-
-            // Count current non-skip streak if not skipped
-            if (!wasSkipped && session.trackIds) {
-              let currentStreak = 1;
-              let i = session.trackIds.length - 2; // Start from previous track
-
-              while (i >= 0) {
-                const prevTrackId = session.trackIds[i];
-                const prevTrackMetric = statistics.trackMetrics[prevTrackId];
-                if (
-                  prevTrackMetric &&
-                  prevTrackMetric.skipCount < prevTrackMetric.playCount
-                ) {
-                  currentStreak++;
-                } else {
-                  break;
-                }
-                i--;
-              }
-
-              // Update longest streak if current one is longer
-              if (currentStreak > session.longestNonSkipStreak) {
-                session.longestNonSkipStreak = currentStreak;
-              }
-            }
-
-            sessionFound = true;
+        while (i >= 0) {
+          const prevTrackId = currentSession.trackIds[i];
+          const prevTrackMetric = statistics.trackMetrics[prevTrackId];
+          if (
+            prevTrackMetric &&
+            prevTrackMetric.skipCount < prevTrackMetric.playCount
+          ) {
+            currentStreak++;
+          } else {
             break;
           }
+          i--;
         }
-      }
 
-      // If no suitable session found, create new one
-      if (!sessionFound) {
-        const newSession = {
-          id: `session-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          startTime: new Date(currentTime).toISOString(),
-          endTime: new Date(currentTime).toISOString(),
-          durationMs: 0,
-          trackIds: [trackId],
-          skippedTracks: wasSkipped ? 1 : 0,
-          deviceName: deviceName || "Unknown",
-          deviceType: deviceType || "Unknown",
-          repeatedTracks: 0,
-          longestNonSkipStreak: wasSkipped ? 0 : 1,
-        };
-
-        if (!statistics.sessions) statistics.sessions = [];
-        statistics.sessions.push(newSession);
-
-        // Keep only the 100 most recent sessions
-        if (statistics.sessions.length > 100) {
-          statistics.sessions = statistics.sessions.slice(-100);
+        // Update longest streak if current one is longer
+        if (currentStreak > currentSession.longestNonSkipStreak) {
+          currentSession.longestNonSkipStreak = currentStreak;
         }
-      }
-
-      // Calculate average session duration
-      if (statistics.sessions && statistics.sessions.length > 0) {
-        const totalDuration = statistics.sessions.reduce(
-          (sum, session) => sum + (session.durationMs || 0),
-          0,
-        );
-        statistics.avgSessionDurationMs =
-          totalDuration / statistics.sessions.length;
-
-        // Update weekly metric's avg session duration
-        if (weeklyMetric && weeklyMetric.avgSessionDurationMs !== undefined) {
-          const sessionsThisWeek = statistics.sessions.filter((session) => {
-            if (!session.startTime) return false;
-            const sessionDate = new Date(session.startTime);
-            const sessionWeekNum = getISOWeek(sessionDate);
-            const sessionWeekStr = `${sessionDate.getFullYear()}-W${sessionWeekNum.toString().padStart(2, "0")}`;
-            return sessionWeekStr === weekStr;
-          });
-
-          if (sessionsThisWeek.length > 0) {
-            const weekTotalDuration = sessionsThisWeek.reduce(
-              (sum, session) => sum + (session.durationMs || 0),
-              0,
-            );
-            weeklyMetric.avgSessionDurationMs =
-              weekTotalDuration / sessionsThisWeek.length;
-          }
-        }
-      }
-
-      // Calculate repeat listening rate
-      if (statistics.sessions && statistics.sessions.length > 0) {
-        const totalRepeatTracks = statistics.sessions.reduce(
-          (sum, session) => sum + (session.repeatedTracks || 0),
-          0,
-        );
-        const totalTracksInSessions = statistics.sessions.reduce(
-          (sum, session) =>
-            sum + (session.trackIds ? session.trackIds.length : 0),
-          0,
-        );
-
-        statistics.repeatListeningRate =
-          totalTracksInSessions > 0
-            ? totalRepeatTracks / totalTracksInSessions
-            : 0;
-      }
-
-      // Make sure to update all the metrics by assigning them back to the statistics object
-      if (weeklyMetric) statistics.weeklyMetrics[weekStr] = weeklyMetric;
-      if (monthlyMetric) statistics.monthlyMetrics[month] = monthlyMetric;
-      if (artistMetric) statistics.artistMetrics[artistId] = artistMetric;
-      statistics.dailyMetrics[dateStr] = dailyMetric;
-      statistics.skipPatterns[skipPatternKey] = skipPattern;
-
-      // Save updated statistics
-      try {
-        await saveStatistics(statistics);
-        return true;
-      } catch (error) {
-        console.error("Failed to save updated statistics:", error);
-        return false;
       }
     }
 
-    // Add explicit return for the non-skip path
-    return true;
+    // Calculate first listen dates for artists
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
+
+    // Check when this artist was first listened to
+    const firstListen =
+      Object.entries(statistics.dailyMetrics)
+        .filter(([, metric]) => {
+          const artistsArray = Array.isArray(metric.uniqueArtists)
+            ? metric.uniqueArtists
+            : Array.from(metric.uniqueArtists as Set<string>);
+          return artistsArray.includes(artistId);
+        })
+        .map(([dateKey]) => dateKey)
+        .sort()[0] || dateStr;
+
+    // Update new discovery status
+    artistMetric.isNewDiscovery = firstListen >= thirtyDaysAgoStr;
+
+    // If this is a new discovery, add to recent discoveries list
+    if (
+      artistMetric.isNewDiscovery &&
+      !statistics.recentDiscoveries?.includes(artistId)
+    ) {
+      statistics.recentDiscoveries?.push(artistId);
+      // Keep the list trimmed to most recent 50 discoveries
+      if (
+        statistics.recentDiscoveries &&
+        statistics.recentDiscoveries.length > 50
+      ) {
+        statistics.recentDiscoveries = statistics.recentDiscoveries.slice(-50);
+      }
+    }
+
+    // Count plays in the last 30 days
+    artistMetric.recentListenCount = Object.entries(statistics.dailyMetrics)
+      .filter(([dateKey]) => dateKey >= thirtyDaysAgoStr)
+      .reduce((count, [, metric]) => {
+        const artistsArray = Array.isArray(metric.uniqueArtists)
+          ? metric.uniqueArtists
+          : Array.from(metric.uniqueArtists as Set<string>);
+        return count + (artistsArray.includes(artistId) ? 1 : 0);
+      }, 1); // Include current play
+
+    // Update global statistics for ALL tracks
+    statistics.totalUniqueTracks = calculateUniqueTrackCount(statistics);
+    statistics.totalUniqueArtists = calculateUniqueArtistCount(statistics);
+    statistics.totalListeningTimeMs += playedTimeMs;
+
+    // Calculate overall skip rate
+    const totalTracks = Object.values(statistics.dailyMetrics).reduce(
+      (sum, day) => sum + day.tracksPlayed,
+      0,
+    );
+
+    const totalSkipped = Object.values(statistics.dailyMetrics).reduce(
+      (sum, day) => sum + day.tracksSkipped,
+      0,
+    );
+
+    statistics.overallSkipRate =
+      totalTracks > 0 ? totalSkipped / totalTracks : 0;
+
+    // Update recent skip rate trend (last 14 days)
+    const last14Days = Object.keys(statistics.dailyMetrics).sort().slice(-14);
+
+    statistics.recentSkipRateTrend = last14Days.map((dateKey) => {
+      const metric = statistics.dailyMetrics[dateKey];
+      return metric.tracksPlayed > 0
+        ? metric.tracksSkipped / metric.tracksPlayed
+        : 0;
+    });
+
+    // Pad with zeros if we don't have 14 days of data yet
+    while (statistics.recentSkipRateTrend.length < 14) {
+      statistics.recentSkipRateTrend.unshift(0);
+    }
+
+    // Update recent listening time trend (last 14 days)
+    statistics.recentListeningTimeTrend = last14Days.map((dateKey) => {
+      return statistics.dailyMetrics[dateKey].listeningTimeMs;
+    });
+
+    // Pad with zeros if we don't have 14 days of data yet
+    while (statistics.recentListeningTimeTrend.length < 14) {
+      statistics.recentListeningTimeTrend.unshift(0);
+    }
+
+    // Update top artists and calculate discovery rate
+    const artistPlaytime: Record<string, number> = {};
+    const firstAppearances: Record<string, string> = {}; // artistId -> first date
+
+    // Calculate artist playtime and first appearances
+    for (const [date, day] of Object.entries(statistics.dailyMetrics)) {
+      let artists: string[] = [];
+
+      // Handle both Set and array types
+      if (day.uniqueArtists instanceof Set) {
+        artists = Array.from(day.uniqueArtists);
+      } else if (Array.isArray(day.uniqueArtists)) {
+        artists = day.uniqueArtists;
+      }
+
+      artists.forEach((artistId) => {
+        if (!firstAppearances[artistId] || date < firstAppearances[artistId]) {
+          firstAppearances[artistId] = date;
+        }
+      });
+    }
+
+    // Sum up artist playtimes
+    for (const [artistId, metrics] of Object.entries(
+      statistics.artistMetrics,
+    )) {
+      artistPlaytime[artistId] = metrics.listeningTimeMs;
+    }
+
+    // Sort artists by playtime and get top IDs
+    statistics.topArtistIds = Object.entries(artistPlaytime)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([id]) => id);
+
+    // Calculate discovery rate (new artists in last 30 days / total artists)
+    const newArtistsCount = Object.values(firstAppearances).filter(
+      (date) => date >= thirtyDaysAgoStr,
+    ).length;
+
+    statistics.discoveryRate =
+      statistics.totalUniqueArtists > 0
+        ? newArtistsCount / statistics.totalUniqueArtists
+        : 0;
+
+    // Update peak usage hour
+    const deviceHourCount: Record<number, number> = {};
+
+    // Increment current hour
+    deviceHourCount[hourOfDay] = (deviceHourCount[hourOfDay] || 0) + 1;
+
+    // Find peak usage hour
+    let peakHour = deviceMetric.peakUsageHour;
+    let maxUsage = deviceHourCount[peakHour] || 0;
+
+    for (const [hour, count] of Object.entries(deviceHourCount)) {
+      if (count > maxUsage) {
+        maxUsage = count;
+        peakHour = parseInt(hour);
+      }
+    }
+
+    deviceMetric.peakUsageHour = peakHour;
+
+    // Check if track has been repeated in the current session
+    if (statistics.sessions && statistics.sessions.length > 0) {
+      const currentSession =
+        statistics.sessions[statistics.sessions.length - 1];
+      // If the track appears more than once in the current session
+      if (currentSession.trackIds) {
+        trackMetric.hasBeenRepeated =
+          currentSession.trackIds.filter((id) => id === trackId).length > 1;
+      }
+    }
+
+    // Calculate average session duration
+    if (statistics.sessions && statistics.sessions.length > 0) {
+      const totalDuration = statistics.sessions.reduce(
+        (sum, session) => sum + (session.durationMs || 0),
+        0,
+      );
+      statistics.avgSessionDurationMs =
+        totalDuration / statistics.sessions.length;
+
+      // Update weekly metric's avg session duration
+      if (weeklyMetric && weeklyMetric.avgSessionDurationMs !== undefined) {
+        const sessionsThisWeek = statistics.sessions.filter((session) => {
+          if (!session.startTime) return false;
+          const sessionDate = new Date(session.startTime);
+          const sessionWeekNum = getISOWeek(sessionDate);
+          const sessionWeekStr = `${sessionDate.getFullYear()}-W${sessionWeekNum.toString().padStart(2, "0")}`;
+          return sessionWeekStr === weekStr;
+        });
+
+        if (sessionsThisWeek.length > 0) {
+          const weekTotalDuration = sessionsThisWeek.reduce(
+            (sum, session) => sum + (session.durationMs || 0),
+            0,
+          );
+          weeklyMetric.avgSessionDurationMs =
+            weekTotalDuration / sessionsThisWeek.length;
+        }
+      }
+    }
+
+    // Calculate repeat listening rate
+    if (statistics.sessions && statistics.sessions.length > 0) {
+      const totalRepeatTracks = statistics.sessions.reduce(
+        (sum, session) => sum + (session.repeatedTracks || 0),
+        0,
+      );
+      const totalTracksInSessions = statistics.sessions.reduce(
+        (sum, session) =>
+          sum + (session.trackIds ? session.trackIds.length : 0),
+        0,
+      );
+
+      statistics.repeatListeningRate =
+        totalTracksInSessions > 0
+          ? totalRepeatTracks / totalTracksInSessions
+          : 0;
+    }
+
+    // Calculate weekly trends for the month
+    const weeks = Object.keys(statistics.weeklyMetrics)
+      .filter((w) => w.startsWith(month.substring(0, 4)))
+      .filter((w) => {
+        const weekDate = getDateOfISOWeek(
+          parseInt(w.substring(6)),
+          parseInt(w.substring(0, 4)),
+        );
+        return weekDate.toISOString().substring(0, 7) === month;
+      });
+
+    monthlyMetric.weeklyTrend = weeks.map(
+      (w) => statistics.weeklyMetrics[w].tracksPlayed,
+    );
+
+    // Calculate month-over-month skip rate change
+    const prevMonth = new Date(date.getFullYear(), date.getMonth() - 1, 1)
+      .toISOString()
+      .substring(0, 7);
+
+    if (statistics.monthlyMetrics[prevMonth]) {
+      const prevMonthData = statistics.monthlyMetrics[prevMonth];
+      const prevSkipRate =
+        prevMonthData.tracksSkipped / prevMonthData.tracksPlayed;
+      const currentSkipRate =
+        monthlyMetric.tracksSkipped / monthlyMetric.tracksPlayed;
+
+      // Calculate percentage change
+      monthlyMetric.skipRateChange =
+        currentSkipRate !== 0 && prevSkipRate !== 0
+          ? ((currentSkipRate - prevSkipRate) / prevSkipRate) * 100
+          : 0;
+    }
+
+    // Make sure to update all the metrics by assigning them back to the statistics object
+    if (weeklyMetric) statistics.weeklyMetrics[weekStr] = weeklyMetric;
+    if (monthlyMetric) statistics.monthlyMetrics[month] = monthlyMetric;
+    if (artistMetric) statistics.artistMetrics[artistId] = artistMetric;
+    statistics.dailyMetrics[dateStr] = dailyMetric;
+    statistics.deviceMetrics[deviceId] = deviceMetric;
+    statistics.trackMetrics[trackId] = trackMetric;
+
+    // Save updated statistics
+    try {
+      await saveStatistics(statistics);
+      return true;
+    } catch (error) {
+      console.error("Failed to save updated statistics:", error);
+      return false;
+    }
   } catch (error) {
     console.error("Failed to update track statistics:", error);
     return false;
@@ -1497,7 +1475,9 @@ function getDateOfISOWeek(week: number, year: number): Date {
  * The function:
  * - Creates a new default statistics object with the current timestamp
  * - Ensures the target directory exists
- * - Directly writes the default data to storage, bypassing the normal save process
+ * - Deletes all statistics files except the main one
+ * - Resets the main statistics file with default empty values
+ * - Triggers a manual aggregation to regenerate all statistics files
  * - Handles any errors that occur during the reset operation
  *
  * @returns Promise resolving to boolean indicating success (true) or failure (false)
@@ -1520,12 +1500,59 @@ export const clearStatistics = async (): Promise<boolean> => {
       lastUpdated: new Date().toISOString(),
     };
 
-    // Make sure directory exists
+    // Make sure main data directory exists
     await ensureDir(join(app.getPath("userData"), "data"));
 
-    // Write the default data directly to file instead of using saveStatistics
-    // to avoid any issues with async handling
+    // Make sure statistics directory exists
+    const statisticsDir = join(app.getPath("userData"), "data", "statistics");
+    await ensureDir(statisticsDir);
+
+    // Define all statistics files to clear
+    const statisticsFiles = [
+      // Main statistics file
+      statisticsFilePath,
+
+      // Additional metrics and patterns files in the statistics directory
+      join(statisticsDir, "daily_skip_metrics.json"),
+      join(statisticsDir, "weekly_skip_metrics.json"),
+      join(statisticsDir, "artist_skip_metrics.json"),
+      join(statisticsDir, "library_skip_statistics.json"),
+      join(statisticsDir, "time_based_patterns.json"),
+      join(statisticsDir, "detected_patterns.json"),
+    ];
+
+    // Reset the main statistics file with default data
     writeJsonSync(statisticsFilePath, freshDefault, { spaces: 2 });
+
+    // Delete all other statistics files instead of writing empty data
+    for (const filePath of statisticsFiles) {
+      if (filePath !== statisticsFilePath) {
+        // Skip the main file as it's already handled
+        try {
+          if (existsSync(filePath)) {
+            // Delete the file completely instead of writing empty data
+            removeSync(filePath);
+          }
+        } catch (fileError) {
+          // Log but continue with other files
+          console.warn(
+            `Could not delete statistics file ${filePath}:`,
+            fileError,
+          );
+        }
+      }
+    }
+
+    // Import and trigger statistics regeneration
+    try {
+      await triggerManualAggregation();
+    } catch (aggregationError) {
+      console.warn(
+        "Could not trigger statistics regeneration:",
+        aggregationError,
+      );
+      // Continue even if aggregation fails - files will be regenerated later
+    }
 
     return true;
   } catch (error) {
@@ -2543,16 +2570,20 @@ export const exportStatistics = async (): Promise<boolean> => {
 };
 
 /**
- * Clears all statistics data
+ * Clears all statistics data and regenerates empty files
  *
  * Wrapper function around clearStatistics that provides a more consistent
  * and descriptive name for the IPC interface. This function is the primary
  * entry point for resetting statistics data when called from other parts of
  * the application, particularly from the UI.
  *
- * The function completely reinitializes the statistics storage, erasing all
- * collected metrics, patterns, and listening history. This operation cannot
- * be undone unless the user has previously exported their data.
+ * The function completely reinitializes the statistics storage, by:
+ * 1. Erasing all collected metrics, patterns, and listening history
+ * 2. Resetting the main statistics file with default values
+ * 3. Deleting all additional statistics files in the statistics directory
+ * 4. Triggering an aggregation process to regenerate empty statistics files
+ *
+ * This operation cannot be undone unless the user has previously exported their data.
  *
  * @returns Promise resolving to boolean indicating success (true) or failure (false)
  *

@@ -50,6 +50,15 @@ describe("ClearStatisticsDialog Component", () => {
       screen.getByText("Time-based analytics and trends"),
     ).toBeInTheDocument();
 
+    // Verify the skipped tracks notice is shown
+    expect(
+      screen.getByText((content) =>
+        content.includes(
+          "first clear your skipped tracks in the Skips tab, then clear statistics",
+        ),
+      ),
+    ).toBeInTheDocument();
+
     // Verify the buttons are present
     expect(screen.getByText("Cancel")).toBeInTheDocument();
     expect(

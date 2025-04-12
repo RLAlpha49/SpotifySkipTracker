@@ -140,12 +140,23 @@ export function analyzePositionBasedSkip(
 
   // 3. Near-Completion (close to end but not quite finished)
   if (progressPercent > 0.9 && progressPercent < 0.98) {
-    return {
-      isSkip: true,
-      skipType: SkipType.NEAR_COMPLETION,
-      confidence: 0.7,
-      reason: `Track nearly finished (${(progressPercent * 100).toFixed(1)}%) but skipped before end`,
-    };
+    // Only count as a skip if it's below the user's threshold
+    if (progressPercent < skipThreshold) {
+      return {
+        isSkip: true,
+        skipType: SkipType.NEAR_COMPLETION,
+        confidence: 0.7,
+        reason: `Track nearly finished (${(progressPercent * 100).toFixed(1)}%) but skipped before end`,
+      };
+    } else {
+      // Track has passed user's threshold, so don't count as a skip
+      return {
+        isSkip: false,
+        skipType: SkipType.NONE,
+        confidence: 0.9,
+        reason: `Track played beyond threshold (${(progressPercent * 100).toFixed(1)}% > ${skipThreshold * 100}%), considered completed`,
+      };
+    }
   }
 
   // 4. Normal completion or very close to end
