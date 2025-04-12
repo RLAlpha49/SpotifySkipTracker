@@ -5,5 +5,6 @@ out
 node_modules
 .vite
 .vscode
+coverage
 reports
 README.md

@@ -27,5 +27,29 @@ export default defineConfig({
       json: "./reports/json-results.json",
       junit: "./reports/junit-results.xml",
     },
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "html", "lcov"],
+      reportsDirectory: "./coverage",
+      exclude: [
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/tests/**",
+        "**/*.d.ts",
+        "**/*.config.ts",
+        "**/src/tests/**",
+        "**/src/types/**",
+        "**/src/electron/main/index.ts", // Entry points typically have minimal logic
+        "**/src/electron/preload/index.ts",
+      ],
+      include: ["src/**/*.{ts,tsx}"],
+      all: true, // Enables coverage for files that haven't been tested directly
+      thresholds: {
+        lines: 70,
+        functions: 70,
+        branches: 60,
+        statements: 70,
+      },
+    },
   },
 });
