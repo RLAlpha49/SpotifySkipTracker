@@ -15,21 +15,10 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: "./src/tests/unit/setup.ts",
     css: true,
-    reporters: [
-      "default",
-      "verbose",
-      "dot",
-      ["junit", { outputFile: "reports/junit.xml" }],
-      ["json", { outputFile: "reports/test-results.json" }],
-      ["html", { outputFile: "reports/index.html" }],
-    ],
-    outputFile: {
-      json: "./reports/json-results.json",
-      junit: "./reports/junit-results.xml",
-    },
+    reporters: ["default"],
     coverage: {
       provider: "v8",
-      reporter: ["text", "json", "html", "lcov"],
+      reporter: ["text", "html", "lcov"],
       reportsDirectory: "./coverage",
       exclude: [
         "**/node_modules/**",
@@ -39,11 +28,9 @@ export default defineConfig({
         "**/*.config.ts",
         "**/src/tests/**",
         "**/src/types/**",
-        "**/src/electron/main/index.ts", // Entry points typically have minimal logic
-        "**/src/electron/preload/index.ts",
       ],
       include: ["src/**/*.{ts,tsx}"],
-      all: true, // Enables coverage for files that haven't been tested directly
+      all: true,
       thresholds: {
         lines: 70,
         functions: 70,
