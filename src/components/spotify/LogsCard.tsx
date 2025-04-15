@@ -117,6 +117,7 @@ export function LogsCard({
   >([]);
   const [selectedLogFile, setSelectedLogFile] = useState<string>("latest.log");
   const [selectedFileLogs, setSelectedFileLogs] = useState<string[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch available log files on component mount
   useEffect(() => {
@@ -176,6 +177,33 @@ export function LogsCard({
       "DEBUG",
     );
     setSelectedLogFile(value);
+  };
+
+  // Handle manual refresh of logs
+  const handleRefreshLogs = async () => {
+    try {
+      setIsRefreshing(true);
+      window.spotify.saveLog(
+        `Manually refreshing log file: ${selectedLogFile}`,
+        "DEBUG",
+      );
+
+      // Use the same logic as the useEffect for loading logs
+      if (selectedLogFile === "latest.log") {
+        const currentSessionLogs = await window.spotify.getLogs(100);
+        setSelectedFileLogs(currentSessionLogs);
+      } else {
+        const fileLogs = await window.spotify.getLogsFromFile(selectedLogFile);
+        setSelectedFileLogs(fileLogs);
+      }
+    } catch (error) {
+      console.error(`Failed to refresh logs from ${selectedLogFile}:`, error);
+      setSelectedFileLogs([
+        `[${new Date().toLocaleTimeString()}] [ERROR] Failed to refresh logs from ${selectedLogFile}: ${error}`,
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   /**
@@ -360,6 +388,31 @@ export function LogsCard({
             Activity Logs
           </CardTitle>
           <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefreshLogs}
+                    className="h-8"
+                    disabled={isRefreshing}
+                  >
+                    <RefreshCw
+                      className={`mr-1.5 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+                    />
+                    <span>Refresh</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>
+                    Use to refresh the log manually or if you&apos;re
+                    experiencing issues with the auto-refresh. (Note: Restart
+                    app if still experiencing issues)
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
