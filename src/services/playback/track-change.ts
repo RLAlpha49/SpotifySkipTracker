@@ -382,19 +382,18 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
 
     // If track changed before the skip threshold, consider it skipped
     if (skipAnalysis.isSkip) {
-      // Check if the track is in the user's library (only count skips for library tracks)
+      // Check if the track is in the user's library (log for informational purposes)
       if (!state.isInLibrary) {
         store.saveLog(
-          `Track "${state.currentTrackName}" was skipped but not in library - skip not counted`,
+          `Track "${state.currentTrackName}" was skipped but not in library - tracking skip anyway`,
           "DEBUG",
         );
-        return;
+      } else {
+        store.saveLog(
+          `Track "${state.currentTrackName}" was skipped at ${(progressPercent * 100).toFixed(1)}% (threshold: ${skipProgressThreshold * 100}%): ${skipAnalysis.reason}`,
+          "INFO",
+        );
       }
-
-      store.saveLog(
-        `Track "${state.currentTrackName}" was skipped at ${(progressPercent * 100).toFixed(1)}% (threshold: ${skipProgressThreshold * 100}%): ${skipAnalysis.reason}`,
-        "INFO",
-      );
 
       // Record this as a skipped track
       await recordSkippedTrack({
@@ -412,6 +411,7 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
         isManualSkip: skipTypeInfo.isManual,
         confidence: skipTypeInfo.confidence,
         reason: skipAnalysis.reason,
+        isInLibrary: state.isInLibrary || false,
       });
 
       // Record enhanced statistics for skipped track
@@ -454,7 +454,7 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
         );
       }
 
-      // If auto-unlike is enabled and we've reached the skip threshold, unlike the track
+      // If auto-unlike is enabled and we've reached the skip threshold, only unlike the track if it's in the library
       const skippedTracks = await store.getSkippedTracks();
       const trackData = skippedTracks.find(
         (track) => track.id === previousTrackId,
@@ -463,7 +463,8 @@ export async function handleTrackChange(newTrackId: string): Promise<void> {
       if (
         trackData &&
         settings.autoUnlike &&
-        (trackData.skipCount || 0) >= settings.skipThreshold
+        (trackData.skipCount || 0) >= settings.skipThreshold &&
+        state.isInLibrary // Only attempt to unlike if it's in the library
       ) {
         try {
           const result = await spotifyApi.unlikeTrack(previousTrackId, true);

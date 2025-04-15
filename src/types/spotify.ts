@@ -52,6 +52,7 @@ export interface SkippedTrack {
   skipHistory?: string[];
   skipTimestamps?: string[];
   notSkippedCount?: number;
+  isInLibrary?: boolean;
   lastContext?: {
     type: string;
     uri?: string;

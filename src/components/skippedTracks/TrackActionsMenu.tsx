@@ -23,8 +23,14 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { SkippedTrack } from "@/types/spotify";
-import { ExternalLink, Trash2, XCircle } from "lucide-react";
+import { ExternalLink, InfoIcon, Trash2, XCircle } from "lucide-react";
 import React from "react";
 
 /**
@@ -73,6 +79,9 @@ export default function TrackActionsMenu({
     window.spotify.openURL(spotifyUrl);
   };
 
+  // Check if track is in library
+  const isInLibrary = track.isInLibrary !== false; // Default to true if undefined
+
   return (
     <DropdownMenuContent align="end">
       <DropdownMenuItem
@@ -85,13 +94,33 @@ export default function TrackActionsMenu({
 
       <DropdownMenuSeparator />
 
-      <DropdownMenuItem
-        onClick={() => onUnlikeTrack(track)}
-        className="cursor-pointer text-rose-600 hover:text-rose-800 dark:text-rose-400 hover:dark:text-rose-300"
-      >
-        <Trash2 className="mr-2 h-4 w-4" />
-        <span>Remove from library</span>
-      </DropdownMenuItem>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div>
+              <DropdownMenuItem
+                onClick={() => isInLibrary && onUnlikeTrack(track)}
+                className={`${
+                  isInLibrary
+                    ? "cursor-pointer text-rose-600 hover:text-rose-800 dark:text-rose-400 hover:dark:text-rose-300"
+                    : "text-muted-foreground/50 cursor-not-allowed"
+                }`}
+                disabled={!isInLibrary}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                <span>Remove from library</span>
+                {!isInLibrary && <InfoIcon className="ml-2 h-3 w-3" />}
+              </DropdownMenuItem>
+            </div>
+          </TooltipTrigger>
+          {!isInLibrary && (
+            <TooltipContent>
+              <p>This track is not in your library</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </TooltipProvider>
+
       <DropdownMenuItem
         onClick={() => onRemoveTrackData(track)}
         className="cursor-pointer text-amber-600 hover:text-amber-800 dark:text-amber-400 hover:dark:text-amber-300"

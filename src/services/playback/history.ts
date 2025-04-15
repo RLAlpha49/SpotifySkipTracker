@@ -221,6 +221,9 @@ export interface SkipInfo {
   /** Human-readable explanation of skip classification */
   reason: string;
 
+  /** Whether the track is in the user's library */
+  isInLibrary?: boolean;
+
   /** Listening context information */
   context?: {
     /** Context type: 'playlist', 'album', 'artist', 'collection', 'radio', etc. */
@@ -277,6 +280,7 @@ export interface SkipInfo {
  *   isManualSkip: true,
  *   confidence: 0.85,
  *   reason: 'Track skipped at 25%, below threshold of 70%',
+ *   isInLibrary: true,
  *   context: {
  *     type: 'playlist',
  *     name: 'My Playlist',
@@ -333,6 +337,7 @@ export async function recordSkippedTrack(
     let trackArtist: string;
     let trackNameToUse: string;
     let skippedAtToUse: number;
+    let isInLibrary: boolean | undefined;
 
     // Check if first parameter is an object (enhanced skip info)
     if (typeof trackIdOrInfo === "object") {
@@ -342,6 +347,7 @@ export async function recordSkippedTrack(
       trackArtist = skipInfo.artist;
       trackAlbum = skipInfo.album;
       skippedAtToUse = skipInfo.skippedAt;
+      isInLibrary = skipInfo.isInLibrary;
 
       skipEvent = {
         timestamp: skipInfo.skippedAt.toString(),
@@ -375,6 +381,11 @@ export async function recordSkippedTrack(
       const track = skippedTracks[existingTrackIndex];
       track.skipCount = (track.skipCount || 0) + 1;
       track.lastSkipped = skippedAtStr;
+
+      // Update isInLibrary status if it's provided
+      if (isInLibrary !== undefined) {
+        track.isInLibrary = isInLibrary;
+      }
 
       // Add to skipTimestamps array if it exists
       const extendedTrack = track as ExtendedSkippedTrack;
@@ -478,6 +489,8 @@ export async function recordSkippedTrack(
           hourArray[skipHour] = 1;
           return hourArray;
         })(),
+        // Set isInLibrary status if provided
+        ...(isInLibrary !== undefined && { isInLibrary }),
       };
 
       // Add album if available (from enhanced info)
