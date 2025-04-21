@@ -48,7 +48,7 @@
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitest/coverage-v8": "^3.1.1",
-    "@vitest/ui": "^3.1.1",
+    "@vitest/ui": "^3.1.2",
     "@zamiell/typedoc-plugin-not-exported": "^0.3.0",
     "babel-plugin-react-compiler": "^19.0.0-beta-aeaed83-20250323",
     "electron": "35.2.0",
