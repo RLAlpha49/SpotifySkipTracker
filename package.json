@@ -55,7 +55,7 @@
     "electron-devtools-installer": "^4.0.0",
     "eslint": "^9.26.0",
     "eslint-config-prettier": "^10.1.2",
-    "eslint-plugin-prettier": "^5.2.6",
+    "eslint-plugin-prettier": "^5.3.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-compiler": "^19.1.0-rc.1",
     "globals": "^16.0.0",
@@ -112,6 +112,6 @@
     "spotify-skip-tracker": "file:",
     "tailwind-merge": "^3.2.0",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.24.3"
+    "zod": "^3.24.4"
   }
 }
