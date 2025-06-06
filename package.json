@@ -44,11 +44,11 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/electron-squirrel-startup": "^1.0.2",
     "@types/eslint-config-prettier": "^6.11.3",
-    "@types/node": "^22.15.29",
+    "@types/node": "^22.15.30",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.6",
-    "@vitest/coverage-v8": "^3.2.1",
-    "@vitest/ui": "^3.2.1",
+    "@vitest/coverage-v8": "^3.2.2",
+    "@vitest/ui": "^3.2.2",
     "@zamiell/typedoc-plugin-not-exported": "^0.3.0",
     "babel-plugin-react-compiler": "^19.0.0-beta-aeaed83-20250323",
     "electron": "36.4.0",
@@ -77,7 +77,7 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.33.1",
     "vite": "^6.3.5",
-    "vitest": "^3.2.1"
+    "vitest": "^3.2.2"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
@@ -96,7 +96,7 @@
     "@radix-ui/react-toggle": "^1.1.9",
     "@radix-ui/react-toggle-group": "^1.1.10",
     "@radix-ui/react-tooltip": "^1.2.7",
-    "@tanstack/react-router": "^1.120.15",
+    "@tanstack/react-router": "^1.120.16",
     "@vitejs/plugin-react": "^4.5.1",
     "axios": "^1.9.0",
     "class-variance-authority": "^0.7.1",
@@ -112,6 +112,6 @@
     "spotify-skip-tracker": "file:",
     "tailwind-merge": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.25.51"
+    "zod": "^3.25.52"
   }
 }
