@@ -51,7 +51,7 @@ jobs:
           temp_runs_file=$(mktemp)
           page=1
           total_runs=0
-          max_pages=20
+          max_pages=5
 
           while [ $page -le $max_pages ]; do
             echo "  Fetching page $page of $max_pages..."
