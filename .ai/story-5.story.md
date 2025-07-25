@@ -21,21 +21,18 @@ Story Points: 4
 ## Tasks
 
 1. - [x] Enhance Skip Data Model
-
    1. - [x] Add detailed skip classification (quick preview, standard, near end)
    2. - [x] Implement manual vs. automatic skip detection
    3. - [x] Create listening context data (playlist, album, radio)
    4. - [x] Add time-of-day and skip pattern metadata
 
 2. - [x] Implement Skip Data Aggregation
-
    1. - [x] Create daily and weekly skip metrics
    2. - [x] Add artist and genre-level aggregation
    3. - [x] Implement time-based pattern detection
    4. - [x] Calculate library-wide skip statistics
 
 3. - [x] Create Skip Analysis Engine
-
    1. - [x] Set up aggregation and analysis services
    2. - [x] Implement skip pattern detection
    3. - [x] Store statistical data in statistics subfolder
@@ -253,7 +250,6 @@ Implemented comprehensive data export functionality with multiple export format 
 1. **Export Service**: Created a dedicated export service (`services/statistics/export.ts`) with specialized functions for exporting different types of statistics data.
 
 2. **Multi-format Support**: Implemented support for:
-
    - CSV exports for all major data types (skipped tracks, artist metrics, daily metrics, weekly metrics, library statistics, time patterns, detected patterns)
    - JSON export for complete dataset backup and portability
    - Clipboard export for easily sharing statistics summaries

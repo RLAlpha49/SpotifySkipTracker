@@ -25,7 +25,6 @@ Story Points: 3
 ## Tasks
 
 1. - [x] Create Main Dashboard Layout
-
    1. - [x] Implement responsive grid layout
    2. - [x] Set up layout areas for different statistics panels
    3. - [x] Add navigation structure
@@ -33,21 +32,18 @@ Story Points: 3
    5. - [x] Create responsive breakpoints for different screen sizes
 
 2. - [x] Implement Overview Panels
-
    1. - [x] Create summary statistics panels for key metrics
    2. - [x] Implement recent skipped tracks list
    3. - [x] Add artist summary panel
    4. - [x] Create session overview panel
 
 3. - [x] Develop Data Loading and State Management
-
    1. - [x] Implement data fetching from statistics store
    2. - [x] Add loading states and placeholders
    3. - [x] Create refresh mechanisms for dynamic updating
    4. - [x] Implement error handling for failed data loading
 
 4. - [x] Implement Theme Support
-
    1. - [x] Ensure all dashboard components support light/dark themes
    2. - [x] Add theme-aware color scheme
    3. - [x] Test theme switching on all dashboard components

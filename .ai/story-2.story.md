@@ -23,20 +23,17 @@ Story Points: 3
 ## Tasks
 
 1. - [x] Implement Settings Storage
-
    1. - [x] Create settings data model
    2. - [x] Add migration support for settings schema updates
    3. - [x] Implement default settings
 
 2. - [x] Create Settings UI Components
-
    1. - [x] Design settings form layout
    2. - [x] Create form controls for each setting category
    3. - [x] Implement validation for settings inputs
    4. - [x] Add responsive design for settings UI
 
 3. - [x] Implement Configuration Options
-
    1. - [x] Create skip detection threshold settings
    2. - [x] Implement logging configuration options
    3. - [x] Add API credentials management

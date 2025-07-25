@@ -398,13 +398,11 @@ The application will be packaged and distributed using Electron Forge, which pro
 ### Build Process
 
 1. **Development**:
-
    - Use Vite dev server for rapid development
    - Hot module replacement for quick feedback
    - Environment-specific configuration via `.env` files
 
 2. **Testing**:
-
    - Unit tests with Vitest
    - Component tests with React Testing Library
    - End-to-end tests with Playwright

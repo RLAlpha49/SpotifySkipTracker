@@ -23,27 +23,23 @@ Story Points: 2
 ## Tasks
 
 1. - [x] Initialize Project Structure
-
    1. - [x] Create directory structure as defined in the architecture document
    2. - [x] Set up TypeScript configuration
    3. - [x] Configure ESLint and Prettier for code quality
    4. - [x] Set up Git repository with appropriate .gitignore
 
 2. - [x] Configure Build System
-
    1. - [x] Set up Vite for development and build
    2. - [x] Configure Electron Forge for packaging
    3. - [x] Create npm scripts for development workflows
    4. - [x] Configure hot reloading for development
 
 3. - [x] Set Up Testing Framework
-
    1. - [x] Install and configure Vitest
    2. - [x] Set up React Testing Library
    3. - [x] Create initial test structure
 
 4. - [x] Implement Basic Window Management
-
    1. - [x] Create main process entry point
    2. - [x] Set up basic window creation
    3. - [x] Configure preload scripts

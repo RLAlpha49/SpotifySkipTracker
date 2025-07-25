@@ -21,21 +21,18 @@ Story Points: 5
 ## Tasks
 
 1. - [x] Implement Playback Polling Service
-
    1. - [x] Create polling mechanism with configurable intervals
    2. - [x] Implement rate limiting and backoff strategies
    3. - [x] Add error handling for API connectivity issues
    4. - [x] Create playback state management
 
 2. - [x] Create Track Change Detection
-
    1. - [x] Implement track change algorithm
    2. - [x] Design position-based skip detection
    3. - [x] Handle edge cases (app switching, connection loss)
    4. - [x] Add detection for manual vs. automatic track changes
 
 3. - [x] Develop Monitoring Controls
-
    1. - [x] Create start/stop monitoring functionality
    2. - [x] Implement status indicators
    3. - [x] Add user notification system

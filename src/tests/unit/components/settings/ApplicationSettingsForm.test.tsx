@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApplicationSettingsForm } from "../../../../components/settings/ApplicationSettingsForm";
 import type { UseFormReturn } from "react-hook-form";
 import * as z from "zod";
@@ -81,8 +81,9 @@ describe("ApplicationSettingsForm Component", () => {
   it("renders tooltips with helpful information", () => {
     const { container } = setupTest();
 
-    // Check for help icons using the lucide-circle-help class directly in the DOM
-    const helpIcons = container.querySelectorAll(".lucide-circle-help");
+    const helpIcons = container.querySelectorAll(
+      ".lucide-circle-question-mark",
+    );
     expect(helpIcons.length).toBeGreaterThan(0);
   });
 });
