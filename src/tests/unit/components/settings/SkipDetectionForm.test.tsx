@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import type { UseFormReturn } from "react-hook-form";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as z from "zod";
 import { settingsFormSchema } from "../../../../components/settings/settingsFormSchema";
 import { SkipDetectionForm } from "../../../../components/settings/SkipDetectionForm";
@@ -11,8 +11,13 @@ import { skipInCI } from "../../setup";
 vi.mock("../../../../components/ui/Slider", () => {
   // Return a component implementation
   return {
-    // eslint-disable-next-line react/prop-types
-    Slider: ({ onValueChange, ...props }) => {
+    Slider: ({
+      onValueChange,
+      ...props
+    }: {
+      onValueChange: (value: number) => void;
+      [key: string]: unknown;
+    }) => {
       // This will be rendered, making the data-value attribute visible in the test
       return (
         <div data-testid="slider-mock" data-value="50" {...props}>
@@ -134,8 +139,9 @@ describe("SkipDetectionForm Component", () => {
   it("renders tooltips with helpful information", () => {
     const { container } = setupTest();
 
-    // Check for help icons which are SVG elements with the circle-help class
-    const helpIcons = container.querySelectorAll(".lucide-circle-help");
+    const helpIcons = container.querySelectorAll(
+      ".lucide-circle-question-mark",
+    );
     expect(helpIcons.length).toBeGreaterThan(0);
   });
 });
