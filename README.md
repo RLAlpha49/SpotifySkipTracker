@@ -146,7 +146,7 @@ If you want to contribute to the project or run it in development mode:
 2. Install dependencies:
 
    ```bash
-   npm install
+   npm install --force
    ```
 
 3. Start in development mode:
