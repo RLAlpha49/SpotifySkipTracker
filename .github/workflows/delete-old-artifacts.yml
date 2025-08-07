@@ -1,16 +1,19 @@
-name: Delete Old Artifacts
+name: Delete All Old Artifacts from All Workflows
 
 on:
   push:
-    branches:
-      - master
+    branches: [master]
+  pull_request:
+    branches: [master]
   workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * 0"
 
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete artifacts from non-latest build workflow runs
+      - name: Delete artifacts comprehensively
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ARTIFACT_DELETE_TOKEN: ${{ secrets.ARTIFACT_DELETE_TOKEN }}
@@ -18,46 +21,298 @@ jobs:
           #!/bin/bash
           set -euo pipefail
 
-          echo "Cleaning up build artifacts not associated with the latest commit on branch '$GITHUB_REF_NAME'"
-
-          # The repository in form "owner/repo"
           owner_repo="${GITHUB_REPOSITORY}"
-          # Extract branch name from ref (refs/heads/branch)
-          branch="${GITHUB_REF##*/}"
-          # Current commit SHA triggering this workflow
-          current_sha="${GITHUB_SHA}"
-
           echo "Repository: $owner_repo"
-          echo "Branch: $branch"
-          echo "Current commit: $current_sha"
 
-          # List workflow runs for this branch
-          runs_json=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/${owner_repo}/actions/runs?branch=${branch}&per_page=100")
+          echo "Fetching all existing branches..."
+          # Get a list of all existing branches
+          # Using a temporary file for branches for easier lookup
+          temp_branches_file=$(mktemp)
 
-          # Filter for workflow runs that are completed and that do not match the current commit
-          delete_run_ids=$(echo "$runs_json" | jq --raw-output --arg current_sha "$current_sha" '.workflow_runs[] | select(.head_sha != $current_sha and .status=="completed") | .id')
+          page=1
+          while true; do
+            branches_json=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/${owner_repo}/branches?per_page=100&page=${page}")
+            current_page_branches=$(echo "$branches_json" | jq -r '.[].name')
+            if [ -z "$current_page_branches" ]; then
+              break
+            fi
+            echo "$current_page_branches" >> "$temp_branches_file"
+            page=$((page + 1))
+          done
 
-          if [ -z "$delete_run_ids" ]; then
-            echo "No older, completed workflow runs found to clean up."
+          # Store existing branch names in a hash for quick lookups
+          all_existing_branches=$(cat "$temp_branches_file" | sort -u)
+          echo "Found $(echo "$all_existing_branches" | wc -l) existing branches."
+
+          echo "Fetching workflow runs (limited to 5 pages)..."
+          # Fetch workflow runs (limited to 5 pages to control API usage)
+          # We need to check runs regardless of their current branch status
+          temp_runs_file=$(mktemp)
+          page=1
+          total_runs=0
+          max_pages=5
+
+          while [ $page -le $max_pages ]; do
+            echo "  Fetching page $page of $max_pages..."
+            runs_response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/${owner_repo}/actions/runs?per_page=100&page=${page}")
+            
+            # Check if runs_response is empty or malformed
+            if ! echo "$runs_response" | jq -e 'has("workflow_runs")' > /dev/null; then
+                echo "Warning: API response for runs page $page was not as expected. Breaking loop."
+                break
+            fi
+            
+            current_page_runs=$(echo "$runs_response" | jq '.workflow_runs')
+            page_length=$(echo "$current_page_runs" | jq 'length')
+            
+            if [ "$page_length" -eq 0 ]; then
+                echo "  No more runs available at page $page"
+                break # No more runs
+            fi
+            
+            # Append runs to temp file (much faster than JSON manipulation)
+            echo "$current_page_runs" | jq -r '.[] | @json' >> "$temp_runs_file"
+            total_runs=$((total_runs + page_length))
+            echo "    Got $page_length runs (total: $total_runs)"
+            
+            page=$((page + 1))
+          done
+
+          # Combine all runs into single JSON array at the end
+          if [ ! -s "$temp_runs_file" ]; then
+            echo "No workflow runs found. Nothing to clean."
+            rm "$temp_branches_file" "$temp_runs_file"
             exit 0
           fi
 
-          for run_id in $delete_run_ids; do
-            echo "Processing workflow run ID: $run_id"
+          echo "Combining $total_runs workflow runs..."
+          all_runs_json=$(cat "$temp_runs_file" | jq -s 'unique_by(.id)')
+          rm "$temp_runs_file"
 
-            # Get the workflow name for this run
-            workflow_json=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-              "https://api.github.com/repos/${owner_repo}/actions/runs/${run_id}")
-            workflow_name=$(echo "$workflow_json" | jq --raw-output '.name')
+          if [ -z "$all_runs_json" ] || [ "$(echo "$all_runs_json" | jq 'length')" -eq 0 ]; then
+            echo "No workflow runs found. Nothing to clean."
+            rm "$temp_branches_file"
+            exit 0
+          fi
+
+          echo "Found $(echo "$all_runs_json" | jq 'length') total workflow runs to analyze."
+
+          # Get a list of the latest completed run SHA for each existing branch
+          # Use a more efficient approach to avoid broken pipes with large datasets
+          echo "Finding latest completed run SHA for each branch..."
+          declare -A latest_run_shas_per_branch
+
+          # Create a temporary file with sorted runs (newest first) to make processing more efficient
+          temp_sorted_runs=$(mktemp)
+          echo "$all_runs_json" | jq -r '.[] | select(.status=="completed" and .head_branch != null) | "\(.head_branch)|\(.head_sha)|\(.created_at)"' | sort -k3 -r > "$temp_sorted_runs"
+
+          for branch_name in $all_existing_branches; do
+            # Find the first (newest) run for this branch using awk to avoid broken pipe
+            latest_run_for_branch=$(awk -F'|' -v branch="$branch_name" '$1 == branch {print $2; exit}' "$temp_sorted_runs")
+            if [ -n "$latest_run_for_branch" ]; then
+              latest_run_shas_per_branch["$branch_name"]="$latest_run_for_branch"
+              echo "  Latest completed run SHA for $branch_name: $latest_run_for_branch"
+            fi
+          done
+
+          rm "$temp_sorted_runs"
+
+          # Convert Bash associative array to a JSON string
+          echo "Building latest SHA map for branches..."
+          latest_shas_map_json="{}"
+          if [ ${#latest_run_shas_per_branch[@]} -gt 0 ]; then
+            # Use jq to build the JSON properly to avoid escaping issues
+            temp_json_file=$(mktemp)
+            echo "{}" > "$temp_json_file"
             
-            # Skip if not the build workflow
-            if [[ "$workflow_name" != "Build Electron App" ]]; then
-              echo "Skipping workflow '$workflow_name' as it's not the build workflow"
+            for branch in "${!latest_run_shas_per_branch[@]}"; do
+              echo "  Processing branch: $branch"
+              # Use jq to safely add each branch/SHA pair
+              jq --arg branch "$branch" --arg sha "${latest_run_shas_per_branch[$branch]}" \
+                '. + {($branch): $sha}' "$temp_json_file" > "${temp_json_file}.tmp" && mv "${temp_json_file}.tmp" "$temp_json_file"
+            done
+            
+            latest_shas_map_json=$(cat "$temp_json_file")
+            rm "$temp_json_file"
+          fi
+
+          echo "Latest SHA map: $latest_shas_map_json"
+
+          echo "Fetching all artifacts to identify runs with artifacts..."
+          # Get all artifacts first to avoid checking each run individually
+          temp_artifacts_file=$(mktemp)
+          page=1
+          total_artifacts=0
+
+          while true; do
+            echo "  Fetching artifacts page $page..."
+            artifacts_response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/${owner_repo}/actions/artifacts?per_page=100&page=${page}")
+            
+            if ! echo "$artifacts_response" | jq -e 'has("artifacts")' > /dev/null; then
+                echo "Warning: API response for artifacts page $page was not as expected. Breaking loop."
+                break
+            fi
+            
+            current_page_artifacts=$(echo "$artifacts_response" | jq '.artifacts')
+            page_length=$(echo "$current_page_artifacts" | jq 'length')
+            
+            if [ "$page_length" -eq 0 ]; then
+                break # No more artifacts
+            fi
+            
+            # Extract run IDs and artifact counts for each run
+            echo "$current_page_artifacts" | jq -r '.[] | "\(.workflow_run.id)|\(.id)"' >> "$temp_artifacts_file"
+            total_artifacts=$((total_artifacts + page_length))
+            echo "    Got $page_length artifacts (total: $total_artifacts)"
+            
+            page=$((page + 1))
+          done
+
+          echo "Found $total_artifacts total artifacts"
+
+          # Build a map of run_id -> artifact_count
+          declare -A runs_with_artifacts_map
+          if [ -s "$temp_artifacts_file" ]; then
+            while IFS='|' read -r run_id artifact_id; do
+              if [ -n "$run_id" ] && [ "$run_id" != "null" ]; then
+                runs_with_artifacts_map["$run_id"]=$((${runs_with_artifacts_map["$run_id"]:-0} + 1))
+              fi
+            done < "$temp_artifacts_file"
+          fi
+          rm "$temp_artifacts_file"
+
+          echo "Found $(echo ${#runs_with_artifacts_map[@]}) unique runs with artifacts"
+
+          echo "Identifying runs for deletion..."
+
+          # First, let's debug what we're working with
+          echo "Checking for completed runs with null branches..."
+          null_branch_count=$(echo "$all_runs_json" | jq '[.[] | select(.status=="completed" and .head_branch == null)] | length')
+          echo "Found $null_branch_count completed runs with null branches"
+
+          echo "Checking for completed runs with non-null branches..."
+          non_null_branch_count=$(echo "$all_runs_json" | jq '[.[] | select(.status=="completed" and .head_branch != null)] | length')
+          echo "Found $non_null_branch_count completed runs with non-null branches"
+
+          # Split the processing to avoid null key issues
+          echo "Processing null branch runs..."
+          null_branch_runs=$(echo "$all_runs_json" | jq -r \
+              '.[] | select(.status=="completed" and .head_branch == null) | 
+              "\(.id) Branch is null (\(.head_sha))"'
+          )
+
+          echo "Processing non-null branch runs..."
+          # Let's debug this step by step to find the null
+          echo "First, let's check for any completed runs with null SHA..."
+          null_sha_count=$(echo "$all_runs_json" | jq '[.[] | select(.status=="completed" and .head_branch != null and .head_sha == null)] | length')
+          echo "Found $null_sha_count completed runs with null SHAs"
+
+          if [ "$null_sha_count" -gt 0 ]; then
+            echo "Sample runs with null SHAs:"
+            echo "$all_runs_json" | jq -r '.[] | select(.status=="completed" and .head_branch != null and .head_sha == null) | "ID: \(.id), Branch: \(.head_branch), SHA: \(.head_sha)"' | head -5
+          fi
+
+          # Try a simpler approach - process each step separately
+          echo "Creating basic run info..."
+          basic_runs=$(echo "$all_runs_json" | jq -r \
+              '.[] | select(.status=="completed" and .head_branch != null) | 
+              {id: .id, branch: .head_branch, sha: (.head_sha // "null")} |
+              "\(.id)|\(.branch)|\(.sha)"'
+          )
+
+          echo "Processing runs with bash instead of complex jq..."
+          non_null_branch_runs=""
+          runs_checked=0
+          runs_with_artifacts=0
+
+          while IFS='|' read -r run_id branch_name sha; do
+            runs_checked=$((runs_checked + 1))
+            if [ $((runs_checked % 500)) -eq 0 ]; then
+              echo "  Checked $runs_checked runs so far..."
+            fi
+            
+            # Check if this run has artifacts using our pre-built map
+            artifact_count=${runs_with_artifacts_map["$run_id"]:-0}
+            
+            # Skip runs without artifacts
+            if [ "$artifact_count" -eq 0 ]; then
               continue
             fi
+            
+            runs_with_artifacts=$((runs_with_artifacts + 1))
+            
+            if [ "$sha" = "null" ]; then
+              non_null_branch_runs+="$run_id Branch has null SHA ($branch_name)"$'\n'
+            elif echo "$latest_shas_map_json" | jq -e --arg branch "$branch_name" 'has($branch)' > /dev/null; then
+              # Branch exists in map, check if this is the latest SHA
+              latest_sha=$(echo "$latest_shas_map_json" | jq -r --arg branch "$branch_name" '.[$branch]')
+              if [ "$sha" != "$latest_sha" ]; then
+                non_null_branch_runs+="$run_id Older run on existing branch $branch_name ($sha) - has $artifact_count artifacts"$'\n'
+              fi
+              # If it's the latest, we don't add it (keep it)
+            else
+              # Branch doesn't exist in map
+              non_null_branch_runs+="$run_id Branch no longer exists $branch_name ($sha) - has $artifact_count artifacts"$'\n'
+            fi
+          done <<< "$basic_runs"
 
-            echo "Found build workflow run: $run_id ($workflow_name)"
+          echo "Checked $runs_checked total runs, found $runs_with_artifacts runs with artifacts"
+
+          # Combine the results
+          runs_to_delete_output=""
+          if [ -n "$null_branch_runs" ]; then
+            runs_to_delete_output="$null_branch_runs"
+          fi
+          if [ -n "$non_null_branch_runs" ]; then
+            if [ -n "$runs_to_delete_output" ]; then
+              runs_to_delete_output="$runs_to_delete_output"$'\n'"$non_null_branch_runs"
+            else
+              runs_to_delete_output="$non_null_branch_runs"
+            fi
+          fi
+
+          # Now process the identified runs to build the delete_run_ids list
+          delete_run_ids=""
+          if [ -n "$runs_to_delete_output" ]; then
+              # Use a temporary file to collect run IDs to avoid subshell variable scope issues
+              temp_run_ids_file=$(mktemp)
+              echo "$runs_to_delete_output" | while read -r line; do
+                  # Skip empty lines
+                  if [ -z "$line" ]; then
+                    continue
+                  fi
+                  run_id=$(echo "$line" | cut -d' ' -f1)
+                  # Skip if run_id is empty
+                  if [ -z "$run_id" ]; then
+                    continue
+                  fi
+                  # Print the "Marking run ID..." message for logging
+                  echo "  Marking run ID $line for deletion." 
+                  echo "$run_id" >> "$temp_run_ids_file"
+              done
+              
+              # Read the collected run IDs from the file
+              if [ -s "$temp_run_ids_file" ]; then
+                delete_run_ids=$(cat "$temp_run_ids_file" | tr '\n' ' ')
+              fi
+              rm "$temp_run_ids_file"
+          fi
+
+          if [ -z "$delete_run_ids" ]; then
+            echo "No workflow runs identified for deletion."
+            rm "$temp_branches_file"
+            exit 0
+          fi
+
+          # Process unique run IDs for deletion
+          delete_run_ids=$(echo "$delete_run_ids" | tr ' ' '\n' | sort -u | grep -v '^\s*$' | tr '\n' ' ')
+          echo "Found $(echo "$delete_run_ids" | wc -w) unique workflow runs to clean up."
+
+          for run_id in $delete_run_ids; do
+            echo "Processing workflow run ID: $run_id"
 
             # List artifacts in this workflow run
             artifacts_json=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
@@ -65,13 +320,25 @@ jobs:
             artifact_ids=$(echo "$artifacts_json" | jq --raw-output '.artifacts[] | .id')
 
             if [ -z "$artifact_ids" ]; then
-              echo "No artifacts found for run $run_id"
+              echo "  No artifacts found for run $run_id"
               continue
             fi
 
+            artifact_count=$(echo "$artifact_ids" | wc -w)
+            echo "  Found $artifact_count artifacts to delete for run $run_id"
+
             for artifact_id in $artifact_ids; do
-              echo "Deleting artifact ID: $artifact_id from build run $run_id"
-              curl -s -X DELETE -H "Authorization: token ${ARTIFACT_DELETE_TOKEN}" \
-                "https://api.github.com/repos/${owner_repo}/actions/artifacts/${artifact_id}"
+              echo "  Deleting artifact ID: $artifact_id from run $run_id"
+              delete_response=$(curl -s -w "%{http_code}" -X DELETE -H "Authorization: token ${ARTIFACT_DELETE_TOKEN}" \
+                "https://api.github.com/repos/${owner_repo}/actions/artifacts/${artifact_id}")
+              
+              if [[ "$delete_response" == "204" ]]; then
+                echo "    ✓ Successfully deleted artifact $artifact_id"
+              else
+                echo "    ✗ Failed to delete artifact $artifact_id (HTTP $delete_response)"
+              fi
             done
           done
+
+          rm "$temp_branches_file"
+          echo "Cleanup complete."
