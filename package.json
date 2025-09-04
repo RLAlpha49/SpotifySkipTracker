@@ -51,7 +51,7 @@
     "@vitest/ui": "^3.2.4",
     "@zamiell/typedoc-plugin-not-exported": "^0.3.0",
     "babel-plugin-react-compiler": "^19.0.0-beta-aeaed83-20250323",
-    "electron": "37.2.6",
+    "electron": "37.3.1",
     "electron-devtools-installer": "^4.0.0",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.8",
