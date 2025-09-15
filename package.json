@@ -44,8 +44,8 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/electron-squirrel-startup": "^1.0.2",
     "@types/eslint-config-prettier": "^6.11.3",
-    "@types/node": "^24.3.1",
-    "@types/react": "^19.1.12",
+    "@types/node": "^24.4.0",
+    "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
@@ -59,7 +59,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-compiler": "^19.1.0-rc.2",
     "globals": "^16.4.0",
-    "jsdom": "^26.1.0",
+    "jsdom": "^27.0.0",
     "open-cli": "^8.0.0",
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
@@ -80,7 +80,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.2.1",
+    "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -96,13 +96,13 @@
     "@radix-ui/react-toggle": "^1.1.10",
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
-    "@tanstack/react-router": "^1.131.37",
+    "@tanstack/react-router": "^1.131.41",
     "@vitejs/plugin-react": "^5.0.2",
-    "axios": "^1.11.0",
+    "axios": "^1.12.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "electron-store": "^10.1.0",
-    "lucide-react": "^0.543.0",
+    "lucide-react": "^0.544.0",
     "next-themes": "^0.4.6",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
@@ -112,6 +112,6 @@
     "spotify-skip-tracker": "file:",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^4.1.7"
+    "zod": "^4.1.8"
   }
 }
